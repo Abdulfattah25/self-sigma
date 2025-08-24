@@ -1,23 +1,23 @@
-Vue.component('report', {
-    props: ['user', 'supabase'],
-    data() {
-        return {
-            currentMonth: new Date().getMonth(),
-            currentYear: new Date().getFullYear(),
-            monthlyData: {
-                totalTasks: 0,
-                completedTasks: 0,
-                incompleteTasks: 0,
-                totalScore: 0,
-                dailyStats: []
-            },
-            loading: false,
-            chartInstance: null,
-            taskDistributionChartInstance: null,
-            dailyPerformanceChartInstance: null
-        }
-    },
-    template: `
+Vue.component("report", {
+  props: ["user", "supabase"],
+  data() {
+    return {
+      currentMonth: new Date().getMonth(),
+      currentYear: new Date().getFullYear(),
+      monthlyData: {
+        totalTasks: 0,
+        completedTasks: 0,
+        incompleteTasks: 0,
+        totalScore: 0,
+        dailyStats: [],
+      },
+      loading: false,
+      chartInstance: null,
+      taskDistributionChartInstance: null,
+      dailyPerformanceChartInstance: null,
+    };
+  },
+  template: `
         <div class="fade-in">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2>📊 Laporan Produktivitas</h2>
@@ -199,287 +199,322 @@ Vue.component('report', {
             </div>
         </div>
     `,
-    computed: {
-        monthNames() {
-            return [
-                'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-                'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-            ]
-        },
-        
-        availableYears() {
-            const currentYear = new Date().getFullYear()
-            return [currentYear - 1, currentYear, currentYear + 1]
-        },
-        
-        completionRate() {
-            if (this.monthlyData.totalTasks === 0) return 0
-            return Math.round((this.monthlyData.completedTasks / this.monthlyData.totalTasks) * 100)
-        },
-        
-        calendarWeeks() {
-            const year = this.currentYear
-            const month = this.currentMonth
-            const firstDay = new Date(year, month, 1)
-            const lastDay = new Date(year, month + 1, 0)
-            
-            const weeks = []
-            let currentWeek = []
-            let weekNumber = 1
-            
-            // Add empty cells for days before month starts
-            const startDayOfWeek = firstDay.getDay()
-            for (let i = 0; i < startDayOfWeek; i++) {
-                currentWeek.push({ date: null, day: '', score: 0 })
-            }
-            
-            // Add all days of the month
-            for (let day = 1; day <= lastDay.getDate(); day++) {
-                const date = new Date(year, month, day)
-                const dateStr = date.toISOString().split('T')[0]
-                const dayData = this.monthlyData.dailyStats.find(d => d.date === dateStr)
-                
-                currentWeek.push({
-                    date: dateStr,
-                    day: day,
-                    score: dayData ? dayData.score : 0,
-                    completionRate: dayData ? dayData.completionRate : 0,
-                    totalTasks: dayData ? dayData.totalTasks : 0
-                })
-                
-                // Start new week on Sunday
-                if (date.getDay() === 6 || day === lastDay.getDate()) {
-                    // Fill remaining days of week
-                    while (currentWeek.length < 7) {
-                        currentWeek.push({ date: null, day: '', score: 0 })
-                    }
-                    
-                    weeks.push({
-                        weekNumber: weekNumber++,
-                        days: [...currentWeek]
-                    })
-                    currentWeek = []
-                }
-            }
-            
-            return weeks
-        }
+  computed: {
+    monthNames() {
+      return [
+        "Januari",
+        "Februari",
+        "Maret",
+        "April",
+        "Mei",
+        "Juni",
+        "Juli",
+        "Agustus",
+        "September",
+        "Oktober",
+        "November",
+        "Desember",
+      ];
     },
-    
-    async mounted() {
-        await this.loadMonthlyReport()
-    },
-    
-    methods: {
-        async loadMonthlyReport() {
-            try {
-                this.loading = true
-                
-                const startDate = new Date(this.currentYear, this.currentMonth, 1).toISOString().split('T')[0]
-                const endDate = new Date(this.currentYear, this.currentMonth + 1, 0).toISOString().split('T')[0]
-                
-                // Load daily tasks for the month
-                const { data: tasksData, error: tasksError } = await this.supabase
-                    .from('daily_tasks_instance')
-                    .select('*')
-                    .eq('user_id', this.user.id)
-                    .gte('date', startDate)
-                    .lte('date', endDate)
-                
-                if (tasksError) throw tasksError
-                
-                // Load score logs for the month
-                const { data: scoresData, error: scoresError } = await this.supabase
-                    .from('score_log')
-                    .select('*')
-                    .eq('user_id', this.user.id)
-                    .gte('date', startDate)
-                    .lte('date', endDate)
-                
-                if (scoresError) throw scoresError
-                
-                // Process data
-                this.processMonthlyData(tasksData || [], scoresData || [])
-                
-                // Render charts
-                this.$nextTick(() => {
-                    this.renderCharts()
-                })
-                
-            } catch (error) {
-                console.error('Error loading monthly report:', error)
-                alert('Gagal memuat laporan: ' + error.message)
-            } finally {
-                this.loading = false
-            }
-        },
-        
-        processMonthlyData(tasksData, scoresData) {
-            // Group tasks by date
-            const tasksByDate = {}
-            tasksData.forEach(task => {
-                if (!tasksByDate[task.date]) {
-                    tasksByDate[task.date] = []
-                }
-                tasksByDate[task.date].push(task)
-            })
-            
-            // Group scores by date
-            const scoresByDate = {}
-            scoresData.forEach(score => {
-                if (!scoresByDate[score.date]) {
-                    scoresByDate[score.date] = 0
-                }
-                scoresByDate[score.date] += score.score_delta
-            })
-            
-            // Calculate daily stats
-            const dailyStats = []
-            let totalTasks = 0
-            let completedTasks = 0
-            let totalScore = 0
-            
-            // Get all dates in the month
-            const year = this.currentYear
-            const month = this.currentMonth
-            const daysInMonth = new Date(year, month + 1, 0).getDate()
-            
-            for (let day = 1; day <= daysInMonth; day++) {
-                const date = new Date(year, month, day).toISOString().split('T')[0]
-                const dayTasks = tasksByDate[date] || []
-                const dayCompleted = dayTasks.filter(t => t.is_completed).length
-                const dayScore = scoresByDate[date] || 0
-                
-                const dayStats = {
-                    date: date,
-                    totalTasks: dayTasks.length,
-                    completedTasks: dayCompleted,
-                    incompleteTasks: dayTasks.length - dayCompleted,
-                    completionRate: dayTasks.length > 0 ? Math.round((dayCompleted / dayTasks.length) * 100) : 0,
-                    score: dayScore
-                }
-                
-                dailyStats.push(dayStats)
-                
-                totalTasks += dayTasks.length
-                completedTasks += dayCompleted
-                totalScore += dayScore
-            }
-            
-            this.monthlyData = {
-                totalTasks,
-                completedTasks,
-                incompleteTasks: totalTasks - completedTasks,
-                totalScore,
-                dailyStats
-            }
-        },
-        
-        renderCharts() {
-            this.renderTaskDistributionChart()
-            this.renderDailyPerformanceChart()
-        },
-        
-        renderTaskDistributionChart() {
-            const ctx = document.getElementById('taskDistributionChart')
-            if (!ctx) return
-            if (this.taskDistributionChartInstance) {
-                this.taskDistributionChartInstance.destroy()
-                this.taskDistributionChartInstance = null
-            }
-            this.taskDistributionChartInstance = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Selesai', 'Belum Selesai'],
-                    datasets: [{
-                        data: [this.monthlyData.completedTasks, this.monthlyData.incompleteTasks],
-                        backgroundColor: ['#198754', '#ffc107'],
-                        borderWidth: 2,
-                        borderColor: '#fff'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } }
-                }
-            })
-        },
-        
-        renderDailyPerformanceChart() {
-            const ctx = document.getElementById('dailyPerformanceChart')
-            if (!ctx) return
-            if (this.dailyPerformanceChartInstance) {
-                this.dailyPerformanceChartInstance.destroy()
-                this.dailyPerformanceChartInstance = null
-            }
-            const labels = this.monthlyData.dailyStats.map(day => new Date(day.date).getDate().toString())
-            const completionRates = this.monthlyData.dailyStats.map(day => day.completionRate)
-            const scores = this.monthlyData.dailyStats.map(day => day.score)
-            this.dailyPerformanceChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Tingkat Penyelesaian (%)', data: completionRates, borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,0.1)', yAxisID: 'y', tension: 0.35 },
-                        { label: 'Skor Harian', data: scores, borderColor: '#198754', backgroundColor: 'rgba(25,135,84,0.1)', yAxisID: 'y1', tension: 0.35 }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    scales: {
-                        x: { title: { display: true, text: 'Tanggal' } },
-                        y: { type: 'linear', position: 'left', title: { display: true, text: 'Tingkat Penyelesaian (%)' }, min: 0, max: 100 },
-                        y1: { type: 'linear', position: 'right', title: { display: true, text: 'Skor' }, grid: { drawOnChartArea: false } }
-                    }
-                }
-            })
-        },
-        
-        prevMonth() {
-            const d = new Date(this.currentYear, this.currentMonth - 1, 1)
-            this.currentYear = d.getFullYear()
-            this.currentMonth = d.getMonth()
-            this.loadMonthlyReport()
-        },
-        nextMonth() {
-            const d = new Date(this.currentYear, this.currentMonth + 1, 1)
-            this.currentYear = d.getFullYear()
-            this.currentMonth = d.getMonth()
-            this.loadMonthlyReport()
-        },
-        
-        getHeatmapClass(score) {
-            if (score >= 5) return 'heatmap-4'
-            if (score >= 3) return 'heatmap-3'
-            if (score >= 1) return 'heatmap-2'
-            if (score > -1) return 'heatmap-1'
-            return 'heatmap-0'
-        },
-        
-        getHeatmapTooltip(day) {
-            if (!day.date) return ''
-            return `${this.formatDate(day.date)}: ${day.totalTasks} task, ${day.completionRate}% selesai, skor ${day.score}`
-        },
-        
-        getCompletionMessage() {
-            const rate = this.completionRate
-            if (rate >= 90) return "🏆 Luar biasa! Konsistensi tinggi!"
-            if (rate >= 80) return "⭐ Sangat baik! Terus pertahankan!"
-            if (rate >= 70) return "👍 Bagus! Sedikit lagi sempurna!"
-            if (rate >= 60) return "💪 Cukup baik, bisa ditingkatkan!"
-            if (rate >= 50) return "⚡ Perlu fokus lebih pada penyelesaian!"
-            return "🚀 Mari tingkatkan produktivitas!"
-        },
-        
-        formatDate(dateString) {
-            return new Date(dateString).toLocaleDateString('id-ID', {
-                day: 'numeric',
-                month: 'short'
-            })
-        }
-    }
-})
 
+    availableYears() {
+      const currentYear = new Date().getFullYear();
+      return [currentYear - 1, currentYear, currentYear + 1];
+    },
+
+    completionRate() {
+      if (this.monthlyData.totalTasks === 0) return 0;
+      return Math.round((this.monthlyData.completedTasks / this.monthlyData.totalTasks) * 100);
+    },
+
+    calendarWeeks() {
+      const year = this.currentYear;
+      const month = this.currentMonth;
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+
+      const weeks = [];
+      let currentWeek = [];
+      let weekNumber = 1;
+
+      // Add empty cells for days before month starts
+      const startDayOfWeek = firstDay.getDay();
+      for (let i = 0; i < startDayOfWeek; i++) {
+        currentWeek.push({ date: null, day: "", score: 0 });
+      }
+
+      // Add all days of the month
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const date = new Date(year, month, day);
+        const dateStr = date.toISOString().split("T")[0];
+        const dayData = this.monthlyData.dailyStats.find((d) => d.date === dateStr);
+
+        currentWeek.push({
+          date: dateStr,
+          day: day,
+          score: dayData ? dayData.score : 0,
+          completionRate: dayData ? dayData.completionRate : 0,
+          totalTasks: dayData ? dayData.totalTasks : 0,
+        });
+
+        // Start new week on Sunday
+        if (date.getDay() === 6 || day === lastDay.getDate()) {
+          // Fill remaining days of week
+          while (currentWeek.length < 7) {
+            currentWeek.push({ date: null, day: "", score: 0 });
+          }
+
+          weeks.push({
+            weekNumber: weekNumber++,
+            days: [...currentWeek],
+          });
+          currentWeek = [];
+        }
+      }
+
+      return weeks;
+    },
+  },
+
+  async mounted() {
+    await this.loadMonthlyReport();
+  },
+
+  methods: {
+    async loadMonthlyReport() {
+      try {
+        this.loading = true;
+
+        const startDate = new Date(this.currentYear, this.currentMonth, 1).toISOString().split("T")[0];
+        const endDate = new Date(this.currentYear, this.currentMonth + 1, 0).toISOString().split("T")[0];
+
+        // Load daily tasks for the month
+        const { data: tasksData, error: tasksError } = await this.supabase
+          .from("daily_tasks_instance")
+          .select("*")
+          .eq("user_id", this.user.id)
+          .gte("date", startDate)
+          .lte("date", endDate);
+
+        if (tasksError) throw tasksError;
+
+        // Load score logs for the month
+        const { data: scoresData, error: scoresError } = await this.supabase
+          .from("score_log")
+          .select("*")
+          .eq("user_id", this.user.id)
+          .gte("date", startDate)
+          .lte("date", endDate);
+
+        if (scoresError) throw scoresError;
+
+        // Process data
+        this.processMonthlyData(tasksData || [], scoresData || []);
+
+        // Render charts
+        this.$nextTick(() => {
+          this.renderCharts();
+        });
+      } catch (error) {
+        console.error("Error loading monthly report:", error);
+        alert("Gagal memuat laporan: " + error.message);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    processMonthlyData(tasksData, scoresData) {
+      // Group tasks by date
+      const tasksByDate = {};
+      tasksData.forEach((task) => {
+        if (!tasksByDate[task.date]) {
+          tasksByDate[task.date] = [];
+        }
+        tasksByDate[task.date].push(task);
+      });
+
+      // Group scores by date
+      const scoresByDate = {};
+      scoresData.forEach((score) => {
+        if (!scoresByDate[score.date]) {
+          scoresByDate[score.date] = 0;
+        }
+        scoresByDate[score.date] += score.score_delta;
+      });
+
+      // Calculate daily stats
+      const dailyStats = [];
+      let totalTasks = 0;
+      let completedTasks = 0;
+      let totalScore = 0;
+
+      // Get all dates in the month
+      const year = this.currentYear;
+      const month = this.currentMonth;
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day).toISOString().split("T")[0];
+        const dayTasks = tasksByDate[date] || [];
+        const dayCompleted = dayTasks.filter((t) => t.is_completed).length;
+        const dayScore = scoresByDate[date] || 0;
+
+        const dayStats = {
+          date: date,
+          totalTasks: dayTasks.length,
+          completedTasks: dayCompleted,
+          incompleteTasks: dayTasks.length - dayCompleted,
+          completionRate: dayTasks.length > 0 ? Math.round((dayCompleted / dayTasks.length) * 100) : 0,
+          score: dayScore,
+        };
+
+        dailyStats.push(dayStats);
+
+        totalTasks += dayTasks.length;
+        completedTasks += dayCompleted;
+        totalScore += dayScore;
+      }
+
+      this.monthlyData = {
+        totalTasks,
+        completedTasks,
+        incompleteTasks: totalTasks - completedTasks,
+        totalScore,
+        dailyStats,
+      };
+    },
+
+    renderCharts() {
+      this.renderTaskDistributionChart();
+      this.renderDailyPerformanceChart();
+    },
+
+    renderTaskDistributionChart() {
+      const ctx = document.getElementById("taskDistributionChart");
+      if (!ctx) return;
+      if (this.taskDistributionChartInstance) {
+        this.taskDistributionChartInstance.destroy();
+        this.taskDistributionChartInstance = null;
+      }
+      this.taskDistributionChartInstance = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels: ["Selesai", "Belum Selesai"],
+          datasets: [
+            {
+              data: [this.monthlyData.completedTasks, this.monthlyData.incompleteTasks],
+              backgroundColor: ["#198754", "#ffc107"],
+              borderWidth: 2,
+              borderColor: "#fff",
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: "bottom" } },
+        },
+      });
+    },
+
+    renderDailyPerformanceChart() {
+      const ctx = document.getElementById("dailyPerformanceChart");
+      if (!ctx) return;
+      if (this.dailyPerformanceChartInstance) {
+        this.dailyPerformanceChartInstance.destroy();
+        this.dailyPerformanceChartInstance = null;
+      }
+      const labels = this.monthlyData.dailyStats.map((day) => new Date(day.date).getDate().toString());
+      const completionRates = this.monthlyData.dailyStats.map((day) => day.completionRate);
+      const scores = this.monthlyData.dailyStats.map((day) => day.score);
+      this.dailyPerformanceChartInstance = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "Tingkat Penyelesaian (%)",
+              data: completionRates,
+              borderColor: "#0d6efd",
+              backgroundColor: "rgba(13,110,253,0.1)",
+              yAxisID: "y",
+              tension: 0.35,
+            },
+            {
+              label: "Skor Harian",
+              data: scores,
+              borderColor: "#198754",
+              backgroundColor: "rgba(25,135,84,0.1)",
+              yAxisID: "y1",
+              tension: 0.35,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          scales: {
+            x: { title: { display: true, text: "Tanggal" } },
+            y: {
+              type: "linear",
+              position: "left",
+              title: { display: true, text: "Tingkat Penyelesaian (%)" },
+              min: 0,
+              max: 100,
+            },
+            y1: {
+              type: "linear",
+              position: "right",
+              title: { display: true, text: "Skor" },
+              grid: { drawOnChartArea: false },
+            },
+          },
+        },
+      });
+    },
+
+    prevMonth() {
+      const d = new Date(this.currentYear, this.currentMonth - 1, 1);
+      this.currentYear = d.getFullYear();
+      this.currentMonth = d.getMonth();
+      this.loadMonthlyReport();
+    },
+    nextMonth() {
+      const d = new Date(this.currentYear, this.currentMonth + 1, 1);
+      this.currentYear = d.getFullYear();
+      this.currentMonth = d.getMonth();
+      this.loadMonthlyReport();
+    },
+
+    getHeatmapClass(score) {
+      if (score >= 5) return "heatmap-4";
+      if (score >= 3) return "heatmap-3";
+      if (score >= 1) return "heatmap-2";
+      if (score > -1) return "heatmap-1";
+      return "heatmap-0";
+    },
+
+    getHeatmapTooltip(day) {
+      if (!day.date) return "";
+      return `${this.formatDate(day.date)}: ${day.totalTasks} task, ${day.completionRate}% selesai, skor ${day.score}`;
+    },
+
+    getCompletionMessage() {
+      const rate = this.completionRate;
+      if (rate >= 90) return "🏆 Luar biasa! Konsistensi tinggi!";
+      if (rate >= 80) return "⭐ Sangat baik! Terus pertahankan!";
+      if (rate >= 70) return "👍 Bagus! Sedikit lagi sempurna!";
+      if (rate >= 60) return "💪 Cukup baik, bisa ditingkatkan!";
+      if (rate >= 50) return "⚡ Perlu fokus lebih pada penyelesaian!";
+      return "🚀 Mari tingkatkan produktivitas!";
+    },
+
+    formatDate(dateString) {
+      return new Date(dateString).toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+      });
+    },
+  },
+});

@@ -1,268 +1,297 @@
 // Inisialisasi Supabase dari config
-const supabaseClient = supabase.createClient(
-  window.SUPABASE_CONFIG.url,
-  window.SUPABASE_CONFIG.anonKey
-)
+const supabaseClient = supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey);
 
 // Akses quotes harian dari data/quotes.js
-const DAILY_QUOTES = window.DAILY_QUOTES || []
+const DAILY_QUOTES = window.DAILY_QUOTES || [];
 
 new Vue({
-  el: '#app',
+  el: "#app",
   data() {
     return {
       user: null,
       session: null,
-      currentView: localStorage.getItem('currentView') || 'dashboard',
+      currentView: localStorage.getItem("currentView") || "dashboard",
       loading: true,
-      dailyQuote: '',
+      dailyQuote: "",
 
       // Auth forms
-      authMode: 'login', // 'login' or 'register'
+      authMode: "login", // 'login' or 'register'
       authForm: {
-        email: '',
-        password: '',
-        confirmPassword: '',
-        fullName: ''
+        email: "",
+        password: "",
+        confirmPassword: "",
+        fullName: "",
       },
       authLoading: false,
-      authError: ''
-    }
+      authError: "",
+    };
   },
   created() {
-    this.initializeApp()
+    this.initializeApp();
   },
   watch: {
     currentView(val) {
-      localStorage.setItem('currentView', val)
-    }
+      localStorage.setItem("currentView", val);
+    },
   },
   methods: {
     async initializeApp() {
       try {
         // Cek session aktif
-        const { data: { session } } = await supabaseClient.auth.getSession()
+        const {
+          data: { session },
+        } = await supabaseClient.auth.getSession();
         if (session) {
-          this.session = session
-          this.user = session.user
-          await this.postLoginBootstrap()
+          this.session = session;
+          this.user = session.user;
+          await this.postLoginBootstrap();
         }
 
         // Listener perubahan auth
         supabaseClient.auth.onAuthStateChange(async (event, session) => {
-          this.session = session
-          this.user = session?.user || null
-          if (event === 'SIGNED_IN' && this.user) {
-            await this.postLoginBootstrap()
-            this.currentView = 'dashboard'
-            this.showToast('Login berhasil', 'success')
+          this.session = session;
+          this.user = session?.user || null;
+          if (event === "SIGNED_IN" && this.user) {
+            await this.postLoginBootstrap();
+            this.currentView = "dashboard";
+            this.showToast("Login berhasil", "success");
           }
-          if (event === 'SIGNED_OUT') {
-            this.currentView = 'dashboard'
+          if (event === "SIGNED_OUT") {
+            this.currentView = "dashboard";
           }
-        })
+        });
 
         // Set quote harian
-        this.setDailyQuote()
+        this.setDailyQuote();
       } catch (e) {
-        console.error(e)
+        console.error(e);
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 
     async postLoginBootstrap() {
       try {
         // Hindari menjalankan berulang dalam 1 hari
-        const key = `bootstrap_ran_${this.user.id}`
-        const lastRun = localStorage.getItem(key)
-        const today = this.getToday()
-        if (lastRun === today) return
+        const key = `bootstrap_ran_${this.user.id}`;
+        const lastRun = localStorage.getItem(key);
+        const today = this.getToday();
+        if (lastRun === today) return;
 
-        await this.ensureUserRow()
-        await this.materializeTodayTasksFromTemplate()
-        await this.applyOverduePenalties()
+        await this.ensureUserRow();
+        await this.materializeTodayTasksFromTemplate();
+        await this.applyOverduePenalties();
 
-        localStorage.setItem(key, today)
+        localStorage.setItem(key, today);
       } catch (e) {
-        console.error('Bootstrap error:', e)
+        console.error("Bootstrap error:", e);
       }
     },
 
     async ensureUserRow() {
       try {
-        const payload = [{ id: this.user.id, email: this.user.email, created_at: new Date().toISOString() }]
-        const { error } = await supabaseClient.from('users').upsert(payload, { onConflict: 'id' })
-        if (error && error.code !== '23505') throw error
+        const payload = [{ id: this.user.id, email: this.user.email, created_at: new Date().toISOString() }];
+        const { error } = await supabaseClient.from("users").upsert(payload, { onConflict: "id" });
+        if (error && error.code !== "23505") throw error;
       } catch (e) {
-        console.warn('ensureUserRow skipped/failed:', e.message)
+        console.warn("ensureUserRow skipped/failed:", e.message);
       }
     },
 
     async materializeTodayTasksFromTemplate() {
-      const today = this.getToday()
+      const today = this.getToday();
       // Ambil template
       const { data: templates, error: tErr } = await supabaseClient
-        .from('daily_tasks_template')
-        .select('id, task_name, priority, category')
-        .eq('user_id', this.user.id)
-      if (tErr) { console.warn('Load templates failed', tErr.message); return }
-      if (!templates || templates.length === 0) return
+        .from("daily_tasks_template")
+        .select("id, task_name, priority, category")
+        .eq("user_id", this.user.id);
+      if (tErr) {
+        console.warn("Load templates failed", tErr.message);
+        return;
+      }
+      if (!templates || templates.length === 0) return;
 
       // Ambil instance yang sudah ada untuk hari ini
       const { data: instances, error: iErr } = await supabaseClient
-        .from('daily_tasks_instance')
-        .select('task_id')
-        .eq('user_id', this.user.id)
-        .eq('date', today)
-      if (iErr) { console.warn('Load instances failed', iErr.message); return }
+        .from("daily_tasks_instance")
+        .select("task_id")
+        .eq("user_id", this.user.id)
+        .eq("date", today);
+      if (iErr) {
+        console.warn("Load instances failed", iErr.message);
+        return;
+      }
 
-      const existingIds = new Set((instances || []).map(i => i.task_id).filter(Boolean))
+      const existingIds = new Set((instances || []).map((i) => i.task_id).filter(Boolean));
       const toInsert = templates
-        .filter(t => !existingIds.has(t.id))
-        .map(t => ({
+        .filter((t) => !existingIds.has(t.id))
+        .map((t) => ({
           user_id: this.user.id,
           task_id: t.id,
           task_name: t.task_name,
-          priority: t.priority || 'sedang',
+          priority: t.priority || "sedang",
           category: t.category || null,
           date: today,
-          is_completed: false
-        }))
-      if (toInsert.length === 0) return
-      const { error: insErr } = await supabaseClient.from('daily_tasks_instance').insert(toInsert)
-      if (insErr) console.warn('Insert instances failed', insErr.message)
+          is_completed: false,
+        }));
+      if (toInsert.length === 0) return;
+      const { error: insErr } = await supabaseClient.from("daily_tasks_instance").insert(toInsert);
+      if (insErr) console.warn("Insert instances failed", insErr.message);
     },
 
     async applyOverduePenalties() {
-      const today = this.getToday()
+      const today = this.getToday();
       // Ambil task yang lewat (maks 30 hari ke belakang) dan belum selesai
-      const startDate = this.getISODateNDaysAgo(30)
+      const startDate = this.getISODateNDaysAgo(30);
       const { data: overdue, error: oErr } = await supabaseClient
-        .from('daily_tasks_instance')
-        .select('id, task_name, date')
-        .eq('user_id', this.user.id)
-        .lt('date', today)
-        .gte('date', startDate)
-        .eq('is_completed', false)
-      if (oErr) { console.warn('Load overdue failed', oErr.message); return }
-      if (!overdue || overdue.length === 0) return
+        .from("daily_tasks_instance")
+        .select("id, task_name, date")
+        .eq("user_id", this.user.id)
+        .lt("date", today)
+        .gte("date", startDate)
+        .eq("is_completed", false);
+      if (oErr) {
+        console.warn("Load overdue failed", oErr.message);
+        return;
+      }
+      if (!overdue || overdue.length === 0) return;
 
       // Cek penalty yang sudah tercatat agar tidak dobel
-      const reasons = overdue.map(i => `penalty:${i.id}`)
+      const reasons = overdue.map((i) => `penalty:${i.id}`);
       const { data: existingLogs, error: lErr } = await supabaseClient
-        .from('score_log')
-        .select('reason')
-        .eq('user_id', this.user.id)
-        .in('reason', reasons)
-      if (lErr) { console.warn('Load score_log failed', lErr.message) }
-      const existingReasons = new Set((existingLogs || []).map(l => l.reason))
+        .from("score_log")
+        .select("reason")
+        .eq("user_id", this.user.id)
+        .in("reason", reasons);
+      if (lErr) {
+        console.warn("Load score_log failed", lErr.message);
+      }
+      const existingReasons = new Set((existingLogs || []).map((l) => l.reason));
 
       const toLog = overdue
-        .filter(i => !existingReasons.has(`penalty:${i.id}`))
-        .map(i => ({ user_id: this.user.id, date: i.date, score_delta: -3, reason: `penalty:${i.id}` }))
-      if (toLog.length === 0) return
-      const { error: insLogErr } = await supabaseClient.from('score_log').insert(toLog)
-      if (insLogErr) console.warn('Insert penalties failed', insLogErr.message)
+        .filter((i) => !existingReasons.has(`penalty:${i.id}`))
+        .map((i) => ({ user_id: this.user.id, date: i.date, score_delta: -3, reason: `penalty:${i.id}` }));
+      if (toLog.length === 0) return;
+      const { error: insLogErr } = await supabaseClient.from("score_log").insert(toLog);
+      if (insLogErr) console.warn("Insert penalties failed", insLogErr.message);
     },
 
     setDailyQuote() {
-      if (!DAILY_QUOTES.length) return
-      const today = new Date()
-      const start = new Date(today.getFullYear(), 0, 0)
-      const diff = today - start
-      const dayOfYear = Math.floor(diff / 86400000)
-      this.dailyQuote = DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length]
+      if (!DAILY_QUOTES.length) return;
+      const today = new Date();
+      const start = new Date(today.getFullYear(), 0, 0);
+      const diff = today - start;
+      const dayOfYear = Math.floor(diff / 86400000);
+      this.dailyQuote = DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length];
     },
 
     // Navigasi
     setView(view) {
-      this.currentView = view
+      this.currentView = view;
     },
 
     // Auth
     async handleAuth() {
-      this.authError = ''
-      this.authLoading = true
+      this.authError = "";
+      this.authLoading = true;
       try {
-        if (this.authMode === 'register') {
-          await this.register()
+        if (this.authMode === "register") {
+          await this.register();
         } else {
-          await this.login()
+          await this.login();
         }
       } catch (err) {
-        this.authError = err.message
-        this.showToast(err.message, 'danger')
+        this.authError = err.message;
+        this.showToast(err.message, "danger");
       } finally {
-        this.authLoading = false
+        this.authLoading = false;
       }
     },
 
     async login() {
       const { error } = await supabaseClient.auth.signInWithPassword({
         email: this.authForm.email,
-        password: this.authForm.password
-      })
-      if (error) throw error
-      this.resetAuthForm()
+        password: this.authForm.password,
+      });
+      if (error) throw error;
+      this.resetAuthForm();
     },
 
     async register() {
       if (this.authForm.password !== this.authForm.confirmPassword) {
-        throw new Error('Password tidak cocok')
+        throw new Error("Password tidak cocok");
       }
       const { data, error } = await supabaseClient.auth.signUp({
         email: this.authForm.email,
         password: this.authForm.password,
         options: {
-          data: { full_name: this.authForm.fullName }
-        }
-      })
-      if (error) throw error
+          data: { full_name: this.authForm.fullName },
+        },
+      });
+      if (error) throw error;
       if (data.user && !data.session) {
-        this.showToast('Verifikasi dikirim ke email Anda', 'info')
+        this.showToast("Verifikasi dikirim ke email Anda", "info");
       }
-      this.resetAuthForm()
+      this.resetAuthForm();
     },
 
     async logout() {
-      const { error } = await supabaseClient.auth.signOut()
-      if (error) { this.showToast('Gagal logout: ' + error.message, 'danger'); return }
-      this.user = null
-      this.session = null
-      this.currentView = 'dashboard'
-      this.showToast('Logout berhasil', 'success')
+      const { error } = await supabaseClient.auth.signOut();
+      if (error) {
+        this.showToast("Gagal logout: " + error.message, "danger");
+        return;
+      }
+      this.user = null;
+      this.session = null;
+      this.currentView = "dashboard";
+      this.showToast("Logout berhasil", "success");
     },
 
-    resetAuthForm() { this.authForm = { email: '', password: '', confirmPassword: '', fullName: '' } },
-    switchAuthMode() { this.authMode = this.authMode === 'login' ? 'register' : 'login'; this.authError = ''; this.resetAuthForm() },
-    formatUserName() { return this.user?.user_metadata?.full_name || (this.user?.email?.split('@')[0] || 'User') },
+    resetAuthForm() {
+      this.authForm = { email: "", password: "", confirmPassword: "", fullName: "" };
+    },
+    switchAuthMode() {
+      this.authMode = this.authMode === "login" ? "register" : "login";
+      this.authError = "";
+      this.resetAuthForm();
+    },
+    formatUserName() {
+      return this.user?.user_metadata?.full_name || this.user?.email?.split("@")[0] || "User";
+    },
 
     // Utilities tanggal
-    getToday() { return new Date().toISOString().split('T')[0] },
-    getISODateNDaysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().split('T')[0] },
+    getToday() {
+      return new Date().toISOString().split("T")[0];
+    },
+    getISODateNDaysAgo(n) {
+      const d = new Date();
+      d.setDate(d.getDate() - n);
+      return d.toISOString().split("T")[0];
+    },
 
     // Toast helper (Bootstrap 5)
-    showToast(message, variant = 'primary', delay = 3000) {
+    showToast(message, variant = "primary", delay = 3000) {
       try {
-        const container = document.getElementById('toastContainer')
-        if (!container) return
-        const toastEl = document.createElement('div')
-        toastEl.className = `toast align-items-center text-bg-${variant} border-0`
-        toastEl.setAttribute('role', 'alert')
-        toastEl.setAttribute('aria-live', 'assertive')
-        toastEl.setAttribute('aria-atomic', 'true')
+        const container = document.getElementById("toastContainer");
+        if (!container) return;
+        const toastEl = document.createElement("div");
+        toastEl.className = `toast align-items-center text-bg-${variant} border-0`;
+        toastEl.setAttribute("role", "alert");
+        toastEl.setAttribute("aria-live", "assertive");
+        toastEl.setAttribute("aria-atomic", "true");
         toastEl.innerHTML = `
           <div class="d-flex">
             <div class="toast-body">${message}</div>
             <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-          </div>`
-        container.appendChild(toastEl)
-        const t = new bootstrap.Toast(toastEl, { delay })
-        toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove())
-        t.show()
-      } catch (_) { /* noop */ }
-    }
+          </div>`;
+        container.appendChild(toastEl);
+        const t = new bootstrap.Toast(toastEl, { delay });
+        toastEl.addEventListener("hidden.bs.toast", () => toastEl.remove());
+        t.show();
+      } catch (_) {
+        /* noop */
+      }
+    },
   },
   template: `
     <div id="app">
@@ -389,6 +418,5 @@ new Vue({
         </div>
       </div>
     </div>
-  `
-})
-
+  `,
+});

@@ -1,19 +1,19 @@
-Vue.component('task-manager', {
-    props: ['user', 'supabase'],
-    data() {
-        return {
-            templates: [],
-            newTask: {
-                task_name: '',
-                priority: 'sedang',
-                category: ''
-            },
-            loading: false,
-            showAddForm: false,
-            editingId: null
-        }
-    },
-    template: `
+Vue.component("task-manager", {
+  props: ["user", "supabase"],
+  data() {
+    return {
+      templates: [],
+      newTask: {
+        task_name: "",
+        priority: "sedang",
+        category: "",
+      },
+      loading: false,
+      showAddForm: false,
+      editingId: null,
+    };
+  },
+  template: `
         <div class="fade-in">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2>🎯 Task Manager</h2>
@@ -124,154 +124,156 @@ Vue.component('task-manager', {
             </div>
         </div>
     `,
-    async mounted() {
-        await this.loadTemplates()
+  async mounted() {
+    await this.loadTemplates();
+  },
+  methods: {
+    async loadTemplates() {
+      try {
+        this.loading = true;
+        const { data, error } = await this.supabase
+          .from("daily_tasks_template")
+          .select("*")
+          .eq("user_id", this.user.id)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        this.templates = data || [];
+      } catch (error) {
+        console.error("Error loading templates:", error);
+        alert("Gagal memuat template: " + error.message);
+      } finally {
+        this.loading = false;
+      }
     },
-    methods: {
-        async loadTemplates() {
-            try {
-                this.loading = true
-                const { data, error } = await this.supabase
-                    .from('daily_tasks_template')
-                    .select('*')
-                    .eq('user_id', this.user.id)
-                    .order('created_at', { ascending: false })
-                
-                if (error) throw error
-                
-                this.templates = data || []
-            } catch (error) {
-                console.error('Error loading templates:', error)
-                alert('Gagal memuat template: ' + error.message)
-            } finally {
-                this.loading = false
-            }
-        },
-        
-        toggleAddForm() {
-            this.showAddForm = !this.showAddForm
-            if (this.showAddForm) {
-                // mode tambah baru
-                this.editingId = null
-                this.newTask = { task_name: '', priority: 'sedang', category: '' }
-            }
-        },
 
-        async saveTaskTemplate() {
-            // Validasi sederhana
-            const name = (this.newTask.task_name || '').trim()
-            if (name.length < 3) {
-                alert('Nama task minimal 3 karakter')
-                return
-            }
-            if (!['tinggi','sedang','rendah'].includes(this.newTask.priority)) {
-                this.newTask.priority = 'sedang'
-            }
+    toggleAddForm() {
+      this.showAddForm = !this.showAddForm;
+      if (this.showAddForm) {
+        // mode tambah baru
+        this.editingId = null;
+        this.newTask = { task_name: "", priority: "sedang", category: "" };
+      }
+    },
 
-            try {
-                this.loading = true
-                if (this.editingId) {
-                    // UPDATE
-                    const { data, error } = await this.supabase
-                        .from('daily_tasks_template')
-                        .update({
-                            task_name: name,
-                            priority: this.newTask.priority,
-                            category: this.newTask.category || null
-                        })
-                        .eq('id', this.editingId)
-                        .eq('user_id', this.user.id)
-                        .select()
-                    if (error) throw error
+    async saveTaskTemplate() {
+      // Validasi sederhana
+      const name = (this.newTask.task_name || "").trim();
+      if (name.length < 3) {
+        alert("Nama task minimal 3 karakter");
+        return;
+      }
+      if (!["tinggi", "sedang", "rendah"].includes(this.newTask.priority)) {
+        this.newTask.priority = "sedang";
+      }
 
-                    const updated = data && data[0]
-                    if (updated) {
-                        const idx = this.templates.findIndex(t => t.id === this.editingId)
-                        if (idx !== -1) this.$set(this.templates, idx, updated)
-                    }
-
-                    alert('Template berhasil diperbarui!')
-                } else {
-                    // INSERT
-                    const { data, error } = await this.supabase
-                        .from('daily_tasks_template')
-                        .insert([{ 
-                            user_id: this.user.id,
-                            task_name: name,
-                            priority: this.newTask.priority,
-                            category: this.newTask.category || null
-                        }])
-                        .select()
-                    if (error) throw error
-
-                    this.templates.unshift(data[0])
-                    alert('Template task berhasil ditambahkan!')
-                }
-
-                // Reset form
-                this.cancelAdd()
-            } catch (error) {
-                console.error('Error saving template:', error)
-                alert('Gagal menyimpan template: ' + error.message)
-            } finally {
-                this.loading = false
-            }
-        },
-        
-        async addTaskTemplate() {
-            // deprecated: diganti saveTaskTemplate()
-            return this.saveTaskTemplate()
-        },
-        
-        async deleteTemplate(templateId) {
-            if (!confirm('Yakin ingin menghapus template ini? Task yang sudah ada di checklist tidak akan terhapus.')) return
-            try {
-                const { error } = await this.supabase
-                    .from('daily_tasks_template')
-                    .delete()
-                    .eq('id', templateId)
-                    .eq('user_id', this.user.id)
-                if (error) throw error
-                this.templates = this.templates.filter(t => t.id !== templateId)
-                if (this.editingId === templateId) this.cancelAdd()
-                alert('Template berhasil dihapus!')
-            } catch (error) {
-                console.error('Error deleting template:', error)
-                alert('Gagal menghapus template: ' + error.message)
-            }
-        },
-        
-        editTemplate(template) {
-            this.editingId = template.id
-            this.showAddForm = true
-            this.newTask = {
-                task_name: template.task_name,
-                priority: template.priority,
-                category: template.category || ''
-            }
-        },
-        
-        cancelAdd() {
-            this.showAddForm = false
-            this.newTask = { task_name: '', priority: 'sedang', category: '' }
-            this.editingId = null
-        },
-        
-        getPriorityBadgeClass(priority) {
-            const classes = {
-                'tinggi': 'bg-danger',
-                'sedang': 'bg-warning text-dark',
-                'rendah': 'bg-success'
-            }
-            return classes[priority] || 'bg-secondary'
-        },
-        
-        formatDate(dateString) {
-            return new Date(dateString).toLocaleDateString('id-ID', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
+      try {
+        this.loading = true;
+        if (this.editingId) {
+          // UPDATE
+          const { data, error } = await this.supabase
+            .from("daily_tasks_template")
+            .update({
+              task_name: name,
+              priority: this.newTask.priority,
+              category: this.newTask.category || null,
             })
+            .eq("id", this.editingId)
+            .eq("user_id", this.user.id)
+            .select();
+          if (error) throw error;
+
+          const updated = data && data[0];
+          if (updated) {
+            const idx = this.templates.findIndex((t) => t.id === this.editingId);
+            if (idx !== -1) this.$set(this.templates, idx, updated);
+          }
+
+          alert("Template berhasil diperbarui!");
+        } else {
+          // INSERT
+          const { data, error } = await this.supabase
+            .from("daily_tasks_template")
+            .insert([
+              {
+                user_id: this.user.id,
+                task_name: name,
+                priority: this.newTask.priority,
+                category: this.newTask.category || null,
+              },
+            ])
+            .select();
+          if (error) throw error;
+
+          this.templates.unshift(data[0]);
+          alert("Template task berhasil ditambahkan!");
         }
-    }
-})
+
+        // Reset form
+        this.cancelAdd();
+      } catch (error) {
+        console.error("Error saving template:", error);
+        alert("Gagal menyimpan template: " + error.message);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async addTaskTemplate() {
+      // deprecated: diganti saveTaskTemplate()
+      return this.saveTaskTemplate();
+    },
+
+    async deleteTemplate(templateId) {
+      if (!confirm("Yakin ingin menghapus template ini? Task yang sudah ada di checklist tidak akan terhapus.")) return;
+      try {
+        const { error } = await this.supabase
+          .from("daily_tasks_template")
+          .delete()
+          .eq("id", templateId)
+          .eq("user_id", this.user.id);
+        if (error) throw error;
+        this.templates = this.templates.filter((t) => t.id !== templateId);
+        if (this.editingId === templateId) this.cancelAdd();
+        alert("Template berhasil dihapus!");
+      } catch (error) {
+        console.error("Error deleting template:", error);
+        alert("Gagal menghapus template: " + error.message);
+      }
+    },
+
+    editTemplate(template) {
+      this.editingId = template.id;
+      this.showAddForm = true;
+      this.newTask = {
+        task_name: template.task_name,
+        priority: template.priority,
+        category: template.category || "",
+      };
+    },
+
+    cancelAdd() {
+      this.showAddForm = false;
+      this.newTask = { task_name: "", priority: "sedang", category: "" };
+      this.editingId = null;
+    },
+
+    getPriorityBadgeClass(priority) {
+      const classes = {
+        tinggi: "bg-danger",
+        sedang: "bg-warning text-dark",
+        rendah: "bg-success",
+      };
+      return classes[priority] || "bg-secondary";
+    },
+
+    formatDate(dateString) {
+      return new Date(dateString).toLocaleDateString("id-ID", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    },
+  },
+});

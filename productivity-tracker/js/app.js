@@ -1,431 +1,394 @@
-// Daily quotes array
-const DAILY_QUOTES = [
-    "Kesuksesan adalah hasil dari persiapan, kerja keras, dan belajar dari kegagalan.",
-    "Jangan menunggu kesempatan, ciptakanlah kesempatan itu.",
-    "Produktivitas bukan tentang sibuk, tapi tentang efektif.",
-    "Setiap hari adalah kesempatan baru untuk menjadi lebih baik.",
-    "Konsistensi kecil setiap hari menghasilkan perubahan besar.",
-    "Fokus pada progress, bukan perfection.",
-    "Hari ini adalah hari yang tepat untuk memulai sesuatu yang baru.",
-    "Kebiasaan baik adalah investasi terbaik untuk masa depan.",
-    "Satu langkah kecil hari ini, satu lompatan besar besok.",
-    "Produktivitas dimulai dari mindset yang tepat."
-];
+// Inisialisasi Supabase dari config
+const supabaseClient = supabase.createClient(
+  window.SUPABASE_CONFIG.url,
+  window.SUPABASE_CONFIG.anonKey
+)
 
-// Initialize Supabase
-const supabaseUrl = 'YOUR_SUPABASE_URL'
-const supabaseKey = 'YOUR_SUPABASE_ANON_KEY'
-const supabase = supabase.createClient(supabaseUrl, supabaseKey)
+// Akses quotes harian dari data/quotes.js
+const DAILY_QUOTES = window.DAILY_QUOTES || []
 
-// Vue App
-const { createApp } = Vue
+new Vue({
+  el: '#app',
+  data() {
+    return {
+      user: null,
+      session: null,
+      currentView: localStorage.getItem('currentView') || 'dashboard',
+      loading: true,
+      dailyQuote: '',
 
-createApp({
-    data() {
-        return {
-            user: null,
-            session: null,
-            currentView: 'dashboard',
-            loading: true,
-            dailyQuote: '',
-            
-            // Auth forms
-            authMode: 'login', // 'login' or 'register'
-            authForm: {
-                email: '',
-                password: '',
-                confirmPassword: '',
-                fullName: ''
-            },
-            authLoading: false,
-            authError: ''
+      // Auth forms
+      authMode: 'login', // 'login' or 'register'
+      authForm: {
+        email: '',
+        password: '',
+        confirmPassword: '',
+        fullName: ''
+      },
+      authLoading: false,
+      authError: ''
+    }
+  },
+  created() {
+    this.initializeApp()
+  },
+  watch: {
+    currentView(val) {
+      localStorage.setItem('currentView', val)
+    }
+  },
+  methods: {
+    async initializeApp() {
+      try {
+        // Cek session aktif
+        const { data: { session } } = await supabaseClient.auth.getSession()
+        if (session) {
+          this.session = session
+          this.user = session.user
+          await this.postLoginBootstrap()
         }
+
+        // Listener perubahan auth
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
+          this.session = session
+          this.user = session?.user || null
+          if (event === 'SIGNED_IN' && this.user) {
+            await this.postLoginBootstrap()
+            this.currentView = 'dashboard'
+            this.showToast('Login berhasil', 'success')
+          }
+          if (event === 'SIGNED_OUT') {
+            this.currentView = 'dashboard'
+          }
+        })
+
+        // Set quote harian
+        this.setDailyQuote()
+      } catch (e) {
+        console.error(e)
+      } finally {
+        this.loading = false
+      }
     },
-    
-    async mounted() {
-        await this.initializeApp()
+
+    async postLoginBootstrap() {
+      try {
+        // Hindari menjalankan berulang dalam 1 hari
+        const key = `bootstrap_ran_${this.user.id}`
+        const lastRun = localStorage.getItem(key)
+        const today = this.getToday()
+        if (lastRun === today) return
+
+        await this.ensureUserRow()
+        await this.materializeTodayTasksFromTemplate()
+        await this.applyOverduePenalties()
+
+        localStorage.setItem(key, today)
+      } catch (e) {
+        console.error('Bootstrap error:', e)
+      }
     },
-    
-    methods: {
-        async initializeApp() {
-            try {
-                // Check existing session
-                const { data: { session } } = await supabase.auth.getSession()
-                
-                if (session) {
-                    this.session = session
-                    this.user = session.user
-                    await this.loadUserProfile()
-                }
-                
-                // Listen for auth changes
-                supabase.auth.onAuthStateChange(async (event, session) => {
-                    this.session = session
-                    this.user = session?.user || null
-                    
-                    if (event === 'SIGNED_IN' && this.user) {
-                        await this.loadUserProfile()
-                        this.currentView = 'dashboard'
-                    } else if (event === 'SIGNED_OUT') {
-                        this.user = null
-                        this.currentView = 'dashboard'
-                    }
-                })
-                
-                // Set daily quote
-                this.setDailyQuote()
-                
-            } catch (error) {
-                console.error('Error initializing app:', error)
-            } finally {
-                this.loading = false
-            }
-        },
-        
-        async loadUserProfile() {
-            try {
-                const { data, error } = await supabase
-                    .from('user_profiles')
-                    .select('*')
-                    .eq('user_id', this.user.id)
-                    .single()
-                
-                if (error && error.code !== 'PGRST116') {
-                    throw error
-                }
-                
-                if (!data) {
-                    // Create profile if doesn't exist
-                    await this.createUserProfile()
-                }
-                
-            } catch (error) {
-                console.error('Error loading user profile:', error)
-            }
-        },
-        
-        async createUserProfile() {
-            try {
-                const { error } = await supabase
-                    .from('user_profiles')
-                    .insert([{
-                        user_id: this.user.id,
-                        email: this.user.email,
-                        full_name: this.user.user_metadata?.full_name || '',
-                        created_at: new Date().toISOString()
-                    }])
-                
-                if (error) throw error
-                
-            } catch (error) {
-                console.error('Error creating user profile:', error)
-            }
-        },
-        
-        setDailyQuote() {
-            const today = new Date()
-            const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24)
-            this.dailyQuote = DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length]
-        },
-        
-        // Navigation
-        setView(view) {
-            this.currentView = view
-        },
-        
-        // Authentication
-        async handleAuth() {
-            this.authError = ''
-            this.authLoading = true
-            
-            try {
-                if (this.authMode === 'register') {
-                    await this.register()
-                } else {
-                    await this.login()
-                }
-            } catch (error) {
-                this.authError = error.message
-            } finally {
-                this.authLoading = false
-            }
-        },
-        
-        async login() {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email: this.authForm.email,
-                password: this.authForm.password
-            })
-            
-            if (error) throw error
-            
-            this.resetAuthForm()
-        },
-        
-        async register() {
-            if (this.authForm.password !== this.authForm.confirmPassword) {
-                throw new Error('Password tidak cocok')
-            }
-            
-            const { data, error } = await supabase.auth.signUp({
-                email: this.authForm.email,
-                password: this.authForm.password,
-                options: {
-                    data: {
-                        full_name: this.authForm.fullName
-                    }
-                }
-            })
-            
-            if (error) throw error
-            
-            if (data.user && !data.session) {
-                alert('Silakan cek email Anda untuk verifikasi akun!')
-            }
-            
-            this.resetAuthForm()
-        },
-        
-        async logout() {
-            try {
-                const { error } = await supabase.auth.signOut()
-                if (error) throw error
-                
-                this.user = null
-                this.session = null
-                this.currentView = 'dashboard'
-                
-            } catch (error) {
-                console.error('Error logging out:', error)
-                alert('Gagal logout: ' + error.message)
-            }
-        },
-        
-        resetAuthForm() {
-            this.authForm = {
-                email: '',
-                password: '',
-                confirmPassword: '',
-                fullName: ''
-            }
-        },
-        
-        switchAuthMode() {
-            this.authMode = this.authMode === 'login' ? 'register' : 'login'
-            this.authError = ''
-            this.resetAuthForm()
-        },
-        
-        // Utility methods
-        formatUserName() {
-            if (this.user?.user_metadata?.full_name) {
-                return this.user.user_metadata.full_name
-            }
-            return this.user?.email?.split('@')[0] || 'User'
+
+    async ensureUserRow() {
+      try {
+        const payload = [{ id: this.user.id, email: this.user.email, created_at: new Date().toISOString() }]
+        const { error } = await supabaseClient.from('users').upsert(payload, { onConflict: 'id' })
+        if (error && error.code !== '23505') throw error
+      } catch (e) {
+        console.warn('ensureUserRow skipped/failed:', e.message)
+      }
+    },
+
+    async materializeTodayTasksFromTemplate() {
+      const today = this.getToday()
+      // Ambil template
+      const { data: templates, error: tErr } = await supabaseClient
+        .from('daily_tasks_template')
+        .select('id, task_name, priority, category')
+        .eq('user_id', this.user.id)
+      if (tErr) { console.warn('Load templates failed', tErr.message); return }
+      if (!templates || templates.length === 0) return
+
+      // Ambil instance yang sudah ada untuk hari ini
+      const { data: instances, error: iErr } = await supabaseClient
+        .from('daily_tasks_instance')
+        .select('task_id')
+        .eq('user_id', this.user.id)
+        .eq('date', today)
+      if (iErr) { console.warn('Load instances failed', iErr.message); return }
+
+      const existingIds = new Set((instances || []).map(i => i.task_id).filter(Boolean))
+      const toInsert = templates
+        .filter(t => !existingIds.has(t.id))
+        .map(t => ({
+          user_id: this.user.id,
+          task_id: t.id,
+          task_name: t.task_name,
+          priority: t.priority || 'sedang',
+          category: t.category || null,
+          date: today,
+          is_completed: false
+        }))
+      if (toInsert.length === 0) return
+      const { error: insErr } = await supabaseClient.from('daily_tasks_instance').insert(toInsert)
+      if (insErr) console.warn('Insert instances failed', insErr.message)
+    },
+
+    async applyOverduePenalties() {
+      const today = this.getToday()
+      // Ambil task yang lewat (maks 30 hari ke belakang) dan belum selesai
+      const startDate = this.getISODateNDaysAgo(30)
+      const { data: overdue, error: oErr } = await supabaseClient
+        .from('daily_tasks_instance')
+        .select('id, task_name, date')
+        .eq('user_id', this.user.id)
+        .lt('date', today)
+        .gte('date', startDate)
+        .eq('is_completed', false)
+      if (oErr) { console.warn('Load overdue failed', oErr.message); return }
+      if (!overdue || overdue.length === 0) return
+
+      // Cek penalty yang sudah tercatat agar tidak dobel
+      const reasons = overdue.map(i => `penalty:${i.id}`)
+      const { data: existingLogs, error: lErr } = await supabaseClient
+        .from('score_log')
+        .select('reason')
+        .eq('user_id', this.user.id)
+        .in('reason', reasons)
+      if (lErr) { console.warn('Load score_log failed', lErr.message) }
+      const existingReasons = new Set((existingLogs || []).map(l => l.reason))
+
+      const toLog = overdue
+        .filter(i => !existingReasons.has(`penalty:${i.id}`))
+        .map(i => ({ user_id: this.user.id, date: i.date, score_delta: -3, reason: `penalty:${i.id}` }))
+      if (toLog.length === 0) return
+      const { error: insLogErr } = await supabaseClient.from('score_log').insert(toLog)
+      if (insLogErr) console.warn('Insert penalties failed', insLogErr.message)
+    },
+
+    setDailyQuote() {
+      if (!DAILY_QUOTES.length) return
+      const today = new Date()
+      const start = new Date(today.getFullYear(), 0, 0)
+      const diff = today - start
+      const dayOfYear = Math.floor(diff / 86400000)
+      this.dailyQuote = DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length]
+    },
+
+    // Navigasi
+    setView(view) {
+      this.currentView = view
+    },
+
+    // Auth
+    async handleAuth() {
+      this.authError = ''
+      this.authLoading = true
+      try {
+        if (this.authMode === 'register') {
+          await this.register()
+        } else {
+          await this.login()
         }
+      } catch (err) {
+        this.authError = err.message
+        this.showToast(err.message, 'danger')
+      } finally {
+        this.authLoading = false
+      }
     },
-    
-    template: `
-        <div id="app">
-            <!-- Loading Screen -->
-            <div v-if="loading" class="d-flex justify-content-center align-items-center" style="height: 100vh;">
-                <div class="text-center">
-                    <div class="spinner-border text-primary mb-3" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p>Memuat aplikasi...</p>
-                </div>
-            </div>
-            
-            <!-- Main App -->
-            <div v-else>
-                <!-- Navigation -->
-                <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-                    <div class="container">
-                        <a class="navbar-brand" href="#">
-                            📊 Productivity Tracker
-                        </a>
-                        
-                        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                            <span class="navbar-toggler-icon"></span>
-                        </button>
-                        
-                        <div class="collapse navbar-collapse" id="navbarNav">
-                            <ul class="navbar-nav me-auto">
-                                <li class="nav-item">
-                                    <a class="nav-link" :class="{ active: currentView === 'dashboard' }" 
-                                       href="#" @click.prevent="setView('dashboard')">
-                                        🏠 Dashboard
-                                    </a>
-                                </li>
-                                <li v-if="user" class="nav-item">
-                                    <a class="nav-link" :class="{ active: currentView === 'checklist' }" 
-                                       href="#" @click.prevent="setView('checklist')">
-                                        ✅ Checklist
-                                    </a>
-                                </li>
-                                <li v-if="user" class="nav-item">
-                                    <a class="nav-link" :class="{ active: currentView === 'tasks' }" 
-                                       href="#" @click.prevent="setView('tasks')">
-                                        🎯 Task Manager
-                                    </a>
-                                </li>
-                                <li v-if="user" class="nav-item">
-                                    <a class="nav-link" :class="{ active: currentView === 'report' }" 
-                                       href="#" @click.prevent="setView('report')">
-                                        📊 Report
-                                    </a>
-                                </li>
-                            </ul>
-                            
-                            <ul class="navbar-nav">
-                                <li v-if="!user" class="nav-item">
-                                    <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#authModal">
-                                        🔐 Login
-                                    </a>
-                                </li>
-                                <li v-if="user" class="nav-item dropdown">
-                                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                                        👤 {{ formatUserName() }}
-                                    </a>
-                                    <ul class="dropdown-menu">
-                                        <li><a class="dropdown-item" href="#" @click.prevent="logout">Logout</a></li>
-                                    </ul>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </nav>
-                
-                <!-- Main Content -->
-                <div class="container mt-4">
-                    <!-- Guest View -->
-                    <div v-if="!user && currentView === 'dashboard'">
-                        <div class="row justify-content-center">
-                            <div class="col-lg-8">
-                                <div class="text-center mb-5">
-                                    <h1 class="display-4 mb-3">📊 Productivity Tracker</h1>
-                                    <p class="lead">Kelola tugas harian Anda dengan sistem scoring yang memotivasi!</p>
-                                    <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#authModal">
-                                        Mulai Sekarang
-                                    </button>
-                                </div>
-                                
-                                <div class="row">
-                                    <div class="col-md-4 mb-4">
-                                        <div class="card h-100 text-center">
-                                            <div class="card-body">
-                                                <div class="display-4 text-primary mb-3">✅</div>
-                                                <h5>Task Management</h5>
-                                                <p class="text-muted">Kelola tugas harian dengan template yang dapat disesuaikan</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4 mb-4">
-                                        <div class="card h-100 text-center">
-                                            <div class="card-body">
-                                                <div class="display-4 text-success mb-3">⚡</div>
-                                                <h5>Scoring System</h5>
-                                                <p class="text-muted">Sistem poin yang memotivasi untuk menyelesaikan tugas</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4 mb-4">
-                                        <div class="card h-100 text-center">
-                                            <div class="card-body">
-                                                <div class="display-4 text-info mb-3">📊</div>
-                                                <h5>Progress Tracking</h5>
-                                                <p class="text-muted">Laporan visual untuk melihat perkembangan produktivitas</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- User Views -->
-                    <div v-if="user">
-                        <dashboard v-if="currentView === 'dashboard'" 
-                                  :user="user" 
-                                  :supabase="supabase" 
-                                  :daily-quote="dailyQuote">
-                        </dashboard>
-                        
-                        <checklist v-if="currentView === 'checklist'" 
-                                  :user="user" 
-                                  :supabase="supabase">
-                        </checklist>
-                        
-                        <task-manager v-if="currentView === 'tasks'" 
-                                     :user="user" 
-                                     :supabase="supabase">
-                        </task-manager>
-                        
-                        <report v-if="currentView === 'report'" 
-                               :user="user" 
-                               :supabase="supabase">
-                        </report>
-                    </div>
-                </div>
-                
-                <!-- Auth Modal -->
-                <div class="modal fade" id="authModal" tabindex="-1">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">
-                                    {{ authMode === 'login' ? '🔐 Login' : '📝 Daftar Akun' }}
-                                </h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <form @submit.prevent="handleAuth">
-                                    <div v-if="authError" class="alert alert-danger">
-                                        {{ authError }}
-                                    </div>
-                                    
-                                    <div v-if="authMode === 'register'" class="mb-3">
-                                        <label class="form-label">Nama Lengkap</label>
-                                        <input type="text" class="form-control" v-model="authForm.fullName" required>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <label class="form-label">Email</label>
-                                        <input type="email" class="form-control" v-model="authForm.email" required>
-                                    </div>
-                                    
-                                                                        <div class="mb-3">
-                                        <label class="form-label">Password</label>
-                                        <input type="password" class="form-control" v-model="authForm.password" required>
-                                    </div>
-                                    
-                                    <div v-if="authMode === 'register'" class="mb-3">
-                                        <label class="form-label">Konfirmasi Password</label>
-                                        <input type="password" class="form-control" v-model="authForm.confirmPassword" required>
-                                    </div>
-                                    
-                                    <button type="submit" class="btn btn-primary w-100" :disabled="authLoading">
-                                        {{ authLoading ? 'Memproses...' : (authMode === 'login' ? 'Login' : 'Daftar') }}
-                                    </button>
-                                </form>
-                                
-                                <hr>
-                                
-                                <div class="text-center">
-                                    <p class="mb-0">
-                                        {{ authMode === 'login' ? 'Belum punya akun?' : 'Sudah punya akun?' }}
-                                        <a href="#" @click.prevent="switchAuthMode">
-                                            {{ authMode === 'login' ? 'Daftar di sini' : 'Login di sini' }}
-                                        </a>
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+
+    async login() {
+      const { error } = await supabaseClient.auth.signInWithPassword({
+        email: this.authForm.email,
+        password: this.authForm.password
+      })
+      if (error) throw error
+      this.resetAuthForm()
+    },
+
+    async register() {
+      if (this.authForm.password !== this.authForm.confirmPassword) {
+        throw new Error('Password tidak cocok')
+      }
+      const { data, error } = await supabaseClient.auth.signUp({
+        email: this.authForm.email,
+        password: this.authForm.password,
+        options: {
+          data: { full_name: this.authForm.fullName }
+        }
+      })
+      if (error) throw error
+      if (data.user && !data.session) {
+        this.showToast('Verifikasi dikirim ke email Anda', 'info')
+      }
+      this.resetAuthForm()
+    },
+
+    async logout() {
+      const { error } = await supabaseClient.auth.signOut()
+      if (error) { this.showToast('Gagal logout: ' + error.message, 'danger'); return }
+      this.user = null
+      this.session = null
+      this.currentView = 'dashboard'
+      this.showToast('Logout berhasil', 'success')
+    },
+
+    resetAuthForm() { this.authForm = { email: '', password: '', confirmPassword: '', fullName: '' } },
+    switchAuthMode() { this.authMode = this.authMode === 'login' ? 'register' : 'login'; this.authError = ''; this.resetAuthForm() },
+    formatUserName() { return this.user?.user_metadata?.full_name || (this.user?.email?.split('@')[0] || 'User') },
+
+    // Utilities tanggal
+    getToday() { return new Date().toISOString().split('T')[0] },
+    getISODateNDaysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().split('T')[0] },
+
+    // Toast helper (Bootstrap 5)
+    showToast(message, variant = 'primary', delay = 3000) {
+      try {
+        const container = document.getElementById('toastContainer')
+        if (!container) return
+        const toastEl = document.createElement('div')
+        toastEl.className = `toast align-items-center text-bg-${variant} border-0`
+        toastEl.setAttribute('role', 'alert')
+        toastEl.setAttribute('aria-live', 'assertive')
+        toastEl.setAttribute('aria-atomic', 'true')
+        toastEl.innerHTML = `
+          <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+          </div>`
+        container.appendChild(toastEl)
+        const t = new bootstrap.Toast(toastEl, { delay })
+        toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove())
+        t.show()
+      } catch (_) { /* noop */ }
+    }
+  },
+  template: `
+    <div id="app">
+      <!-- Loading -->
+      <div v-if="loading" class="d-flex justify-content-center align-items-center" style="height: 100vh;">
+        <div class="text-center">
+          <div class="spinner-border text-primary mb-3" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p>Memuat aplikasi...</p>
         </div>
-    `
-}).mount('#app')
+      </div>
+
+      <div v-else>
+        <!-- Navbar -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+          <div class="container">
+            <a class="navbar-brand" href="#">📊 Productivity Tracker</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+              <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+              <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                  <a class="nav-link" :class="{ active: currentView==='dashboard' }" href="#" @click.prevent="setView('dashboard')">🏠 Dashboard</a>
+                </li>
+                <li v-if="user" class="nav-item">
+                  <a class="nav-link" :class="{ active: currentView==='checklist' }" href="#" @click.prevent="setView('checklist')">✅ Checklist</a>
+                </li>
+                <li v-if="user" class="nav-item">
+                  <a class="nav-link" :class="{ active: currentView==='tasks' }" href="#" @click.prevent="setView('tasks')">🎯 Task Manager</a>
+                </li>
+                <li v-if="user" class="nav-item">
+                  <a class="nav-link" :class="{ active: currentView==='report' }" href="#" @click.prevent="setView('report')">📊 Report</a>
+                </li>
+              </ul>
+              <ul class="navbar-nav">
+                <li v-if="!user" class="nav-item">
+                  <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#authModal">🔐 Login</a>
+                </li>
+                <li v-else class="nav-item dropdown">
+                  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">👤 {{ formatUserName() }}</a>
+                  <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" @click.prevent="logout">Logout</a></li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </nav>
+
+        <!-- Content -->
+        <div class="container mt-4">
+          <div v-if="!user && currentView==='dashboard'">
+            <div class="row justify-content-center">
+              <div class="col-lg-8">
+                <div class="text-center mb-5">
+                  <h1 class="display-5 mb-3">📊 Productivity Tracker</h1>
+                  <p class="lead">Kelola tugas harian Anda dengan sistem scoring yang memotivasi!</p>
+                  <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#authModal">Mulai Sekarang</button>
+                </div>
+                <div class="row">
+                  <div class="col-md-4 mb-3"><div class="card h-100 text-center"><div class="card-body"><div class="display-4 text-primary mb-2">✅</div><h6>Task Management</h6><p class="text-muted">Kelola tugas harian dengan template</p></div></div></div>
+                  <div class="col-md-4 mb-3"><div class="card h-100 text-center"><div class="card-body"><div class="display-4 text-success mb-2">⚡</div><h6>Scoring System</h6><p class="text-muted">Poin memotivasi untuk menyelesaikan tugas</p></div></div></div>
+                  <div class="col-md-4 mb-3"><div class="card h-100 text-center"><div class="card-body"><div class="display-4 text-info mb-2">📊</div><h6>Progress Tracking</h6><p class="text-muted">Laporan visual perkembangan</p></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <dashboard v-if="user && currentView==='dashboard'" :user="user" :supabase="supabaseClient" :daily-quote="dailyQuote"></dashboard>
+          <checklist v-if="user && currentView==='checklist'" :user="user" :supabase="supabaseClient"></checklist>
+          <task-manager v-if="user && currentView==='tasks'" :user="user" :supabase="supabaseClient"></task-manager>
+          <report v-if="user && currentView==='report'" :user="user" :supabase="supabaseClient"></report>
+        </div>
+
+        <!-- Auth Modal -->
+        <div class="modal fade" id="authModal" tabindex="-1">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">{{ authMode === 'login' ? '🔐 Login' : '📝 Daftar Akun' }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <form @submit.prevent="handleAuth">
+                  <div v-if="authError" class="alert alert-danger">{{ authError }}</div>
+
+                  <div v-if="authMode==='register'" class="mb-3">
+                    <label class="form-label">Nama Lengkap</label>
+                    <input type="text" class="form-control" v-model="authForm.fullName" required>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" v-model="authForm.email" required>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-control" v-model="authForm.password" required>
+                  </div>
+
+                  <div v-if="authMode==='register'" class="mb-3">
+                    <label class="form-label">Konfirmasi Password</label>
+                    <input type="password" class="form-control" v-model="authForm.confirmPassword" required>
+                  </div>
+
+                  <button type="submit" class="btn btn-primary w-100" :disabled="authLoading">{{ authLoading ? 'Memproses...' : (authMode==='login' ? 'Login' : 'Daftar') }}</button>
+                </form>
+                <hr>
+                <div class="text-center">
+                  <p class="mb-0">{{ authMode==='login' ? 'Belum punya akun?' : 'Sudah punya akun?' }}
+                    <a href="#" @click.prevent="switchAuthMode">{{ authMode==='login' ? 'Daftar di sini' : 'Login di sini' }}</a>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toast Container (for Bootstrap 5 Toasts) -->
+        <div id="toastContainer" aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3">
+        </div>
+      </div>
+    </div>
+  `
+})
 

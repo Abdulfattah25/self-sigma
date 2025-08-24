@@ -7,22 +7,61 @@ Vue.component('checklist', {
             today: new Date().toISOString().split('T')[0],
             completedCount: 0,
             totalCount: 0,
-            newAdHocTask: ''
+            newAdHocTask: '',
+            // Filters
+            filterPriority: 'all',
+            filterCategory: 'all',
+            searchText: '',
+            // Score
+            todayScoreDb: 0
         }
     },
     template: `
-        <div>
-            <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="fade-in">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
                 <div>
                     <h2>✅ Checklist Hari Ini</h2>
                     <small class="text-muted">{{ formatDate(today) }}</small>
                 </div>
                 <div class="text-end">
-                    <div class="badge bg-primary fs-6 mb-2">
-                        {{ completedCount }} / {{ totalCount }} selesai
+                    <div class="d-flex flex-column align-items-end">
+                        <div class="badge bg-primary fs-6 mb-2">{{ completedCount }} / {{ totalCount }} selesai</div>
+                        <div class="progress" style="width: 220px;">
+                            <div class="progress-bar" :style="{ width: progressPercentage + '%' }"></div>
+                        </div>
+                        <small class="mt-1 text-muted">Skor hari ini: <strong :class="todayScoreDb>=0 ? 'text-success' : 'text-danger'">{{ todayScoreDb>=0?'+':'' }}{{ todayScoreDb }}</strong></small>
                     </div>
-                    <div class="progress" style="width: 200px;">
-                        <div class="progress-bar" :style="{ width: progressPercentage + '%' }"></div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label mb-1">Prioritas</label>
+                            <select class="form-select" v-model="filterPriority">
+                                <option value="all">Semua</option>
+                                <option value="tinggi">Tinggi</option>
+                                <option value="sedang">Sedang</option>
+                                <option value="rendah">Rendah</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label mb-1">Kategori</label>
+                            <select class="form-select" v-model="filterCategory">
+                                <option value="all">Semua</option>
+                                <option v-for="cat in categoriesList" :key="cat" :value="cat">{{ cat || 'Tanpa Kategori' }}</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label mb-1">Cari</label>
+                            <input type="text" class="form-control" v-model.trim="searchText" placeholder="Cari nama task...">
+                        </div>
+                        <div class="col-md-2 d-flex gap-2">
+                            <button class="btn btn-outline-secondary w-100" @click="loadTodayTasks" title="Refresh">🔄 Refresh</button>
+                            <button class="btn btn-outline-primary w-100" @click="syncFromTemplates" title="Sinkron dari Template">🧩 Sinkron</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -51,36 +90,21 @@ Vue.component('checklist', {
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">📋 Daftar Task</h5>
-                    <button class="btn btn-sm btn-outline-secondary" @click="loadTodayTasks">
-                        🔄 Refresh
-                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" @click="loadTodayTasks">🔄 Refresh</button>
                 </div>
                 <div class="card-body">
                     <div v-if="loading" class="text-center py-4">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
+                        <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
                     </div>
-                    
                     <div v-else-if="todayTasks.length === 0" class="text-center text-muted py-4">
                         <p>📝 Belum ada task untuk hari ini.</p>
                         <p>Task dari template akan otomatis muncul, atau Anda bisa menambah task tambahan di atas.</p>
                     </div>
-                    
                     <div v-else class="task-list">
-                        <div v-for="task in sortedTasks" :key="task.id" 
-                             class="task-item d-flex align-items-center p-3 mb-3 border rounded"
-                             :class="[
-                                 task.is_completed ? 'task-completed bg-light' : '',
-                                 'priority-' + (task.priority || 'sedang')
-                             ]">
-                            
+                        <div v-for="task in sortedTasks" :key="task.id" class="task-item d-flex align-items-center p-3 mb-3 border rounded"
+                             :class="[ task.is_completed ? 'task-completed bg-light' : '', 'priority-' + (task.priority || 'sedang') ]">
                             <div class="form-check me-3">
-                                <input class="form-check-input" type="checkbox" 
-                                       :id="'task-' + task.id"
-                                       :checked="task.is_completed"
-                                       @change="toggleTask(task)"
-                                       :disabled="loading">
+                                <input class="form-check-input form-check-input-lg" type="checkbox" :id="'task-' + task.id" :checked="task.is_completed" @change="toggleTask(task)" :disabled="loading">
                             </div>
                             
                             <div class="flex-grow-1">
@@ -156,14 +180,21 @@ Vue.component('checklist', {
             return this.totalCount > 0 ? Math.round((this.completedCount / this.totalCount) * 100) : 0
         },
         
+        categoriesList() {
+            const set = new Set(this.todayTasks.map(t => t.category).filter(() => true))
+            return Array.from(set)
+        },
+        
         sortedTasks() {
             const priorityOrder = { 'tinggi': 3, 'sedang': 2, 'rendah': 1 }
-            return [...this.todayTasks].sort((a, b) => {
-                // Completed tasks go to bottom
-                if (a.is_completed !== b.is_completed) {
-                    return a.is_completed ? 1 : -1
-                }
-                // Sort by priority
+            const filtered = this.todayTasks.filter(t => {
+                const byPriority = this.filterPriority === 'all' || (t.priority || 'sedang') === this.filterPriority
+                const byCategory = this.filterCategory === 'all' || (t.category || null) === this.filterCategory
+                const bySearch = !this.searchText || (t.task_name || '').toLowerCase().includes(this.searchText.toLowerCase())
+                return byPriority && byCategory && bySearch
+            })
+            return filtered.sort((a, b) => {
+                if (a.is_completed !== b.is_completed) return a.is_completed ? 1 : -1
                 const aPriority = priorityOrder[a.priority] || 2
                 const bPriority = priorityOrder[b.priority] || 2
                 return bPriority - aPriority
@@ -171,6 +202,7 @@ Vue.component('checklist', {
         },
         
         todayScore() {
+            // dipertahankan untuk UI lama; skor aktual gunakan todayScoreDb
             return this.completedCount - (this.totalCount - this.completedCount)
         }
     },
@@ -214,12 +246,12 @@ Vue.component('checklist', {
                 
                 if (templates && templates.length > 0) {
                     // Create instances for today
-                    const instances = templates.map(template => ({
+                    const instances = templates.map(t => ({
                         user_id: this.user.id,
-                        task_id: template.id,
-                        task_name: template.task_name,
-                        priority: template.priority,
-                        category: template.category,
+                        task_id: t.id,
+                        task_name: t.task_name,
+                        priority: t.priority,
+                        category: t.category,
                         date: this.today,
                         is_completed: false
                     }))
@@ -232,6 +264,46 @@ Vue.component('checklist', {
                 }
             } catch (error) {
                 console.error('Error creating today tasks from templates:', error)
+            }
+        },
+        
+        async syncFromTemplates() {
+            // Sisipkan template yang belum ada untuk hari ini
+            try {
+                this.loading = true
+                
+                const { data: templates, error: tErr } = await this.supabase
+                    .from('daily_tasks_template')
+                    .select('id, task_name, priority, category')
+                    .eq('user_id', this.user.id)
+                
+                if (tErr) throw tErr
+                
+                const { data: existing, error: eErr } = await this.supabase
+                    .from('daily_tasks_instance')
+                    .select('task_id')
+                    .eq('user_id', this.user.id)
+                    .eq('date', this.today)
+                
+                if (eErr) throw eErr
+                
+                const existingIds = new Set((existing||[]).map(i => i.task_id).filter(Boolean))
+                const toInsert = (templates||[])
+                    .filter(t => !existingIds.has(t.id))
+                    .map(t => ({ user_id: this.user.id, task_id: t.id, task_name: t.task_name, priority: t.priority, category: t.category, date: this.today, is_completed: false }))
+                
+                if (toInsert.length) {
+                    const { error: iErr } = await this.supabase.from('daily_tasks_instance').insert(toInsert)
+                    if (iErr && iErr.code !== '23505') throw iErr
+                }
+                
+                await this.loadTodayTasks()
+                alert('Sinkronisasi selesai')
+            } catch (error) {
+                console.error('Error syncFromTemplates:', error)
+                alert('Gagal sinkronisasi: ' + error.message)
+            } finally {
+                this.loading = false
             }
         },
         
@@ -250,12 +322,31 @@ Vue.component('checklist', {
                 
                 this.todayTasks = data || []
                 this.updateCounts()
+                await this.loadTodayScore()
                 
             } catch (error) {
                 console.error('Error loading today tasks:', error)
                 alert('Gagal memuat task hari ini: ' + error.message)
             } finally {
                 this.loading = false
+            }
+        },
+        
+        async loadTodayScore() {
+            try {
+                const { data, error } = await this.supabase
+                    .from('score_log')
+                    .select('score_delta')
+                    .eq('user_id', this.user.id)
+                    .eq('date', this.today)
+                
+                if (error) throw error
+                
+                this.todayScoreDb = (data||[]).reduce((s, r) => s + (r.score_delta||0), 0)
+                
+            } catch (error) {
+                console.warn('Gagal memuat skor harian:', error.message)
+                this.todayScoreDb = 0
             }
         },
         
@@ -285,6 +376,7 @@ Vue.component('checklist', {
                     newStatus ? `Menyelesaikan: ${task.task_name}` : `Membatalkan: ${task.task_name}`)
                 
                 this.updateCounts()
+                await this.loadTodayScore()
                 
             } catch (error) {
                 console.error('Error toggling task:', error)
@@ -309,7 +401,13 @@ Vue.component('checklist', {
                     }])
                     .select()
                 
-                if (error) throw error
+                if (error) {
+                    if (error.code === '23505') {
+                        alert('Task ad-hoc dengan nama sama sudah ada untuk hari ini.')
+                        return
+                    }
+                    throw error
+                }
                 
                 // Add to local tasks
                 this.todayTasks.push(data[0])
@@ -339,6 +437,7 @@ Vue.component('checklist', {
                 // Remove from local tasks
                 this.todayTasks = this.todayTasks.filter(t => t.id !== taskId)
                 this.updateCounts()
+                await this.loadTodayScore()
                 
             } catch (error) {
                 console.error('Error deleting ad-hoc task:', error)
@@ -405,7 +504,7 @@ Vue.component('checklist', {
         },
         
         getScoreMessage() {
-            const score = this.todayScore
+            const score = this.todayScoreDb
             if (score >= 5) return "🏆 Produktivitas tinggi!"
             if (score >= 3) return "⭐ Performa bagus!"
             if (score >= 1) return "👍 Terus tingkatkan!"

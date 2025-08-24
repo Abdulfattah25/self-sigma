@@ -9,29 +9,31 @@ Vue.component('task-manager', {
                 category: ''
             },
             loading: false,
-            showAddForm: false
+            showAddForm: false,
+            editingId: null
         }
     },
     template: `
-        <div>
+        <div class="fade-in">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2>🎯 Task Manager</h2>
-                <button class="btn btn-primary" @click="showAddForm = !showAddForm">
-                    <i class="bi bi-plus"></i> Tambah Template Task
+                <button class="btn btn-primary btn-icon" @click="toggleAddForm">
+                    <i class="bi" :class="showAddForm ? 'bi-x' : 'bi-plus-lg'"></i>
+                    {{ showAddForm ? 'Tutup Form' : 'Tambah Template Task' }}
                 </button>
             </div>
 
-            <!-- Add Task Form -->
+            <!-- Add/Edit Task Form -->
             <div v-if="showAddForm" class="card mb-4">
                 <div class="card-header">
-                    <h5 class="mb-0">Tambah Template Task Baru</h5>
+                    <h5 class="mb-0">{{ editingId ? 'Edit Template Task' : 'Tambah Template Task Baru' }}</h5>
                 </div>
                 <div class="card-body">
-                    <form @submit.prevent="addTaskTemplate">
+                    <form @submit.prevent="saveTaskTemplate">
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Nama Task</label>
-                                <input type="text" class="form-control" v-model="newTask.task_name" 
+                                <input type="text" class="form-control" v-model.trim="newTask.task_name" 
                                        placeholder="Contoh: Olahraga pagi" required>
                             </div>
                             <div class="col-md-3 mb-3">
@@ -44,13 +46,13 @@ Vue.component('task-manager', {
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label class="form-label">Kategori (Opsional)</label>
-                                <input type="text" class="form-control" v-model="newTask.category" 
+                                <input type="text" class="form-control" v-model.trim="newTask.category" 
                                        placeholder="Contoh: Kesehatan">
                             </div>
                         </div>
                         <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-success" :disabled="loading">
-                                {{ loading ? 'Menyimpan...' : 'Simpan Template' }}
+                            <button type="submit" class="btn btn-success">
+                                {{ editingId ? 'Simpan Perubahan' : 'Simpan Template' }}
                             </button>
                             <button type="button" class="btn btn-secondary" @click="cancelAdd">
                                 Batal
@@ -74,16 +76,16 @@ Vue.component('task-manager', {
                     <div v-else>
                         <div class="row">
                             <div v-for="template in templates" :key="template.id" class="col-md-6 mb-3">
-                                <div class="card h-100" :class="'priority-' + template.priority">
+                                <div class="card h-100 priority-{{template.priority}}">
                                     <div class="card-body">
                                         <div class="d-flex justify-content-between align-items-start">
                                             <div class="flex-grow-1">
-                                                <h6 class="card-title">{{ template.task_name }}</h6>
+                                                <h6 class="card-title mb-1">{{ template.task_name }}</h6>
                                                 <div class="mb-2">
-                                                    <span class="badge me-2" :class="getPriorityBadgeClass(template.priority)">
+                                                    <span class="badge badge-sm me-2" :class="getPriorityBadgeClass(template.priority)">
                                                         {{ template.priority.toUpperCase() }}
                                                     </span>
-                                                    <span v-if="template.category" class="badge bg-light text-dark">
+                                                    <span v-if="template.category" class="badge bg-light text-dark badge-sm">
                                                         {{ template.category }}
                                                     </span>
                                                 </div>
@@ -146,62 +148,93 @@ Vue.component('task-manager', {
             }
         },
         
-        async addTaskTemplate() {
+        toggleAddForm() {
+            this.showAddForm = !this.showAddForm
+            if (this.showAddForm) {
+                // mode tambah baru
+                this.editingId = null
+                this.newTask = { task_name: '', priority: 'sedang', category: '' }
+            }
+        },
+
+        async saveTaskTemplate() {
+            // Validasi sederhana
+            const name = (this.newTask.task_name || '').trim()
+            if (name.length < 3) {
+                alert('Nama task minimal 3 karakter')
+                return
+            }
+            if (!['tinggi','sedang','rendah'].includes(this.newTask.priority)) {
+                this.newTask.priority = 'sedang'
+            }
+
             try {
                 this.loading = true
-                
-                const { data, error } = await this.supabase
-                    .from('daily_tasks_template')
-                    .insert([{
-                        user_id: this.user.id,
-                        task_name: this.newTask.task_name,
-                        priority: this.newTask.priority,
-                        category: this.newTask.category || null
-                    }])
-                    .select()
-                
-                if (error) throw error
-                
-                // Add to local templates
-                this.templates.unshift(data[0])
-                
-                // Reset form
-                this.newTask = {
-                    task_name: '',
-                    priority: 'sedang',
-                    category: ''
+                if (this.editingId) {
+                    // UPDATE
+                    const { data, error } = await this.supabase
+                        .from('daily_tasks_template')
+                        .update({
+                            task_name: name,
+                            priority: this.newTask.priority,
+                            category: this.newTask.category || null
+                        })
+                        .eq('id', this.editingId)
+                        .eq('user_id', this.user.id)
+                        .select()
+                    if (error) throw error
+
+                    const updated = data && data[0]
+                    if (updated) {
+                        const idx = this.templates.findIndex(t => t.id === this.editingId)
+                        if (idx !== -1) this.$set(this.templates, idx, updated)
+                    }
+
+                    alert('Template berhasil diperbarui!')
+                } else {
+                    // INSERT
+                    const { data, error } = await this.supabase
+                        .from('daily_tasks_template')
+                        .insert([{ 
+                            user_id: this.user.id,
+                            task_name: name,
+                            priority: this.newTask.priority,
+                            category: this.newTask.category || null
+                        }])
+                        .select()
+                    if (error) throw error
+
+                    this.templates.unshift(data[0])
+                    alert('Template task berhasil ditambahkan!')
                 }
-                this.showAddForm = false
-                
-                alert('Template task berhasil ditambahkan!')
-                
+
+                // Reset form
+                this.cancelAdd()
             } catch (error) {
-                console.error('Error adding template:', error)
-                alert('Gagal menambahkan template: ' + error.message)
+                console.error('Error saving template:', error)
+                alert('Gagal menyimpan template: ' + error.message)
             } finally {
                 this.loading = false
             }
         },
         
+        async addTaskTemplate() {
+            // deprecated: diganti saveTaskTemplate()
+            return this.saveTaskTemplate()
+        },
+        
         async deleteTemplate(templateId) {
-            if (!confirm('Yakin ingin menghapus template ini? Task yang sudah ada di checklist tidak akan terhapus.')) {
-                return
-            }
-            
+            if (!confirm('Yakin ingin menghapus template ini? Task yang sudah ada di checklist tidak akan terhapus.')) return
             try {
                 const { error } = await this.supabase
                     .from('daily_tasks_template')
                     .delete()
                     .eq('id', templateId)
                     .eq('user_id', this.user.id)
-                
                 if (error) throw error
-                
-                // Remove from local templates
                 this.templates = this.templates.filter(t => t.id !== templateId)
-                
+                if (this.editingId === templateId) this.cancelAdd()
                 alert('Template berhasil dihapus!')
-                
             } catch (error) {
                 console.error('Error deleting template:', error)
                 alert('Gagal menghapus template: ' + error.message)
@@ -209,25 +242,18 @@ Vue.component('task-manager', {
         },
         
         editTemplate(template) {
-            // Simple edit - populate form with existing data
+            this.editingId = template.id
+            this.showAddForm = true
             this.newTask = {
                 task_name: template.task_name,
                 priority: template.priority,
                 category: template.category || ''
             }
-            this.showAddForm = true
-            
-            // Delete the old template after user confirms
-            this.editingId = template.id
         },
         
         cancelAdd() {
             this.showAddForm = false
-            this.newTask = {
-                task_name: '',
-                priority: 'sedang',
-                category: ''
-            }
+            this.newTask = { task_name: '', priority: 'sedang', category: '' }
             this.editingId = null
         },
         

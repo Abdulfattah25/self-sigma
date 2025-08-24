@@ -12,24 +12,24 @@ Vue.component('report', {
                 dailyStats: []
             },
             loading: false,
-            chartInstance: null
+            chartInstance: null,
+            taskDistributionChartInstance: null,
+            dailyPerformanceChartInstance: null
         }
     },
     template: `
-        <div>
+        <div class="fade-in">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2>📊 Laporan Produktivitas</h2>
-                <div class="d-flex gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-outline-secondary btn-sm" @click="prevMonth" title="Bulan sebelumnya">⟨</button>
                     <select class="form-select" v-model="currentMonth" @change="loadMonthlyReport">
-                        <option v-for="(month, index) in monthNames" :key="index" :value="index">
-                            {{ month }}
-                        </option>
+                        <option v-for="(month, index) in monthNames" :key="index" :value="index">{{ month }}</option>
                     </select>
                     <select class="form-select" v-model="currentYear" @change="loadMonthlyReport">
-                        <option v-for="year in availableYears" :key="year" :value="year">
-                            {{ year }}
-                        </option>
+                        <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
                     </select>
+                    <button class="btn btn-outline-secondary btn-sm" @click="nextMonth" title="Bulan berikutnya">⟩</button>
                 </div>
             </div>
 
@@ -383,8 +383,11 @@ Vue.component('report', {
         renderTaskDistributionChart() {
             const ctx = document.getElementById('taskDistributionChart')
             if (!ctx) return
-            
-            new Chart(ctx, {
+            if (this.taskDistributionChartInstance) {
+                this.taskDistributionChartInstance.destroy()
+                this.taskDistributionChartInstance = null
+            }
+            this.taskDistributionChartInstance = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
                     labels: ['Selesai', 'Belum Selesai'],
@@ -398,11 +401,7 @@ Vue.component('report', {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
-                    }
+                    plugins: { legend: { position: 'bottom' } }
                 }
             })
         },
@@ -410,77 +409,46 @@ Vue.component('report', {
         renderDailyPerformanceChart() {
             const ctx = document.getElementById('dailyPerformanceChart')
             if (!ctx) return
-            
-            const labels = this.monthlyData.dailyStats.map(day => 
-                new Date(day.date).getDate().toString()
-            )
+            if (this.dailyPerformanceChartInstance) {
+                this.dailyPerformanceChartInstance.destroy()
+                this.dailyPerformanceChartInstance = null
+            }
+            const labels = this.monthlyData.dailyStats.map(day => new Date(day.date).getDate().toString())
             const completionRates = this.monthlyData.dailyStats.map(day => day.completionRate)
             const scores = this.monthlyData.dailyStats.map(day => day.score)
-            
-            new Chart(ctx, {
+            this.dailyPerformanceChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [
-                        {
-                            label: 'Tingkat Penyelesaian (%)',
-                            data: completionRates,
-                            borderColor: '#0d6efd',
-                            backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                            yAxisID: 'y',
-                            tension: 0.4
-                        },
-                        {
-                            label: 'Skor Harian',
-                            data: scores,
-                            borderColor: '#198754',
-                            backgroundColor: 'rgba(25, 135, 84, 0.1)',
-                            yAxisID: 'y1',
-                            tension: 0.4
-                        }
+                        { label: 'Tingkat Penyelesaian (%)', data: completionRates, borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,0.1)', yAxisID: 'y', tension: 0.35 },
+                        { label: 'Skor Harian', data: scores, borderColor: '#198754', backgroundColor: 'rgba(25,135,84,0.1)', yAxisID: 'y1', tension: 0.35 }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false,
-                    },
+                    interaction: { mode: 'index', intersect: false },
                     scales: {
-                        x: {
-                            display: true,
-                            title: {
-                                display: true,
-                                text: 'Tanggal'
-                            }
-                        },
-                        y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            title: {
-                                display: true,
-                                text: 'Tingkat Penyelesaian (%)'
-                            },
-                            min: 0,
-                            max: 100
-                        },
-                        y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: {
-                                display: true,
-                                text: 'Skor'
-                            },
-                            grid: {
-                                drawOnChartArea: false,
-                            },
-                        }
+                        x: { title: { display: true, text: 'Tanggal' } },
+                        y: { type: 'linear', position: 'left', title: { display: true, text: 'Tingkat Penyelesaian (%)' }, min: 0, max: 100 },
+                        y1: { type: 'linear', position: 'right', title: { display: true, text: 'Skor' }, grid: { drawOnChartArea: false } }
                     }
                 }
             })
+        },
+        
+        prevMonth() {
+            const d = new Date(this.currentYear, this.currentMonth - 1, 1)
+            this.currentYear = d.getFullYear()
+            this.currentMonth = d.getMonth()
+            this.loadMonthlyReport()
+        },
+        nextMonth() {
+            const d = new Date(this.currentYear, this.currentMonth + 1, 1)
+            this.currentYear = d.getFullYear()
+            this.currentMonth = d.getMonth()
+            this.loadMonthlyReport()
         },
         
         getHeatmapClass(score) {

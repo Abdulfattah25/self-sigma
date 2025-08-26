@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="360" viewBox="0 0 800 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Tanaman subur - produktivitas bagus">
+  <defs>
+    <linearGradient id="skyBlue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#bde0fe"/>
+      <stop offset="100%" stop-color="#e2f2ff"/>
+    </linearGradient>
+    <linearGradient id="groundLush" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#cde9b5"/>
+      <stop offset="100%" stop-color="#a7d07a"/>
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a8e6a3"/>
+      <stop offset="100%" stop-color="#79c37a"/>
+    </linearGradient>
+  </defs>
+  <style>
+    @keyframes sway { 0% { transform: rotate(-1deg); } 100% { transform: rotate(1deg); } }
+    .sway { transform-origin: bottom center; animation: sway 2s ease-in-out infinite alternate; }
+  </style>
+
+  <rect width="800" height="240" fill="url(#skyBlue)" />
+  <rect y="240" width="800" height="120" fill="url(#groundLush)" />
+
+  <g transform="translate(400,260)" class="sway">
+    <rect x="-8" y="-90" width="16" height="90" rx="7" fill="#4e9a36"/>
+    <path d="M0 -78 C -14 -96, -28 -114, -46 -126" stroke="#2f7d20" stroke-width="6" fill="none"/>
+    <path d="M0 -60 C 16 -80, 34 -100, 52 -114" stroke="#2f7d20" stroke-width="5" fill="none"/>
+
+    <g transform="translate(-52,-130) rotate(10)">
+      <ellipse cx="0" cy="0" rx="22" ry="14" fill="url(#leafGrad)"/>
+      <ellipse cx="-4" cy="-2" rx="16" ry="10" fill="#61b36a"/>
+    </g>
+    <g transform="translate(56,-116) rotate(-16)">
+      <ellipse cx="0" cy="0" rx="20" ry="12" fill="url(#leafGrad)"/>
+      <ellipse cx="-4" cy="-2" rx="12" ry="8" fill="#61b36a"/>
+    </g>
+
+    <g transform="translate(0,0)">
+      <ellipse cx="0" cy="12" rx="20" ry="9" fill="#6a452a"/>
+      <rect x="-12" y="0" width="24" height="12" fill="#52331f"/>
+    </g>
+  </g>
+</svg>

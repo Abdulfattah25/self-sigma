@@ -249,3 +249,21 @@ body {
 #taskDistributionChart {
   max-width: 100%;
 }
+
+/* Plant scene */
+.plant-scene-wrap {
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  align-items: center;
+  background: linear-gradient(180deg, rgba(13, 110, 253, 0.06), rgba(25, 135, 84, 0.06));
+}
+.plant-scene {
+  width: 100%;
+  height: auto;
+  display: block;
+  transition: transform 0.6s ease;
+}
+.plant-scene-wrap:hover .plant-scene {
+  transform: scale(1.01);
+}

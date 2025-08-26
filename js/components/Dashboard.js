@@ -27,6 +27,26 @@ Vue.component("dashboard", {
                 </div>
             </div>
 
+            <!-- Plant Scene Section -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">🌱 Taman Produktivitas</h5>
+                            <span class="badge" :class="templateTargetCount > 0 ? 'bg-success' : 'bg-secondary'">
+                                {{ completionPercent }}%
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <div class="plant-scene-wrap">
+                                <img :src="plantSceneSrc" alt="Ilustrasi tingkat produktivitas" class="plant-scene img-fluid rounded"/>
+                            </div>
+                            <small class="text-muted d-block mt-2">Ilustrasi berubah sesuai persentase penyelesaian tugas dari template.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="row mb-4">
                 <div class="col-md-3 mb-3">
                     <div class="card stats-card">
@@ -63,6 +83,8 @@ Vue.component("dashboard", {
                     </div>
                 </div>
             </div>
+
+            
 
             <div class="row">
                 <div class="col-md-8 mb-4">
@@ -110,7 +132,25 @@ Vue.component("dashboard", {
     await this.loadScoresRange(this.chartRangeDays);
     this.renderChart();
   },
+  computed: {
+    completionPercent() {
+      // Gunakan rasio yang sudah dihitung dari template; fallback ke 0
+      return this.templateTargetCount > 0 ? this.completionRatio : 0;
+    },
+    plantSceneSrc() {
+      const p = this.completionPercent;
+      const scene = this.sceneFor(p);
+      return `assets/plants/${scene}`;
+    },
+  },
   methods: {
+    sceneFor(percent) {
+      if (percent <= 10) return 'plant-0-dead.png';
+      if (percent <= 25) return 'plant-1-wilted.png';
+      if (percent <= 50) return 'plant-2-growing.png';
+      if (percent <= 89) return 'plant-3-better.png';
+      return 'plant-4-perfect.png';
+    },
     async loadDashboardData() {
       try {
         const today = new Date().toISOString().split("T")[0];

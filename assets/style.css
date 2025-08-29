@@ -209,7 +209,7 @@ body {
 }
 
 /* Dark mode support */
-@media (prefers-color-scheme: dark) {
+/* @media (prefers-color-scheme: dark) {
   body {
     background-color: #0f1216;
     color: #e7e7e7;
@@ -231,7 +231,7 @@ body {
   .quote-card {
     color: #fff;
   }
-}
+} */
 
 /* Navbar subtle glass */
 .navbar.bg-primary {
@@ -266,4 +266,102 @@ body {
 }
 .plant-scene-wrap:hover .plant-scene {
   transform: scale(1.01);
+}
+
+/* Mobile Bottom Navigation */
+.mobile-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 64px;
+  background: #ffffff;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.06);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 1050;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.mobile-bottom-nav .mobile-nav-item {
+  text-decoration: none;
+  color: #6c757d;
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 20%;
+}
+.mobile-bottom-nav .mobile-nav-item i {
+  font-size: 1.25rem;
+}
+.mobile-bottom-nav .mobile-nav-item.active,
+.mobile-bottom-nav .mobile-nav-item:hover {
+  color: var(--primary-color);
+}
+
+/* Make room for bottom nav on small screens */
+@media (max-width: 767.98px) {
+  body {
+    padding-bottom: 80px; /* Avoid content hidden behind bottom nav */
+  }
+}
+
+/* Hide default top navbar toggler on mobile, we use bottom nav */
+@media (max-width: 767.98px) {
+  .navbar .navbar-toggler {
+    display: none !important;
+  }
+}
+
+/* Navbar adjustments for mobile */
+@media (max-width: 767.98px) {
+  .navbar .navbar-brand {
+    font-weight: 700;
+  }
+  /* Hide any collapse area if present */
+  .navbar .navbar-collapse {
+    display: none !important;
+  }
+  .navbar .navbar-toggler {
+    display: none !important;
+  }
+}
+
+/* Report page UI enhancements */
+.report-page .report-metric {
+  border-radius: 14px;
+  background: #fff;
+}
+.report-page .metric-primary {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+.report-page .metric-success {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+.report-page .metric-warning {
+  background: linear-gradient(135deg, #fddb92 0%, #d1fdff 100%);
+}
+.report-page .metric-score {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+.report-page .report-card {
+  border-radius: 14px;
+}
+
+/* Calendar heatmap tweaks inside report page */
+.report-page .calendar-heatmap .calendar-day {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+
+/* Make controls compact on small screens */
+@media (max-width: 767.98px) {
+  .report-page .form-select {
+    height: 36px;
+    padding: 4px 8px;
+  }
 }

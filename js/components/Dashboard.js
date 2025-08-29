@@ -48,37 +48,43 @@ Vue.component("dashboard", {
             </div>
 
             <div class="row mb-4">
-                <div class="col-md-3 mb-3">
+                <div class="col-md-6 mb-3">
                     <div class="card stats-card">
+                        <div class="card-header">
+                            <h6 class="mb-0">📊 Skor Produktivitas</h6>
+                        </div>
                         <div class="card-body">
-                            <span class="stats-number" :class="todayScore >= 0 ? 'score-positive' : 'score-negative'">
-                                {{ todayScore >= 0 ? '+' : '' }}{{ todayScore }}
-                            </span>
-                            <small class="text-muted">Skor Hari Ini</small>
+                            <div class="row">
+                                <div class="col-6 text-center">
+                                    <span class="stats-number" :class="todayScore >= 0 ? 'score-positive' : 'score-negative'">
+                                        {{ todayScore >= 0 ? '+' : '' }}{{ todayScore }}
+                                    </span>
+                                    <small class="text-muted d-block">Skor Hari Ini</small>
+                                </div>
+                                <div class="col-6 text-center">
+                                    <span class="stats-number text-primary">{{ totalScore }}</span>
+                                    <small class="text-muted d-block">Total Skor</small>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3 mb-3">
+                <div class="col-md-6 mb-3">
                     <div class="card stats-card">
-                        <div class="card-body">
-                            <span class="stats-number text-primary">{{ totalScore }}</span>
-                            <small class="text-muted">Total Skor</small>
+                        <div class="card-header">
+                            <h6 class="mb-0">📋 Status Tugas</h6>
                         </div>
-                    </div>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card stats-card">
                         <div class="card-body">
-                            <span class="stats-number text-info">{{ completionRatio }}%</span>
-                            <small class="text-muted">Rasio Selesai vs Target</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <div class="card stats-card">
-                        <div class="card-body">
-                            <span class="stats-number text-warning">{{ incompleteTasks.length }}</span>
-                            <small class="text-muted">Belum Selesai (Hari Ini)</small>
+                            <div class="row">
+                                <div class="col-6 text-center">
+                                    <span class="stats-number text-info">{{ completionRatio }}%</span>
+                                    <small class="text-muted d-block">Rasio Selesai vs Target</small>
+                                </div>
+                                <div class="col-6 text-center">
+                                    <span class="stats-number text-warning">{{ incompleteTasks.length }}</span>
+                                    <small class="text-muted d-block">Belum Selesai (Hari Ini)</small>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

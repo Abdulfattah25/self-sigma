@@ -306,41 +306,65 @@ new Vue({
       </div>
 
       <div v-else>
-        <!-- Navbar -->
-        <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-          <div class="container">
+        <!-- Navbar (mobile-visible, no hamburger) -->
+        <nav class="navbar navbar-dark bg-primary">
+          <div class="container d-flex align-items-center w-100">
             <a class="navbar-brand" href="#">📊 Productivity Tracker</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-              <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-              <ul class="navbar-nav me-auto">
-                <li class="nav-item">
-                  <a class="nav-link" :class="{ active: currentView==='dashboard' }" href="#" @click.prevent="setView('dashboard')">🏠 Dashboard</a>
-                </li>
-                <li v-if="user" class="nav-item">
-                  <a class="nav-link" :class="{ active: currentView==='checklist' }" href="#" @click.prevent="setView('checklist')">✅ Checklist</a>
-                </li>
-                <li v-if="user" class="nav-item">
-                  <a class="nav-link" :class="{ active: currentView==='tasks' }" href="#" @click.prevent="setView('tasks')">🎯 Task Manager</a>
-                </li>
-                <li v-if="user" class="nav-item">
-                  <a class="nav-link" :class="{ active: currentView==='report' }" href="#" @click.prevent="setView('report')">📊 Report</a>
-                </li>
-              </ul>
-              <ul class="navbar-nav">
-                <li v-if="!user" class="nav-item">
-                  <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#authModal">🔐 Login</a>
-                </li>
-                <li v-else class="nav-item dropdown">
-                  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">👤 {{ formatUserName() }}</a>
-                  <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="#" @click.prevent="logout">Logout</a></li>
-                  </ul>
-                </li>
-              </ul>
-            </div>
+
+            <!-- Desktop nav links -->
+            <ul class="navbar-nav d-none d-md-flex flex-row ms-4">
+              <li class="nav-item me-3">
+                <a class="nav-link" :class="{ active: currentView==='dashboard' }" href="#" @click.prevent="setView('dashboard')">🏠 Dashboard</a>
+              </li>
+              <li v-if="user" class="nav-item me-3">
+                <a class="nav-link" :class="{ active: currentView==='checklist' }" href="#" @click.prevent="setView('checklist')">✅ Checklist</a>
+              </li>
+              <li v-if="user" class="nav-item me-3">
+                <a class="nav-link" :class="{ active: currentView==='tasks' }" href="#" @click.prevent="setView('tasks')">🎯 Task Manager</a>
+              </li>
+              <li v-if="user" class="nav-item">
+                <a class="nav-link" :class="{ active: currentView==='report' }" href="#" @click.prevent="setView('report')">📊 Report</a>
+              </li>
+            </ul>
+
+            <!-- Right: auth/account (visible on all sizes) -->
+            <ul class="navbar-nav ms-auto">
+              <li v-if="!user" class="nav-item">
+                <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#authModal">🔐 Login</a>
+              </li>
+              <li v-else class="nav-item">
+                <a class="nav-link" href="#" @click.prevent="setView('profile')">👤 {{ formatUserName() }}</a>
+              </li>
+            </ul>
           </div>
+        </nav>
+
+        <!-- Mobile Bottom Navigation -->
+        <nav class="mobile-bottom-nav d-md-none">
+          <a href="#" class="mobile-nav-item" :class="{ active: currentView==='dashboard' }" @click.prevent="setView('dashboard')">
+            <i class="bi bi-house"></i>
+            <span>Home</span>
+          </a>
+          <a v-if="user" href="#" class="mobile-nav-item" :class="{ active: currentView==='checklist' }" @click.prevent="setView('checklist')">
+            <i class="bi bi-check2-square"></i>
+            <span>Checklist</span>
+          </a>
+          <a v-if="user" href="#" class="mobile-nav-item" :class="{ active: currentView==='tasks' }" @click.prevent="setView('tasks')">
+            <i class="bi bi-list-task"></i>
+            <span>Tasks</span>
+          </a>
+          <a v-if="user" href="#" class="mobile-nav-item" :class="{ active: currentView==='report' }" @click.prevent="setView('report')">
+            <i class="bi bi-graph-up"></i>
+            <span>Report</span>
+          </a>
+          <a v-if="user" href="#" class="mobile-nav-item" :class="{ active: currentView==='profile' }" @click.prevent="setView('profile')">
+            <i class="bi bi-person-circle"></i>
+            <span>Saya</span>
+          </a>
+          <a v-if="!user" href="#" class="mobile-nav-item" data-bs-toggle="modal" data-bs-target="#authModal">
+            <i class="bi bi-box-arrow-in-right"></i>
+            <span>Login</span>
+          </a>
         </nav>
 
         <!-- Content -->
@@ -366,6 +390,7 @@ new Vue({
           <checklist v-if="user && currentView==='checklist'" :user="user" :supabase="supabaseClient"></checklist>
           <task-manager v-if="user && currentView==='tasks'" :user="user" :supabase="supabaseClient"></task-manager>
           <report v-if="user && currentView==='report'" :user="user" :supabase="supabaseClient"></report>
+          <profile v-if="user && currentView==='profile'" :user="user" :supabase="supabaseClient"></profile>
         </div>
 
         <!-- Auth Modal -->

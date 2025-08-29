@@ -18,10 +18,12 @@ Vue.component("report", {
     };
   },
   template: `
-        <div class="fade-in">
+        <div class="report-page fade-in">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>📊 Laporan Produktivitas</h2>
-                <div class="d-flex align-items-center gap-2">
+                <h2>📊 Laporan Produktivitas</h2>               
+            </div>
+            
+             <div class="d-flex align-items-center gap-2 mb-3">
                     <button class="btn btn-outline-secondary btn-sm" @click="prevMonth" title="Bulan sebelumnya">⟨</button>
                     <select class="form-select" v-model="currentMonth" @change="loadMonthlyReport">
                         <option v-for="(month, index) in monthNames" :key="index" :value="index">{{ month }}</option>
@@ -31,7 +33,7 @@ Vue.component("report", {
                     </select>
                     <button class="btn btn-outline-secondary btn-sm" @click="nextMonth" title="Bulan berikutnya">⟩</button>
                 </div>
-            </div>
+         
 
             <div v-if="loading" class="text-center py-5">
                 <div class="spinner-border text-primary" role="status">
@@ -42,89 +44,72 @@ Vue.component("report", {
 
             <div v-else>
                 <!-- Summary Cards -->
-                <div class="row mb-4">
-                    <div class="col-md-3 mb-3">
-                        <div class="card text-center">
-                            <div class="card-body">
-                                <h5 class="card-title text-primary">{{ monthlyData.totalTasks }}</h5>
-                                <p class="card-text">Total Task</p>
+                <div class="row g-3 mb-4">
+                    <div class="col-6 col-md-3">
+                        <div class="card report-metric metric-primary text-white border-0 h-100">
+                            <div class="card-body text-center py-3">
+                                <div class="fs-5 fw-bold">{{ monthlyData.totalTasks }}</div>
+                                <small class="text-white-50">Total Task</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card text-center">
-                            <div class="card-body">
-                                <h5 class="card-title text-success">{{ monthlyData.completedTasks }}</h5>
-                                <p class="card-text">Task Selesai</p>
+                    <div class="col-6 col-md-3">
+                        <div class="card report-metric metric-success text-white border-0 h-100">
+                            <div class="card-body text-center py-3">
+                                <div class="fs-5 fw-bold">{{ monthlyData.completedTasks }}</div>
+                                <small class="text-white-50">Task Selesai</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card text-center">
-                            <div class="card-body">
-                                <h5 class="card-title text-warning">{{ monthlyData.incompleteTasks }}</h5>
-                                <p class="card-text">Task Belum Selesai</p>
+                    <div class="col-6 col-md-3">
+                        <div class="card report-metric metric-warning text-dark border-0 h-100">
+                            <div class="card-body text-center py-3">
+                                <div class="fs-5 fw-bold">{{ monthlyData.incompleteTasks }}</div>
+                                <small class="text-muted">Belum Selesai</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3 mb-3">
-                        <div class="card text-center">
-                            <div class="card-body">
-                                <h5 class="card-title" :class="monthlyData.totalScore >= 0 ? 'text-success' : 'text-danger'">
+                    <div class="col-6 col-md-3">
+                        <div class="card report-metric metric-score text-white border-0 h-100">
+                            <div class="card-body text-center py-3">
+                                <div class="fs-5 fw-bold" :class="monthlyData.totalScore >= 0 ? '' : ''">
                                     {{ monthlyData.totalScore >= 0 ? '+' : '' }}{{ monthlyData.totalScore }}
-                                </h5>
-                                <p class="card-text">Total Skor</p>
+                                </div>
+                                <small class="text-white-50">Total Skor</small>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Completion Rate -->
+                <!-- Completion Rate (full width) -->
                 <div class="row mb-4">
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header">
+                    <div class="col-12">
+                        <div class="card report-card border-0 shadow-sm">
+                            <div class="card-header bg-white">
                                 <h5 class="mb-0">📈 Tingkat Penyelesaian</h5>
                             </div>
                             <div class="card-body text-center">
-                                <div class="display-4 mb-3" :class="completionRate >= 80 ? 'text-success' : completionRate >= 60 ? 'text-warning' : 'text-danger'">
+                                <div class="display-5 mb-3" :class="completionRate >= 80 ? 'text-success' : completionRate >= 60 ? 'text-warning' : 'text-danger'">
                                     {{ completionRate }}%
                                 </div>
-                                <div class="progress mb-3">
+                                <div class="progress mb-2" style="height: 10px;">
                                     <div class="progress-bar" :class="completionRate >= 80 ? 'bg-success' : completionRate >= 60 ? 'bg-warning' : 'bg-danger'" 
-                                         :style="{ width: completionRate + '%' }"></div>
+                                         :style="{ width: completionRate + '%' }" role="progressbar" :aria-valuenow="completionRate" aria-valuemin="0" aria-valuemax="100"></div>
                                 </div>
-                                <p class="text-muted">{{ getCompletionMessage() }}</p>
+                                <p class="text-muted mb-0">{{ getCompletionMessage() }}</p>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5 class="mb-0">🎯 Distribusi Task</h5>
-                            </div>
-                            <div class="card-body">
-                                <canvas id="taskDistributionChart" width="400" height="300"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Daily Performance Chart -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">📊 Performa Harian</h5>
-                    </div>
-                    <div class="card-body">
-                        <canvas id="dailyPerformanceChart" width="400" height="200"></canvas>
                     </div>
                 </div>
 
                 <!-- Calendar Heatmap -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5 class="mb-0">🗓️ Kalender Produktivitas</h5>
-                        <small class="text-muted">Warna lebih gelap = produktivitas lebih tinggi</small>
+                <div class="card mb-4 report-card border-0 shadow-sm">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <div>
+                          <h5 class="mb-0">🗓️ Kalender Produktivitas</h5>
+                          <small class="text-muted">Warna lebih gelap = produktivitas lebih tinggi</small>
+                        </div>
+                        <div class="d-none d-md-block small text-muted">Bulan: {{ monthNames[currentMonth] }} {{ currentYear }}</div>
                     </div>
                     <div class="card-body">
                         <div class="calendar-heatmap">
@@ -156,8 +141,8 @@ Vue.component("report", {
                 </div>
 
                 <!-- Detailed Table -->
-                <div class="card">
-                    <div class="card-header">
+                <div class="card report-card border-0 shadow-sm">
+                    <div class="card-header bg-white">
                         <h5 class="mb-0">📋 Detail Harian</h5>
                     </div>
                     <div class="card-body">
@@ -169,7 +154,6 @@ Vue.component("report", {
                                         <th>Total Task</th>
                                         <th>Selesai</th>
                                         <th>Belum Selesai</th>
-                                        <th>Tingkat Selesai</th>
                                         <th>Skor</th>
                                     </tr>
                                 </thead>
@@ -179,14 +163,6 @@ Vue.component("report", {
                                         <td>{{ day.totalTasks }}</td>
                                         <td class="text-success">{{ day.completedTasks }}</td>
                                         <td class="text-warning">{{ day.incompleteTasks }}</td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <span class="me-2">{{ day.completionRate }}%</span>
-                                                <div class="progress flex-grow-1" style="height: 8px;">
-                                                    <div class="progress-bar" :style="{ width: day.completionRate + '%' }"></div>
-                                                </div>
-                                            </div>
-                                        </td>
                                         <td :class="day.score >= 0 ? 'text-success' : 'text-danger'">
                                             {{ day.score >= 0 ? '+' : '' }}{{ day.score }}
                                         </td>

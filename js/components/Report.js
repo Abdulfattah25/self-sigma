@@ -20,7 +20,7 @@ Vue.component("report", {
   template: `
         <div class="report-page fade-in">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>📊 Laporan Produktivitas</h2>               
+                <h3>📊 Laporan Produktivitas</h3>               
             </div>
             
              <div class="d-flex align-items-center gap-2 mb-3">
@@ -46,18 +46,18 @@ Vue.component("report", {
                 <!-- Summary Cards -->
                 <div class="row g-3 mb-4">
                     <div class="col-6 col-md-3">
-                        <div class="card report-metric metric-primary text-white border-0 h-100">
+                        <div class="card report-metric metric-primary text-dark border-0 h-100">
                             <div class="card-body text-center py-3">
                                 <div class="fs-5 fw-bold">{{ monthlyData.totalTasks }}</div>
-                                <small class="text-white-50">Total Task</small>
+                                <small class="text-muted">Total Task</small>
                             </div>
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <div class="card report-metric metric-success text-white border-0 h-100">
+                        <div class="card report-metric metric-success text-dark border-0 h-100">
                             <div class="card-body text-center py-3">
                                 <div class="fs-5 fw-bold">{{ monthlyData.completedTasks }}</div>
-                                <small class="text-white-50">Task Selesai</small>
+                                <small class="text-muted">Task Selesai</small>
                             </div>
                         </div>
                     </div>
@@ -70,12 +70,12 @@ Vue.component("report", {
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <div class="card report-metric metric-score text-white border-0 h-100">
+                        <div class="card report-metric metric-score text-dark border-0 h-100">
                             <div class="card-body text-center py-3">
                                 <div class="fs-5 fw-bold" :class="monthlyData.totalScore >= 0 ? '' : ''">
                                     {{ monthlyData.totalScore >= 0 ? '+' : '' }}{{ monthlyData.totalScore }}
                                 </div>
-                                <small class="text-white-50">Total Skor</small>
+                                <small class="text-muted">Total Skor</small>
                             </div>
                         </div>
                     </div>

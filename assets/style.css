@@ -90,16 +90,19 @@ body {
 }
 
 .task-item {
-  transition: all 0.3s ease;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   backdrop-filter: saturate(120%) blur(0px);
   border-radius: 10px;
+  position: relative;
+  will-change: transform, background-color, box-shadow;
 }
 
 .task-item:hover {
-  background-color: rgba(13, 110, 253, 0.04);
-  transform: scale(1.1);
+  background-color: rgba(13, 110, 253, 0.06);
+  /* Hindari perubahan ukuran yang memicu layout shift */
+  transform: translateY(-2px);
   z-index: 10;
-  position: relative;
+  box-shadow: 0 8px 20px rgba(13, 110, 253, 0.12);
 }
 
 /* Score Styling */
@@ -250,6 +253,25 @@ body {
   max-width: 100%;
 }
 
+/* Responsive: Calendar Heatmap on Mobile */
+@media (max-width: 576px) {
+  .calendar-heatmap {
+    width: 100%;
+  }
+  /* Setiap baris minggu tetap 7 kolom, membagi lebar sama rata */
+  .calendar-heatmap .d-flex {
+    width: 100%;
+  }
+  .calendar-day {
+    /* Bagi rata 7 kolom: kurangi total gap (6 * 4px) dari 100% */
+    flex: 1 1 calc((100% - 24px) / 7);
+    width: auto;
+    height: auto;
+    aspect-ratio: 1 / 1; /* tetap kotak */
+    font-size: 0.7rem;
+  }
+}
+
 /* Plant scene */
 .plant-scene-wrap {
   border-radius: 12px;
@@ -363,5 +385,85 @@ body {
   .report-page .form-select {
     height: 36px;
     padding: 4px 8px;
+  }
+}
+
+/* Responsive typography: improve readability on mobile */
+@media (max-width: 576px) {
+  html,
+  body {
+    font-size: 15px;
+  }
+
+  h1 {
+    font-size: 1.75rem;
+  }
+  h2 {
+    font-size: 1.35rem;
+  }
+  h3 {
+    font-size: 1.2rem;
+  }
+  h4 {
+    font-size: 1.05rem;
+  }
+  h5 {
+    font-size: 0.95rem;
+  }
+  h6 {
+    font-size: 0.9rem;
+  }
+
+  .card .card-title {
+    font-size: 1rem;
+  }
+  .card .card-header h5 {
+    font-size: 1.05rem;
+  }
+
+  .navbar-brand {
+    font-size: 1rem;
+  }
+  .navbar .nav-link {
+    font-size: 0.9rem;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .btn {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.65rem;
+  }
+  .btn.btn-lg {
+    font-size: 1rem;
+    padding: 0.5rem 0.85rem;
+  }
+
+  .form-control,
+  .form-select {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.5rem;
+  }
+
+  .badge {
+    font-size: 0.7rem;
+  }
+  .badge-sm {
+    font-size: 0.7rem;
+  }
+
+  .stats-number {
+    font-size: 1.5rem;
+  }
+  .display-5,
+  .display-6 {
+    font-size: 1.5rem;
+  }
+
+  .table {
+    font-size: 0.9rem;
+  }
+
+  .mobile-bottom-nav .mobile-nav-item {
+    font-size: 0.7rem;
   }
 }

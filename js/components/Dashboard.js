@@ -12,6 +12,7 @@ Vue.component("dashboard", {
       chartInstance: null,
       chartRangeDays: 7, // 7 atau 30
       templateTargetCount: 0,
+      canPlayVideo: true,
     };
   },
   template: `
@@ -38,8 +39,12 @@ Vue.component("dashboard", {
                             </span>
                         </div>
                         <div class="card-body">
-                            <div class="plant-scene-wrap">
-                                <img :src="plantSceneSrc" alt="Ilustrasi tingkat produktivitas" class="plant-scene img-fluid rounded"/>
+              <div class="plant-scene-wrap">
+                <video v-if="plantIsVideo && canPlayVideo" class="plant-scene w-100 rounded" :key="plantSceneSrc" autoplay muted loop playsinline preload="auto" @error="canPlayVideo=false">
+                                  <source :src="plantSceneSrc" type="video/mp4" />
+                                  Browser Anda tidak mendukung video.
+                                </video>
+                <img v-else :src="plantIsVideo ? plantFallbackImageSrc : plantSceneSrc" alt="Ilustrasi tingkat produktivitas" class="plant-scene img-fluid rounded"/>
                             </div>
                             <small class="text-muted d-block mt-2">Ilustrasi berubah sesuai persentase penyelesaian tugas dari template.</small>
                         </div>
@@ -148,14 +153,32 @@ Vue.component("dashboard", {
       const scene = this.sceneFor(p);
       return `assets/plants/${scene}`;
     },
+    plantIsVideo() {
+      return this.plantSceneSrc.toLowerCase().endsWith(".mp4");
+    },
+    plantFallbackImageSrc() {
+      // Mapping fallback untuk kasus khusus plant0.mp4 -> plant-0-dead.png
+      const src = this.plantSceneSrc;
+      if (src.toLowerCase().endsWith("plant0.mp4")) {
+        return "assets/plants/plant-0-dead.png";
+      }
+      // Fallback umum: ganti ekstensi .mp4 menjadi .png (jika ada)
+      return src.replace(/\.mp4$/i, ".png");
+    },
+  },
+  watch: {
+    plantSceneSrc() {
+      // Reset agar mencoba memutar video saat sumber berubah
+      this.canPlayVideo = true;
+    },
   },
   methods: {
     sceneFor(percent) {
-      if (percent <= 10) return 'plant-0-dead.png';
-      if (percent <= 25) return 'plant-1-wilted.png';
-      if (percent <= 50) return 'plant-2-growing.png';
-      if (percent <= 89) return 'plant-3-better.png';
-      return 'plant-4-perfect.png';
+      if (percent <= 10) return "plant0.mp4";
+      if (percent <= 25) return "plant-1-wilted.png";
+      if (percent <= 50) return "plant-2-growing.png";
+      if (percent <= 89) return "plant-3-better.png";
+      return "plant-4-perfect.png";
     },
     async loadDashboardData() {
       try {

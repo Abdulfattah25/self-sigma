@@ -16,10 +16,10 @@ Vue.component("task-manager", {
   template: `
         <div class="fade-in">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>🎯 Task Manager</h2>
+                <h3>🎯 Task Manager</h3>
                 <button class="btn btn-primary btn-icon" @click="toggleAddForm">
                     <i class="bi" :class="showAddForm ? 'bi-x' : 'bi-plus-lg'"></i>
-                    {{ showAddForm ? 'Tutup Form' : 'Tambah Template Task' }}
+                    {{ showAddForm ? 'Tutup' : 'Add' }}
                 </button>
             </div>
 
@@ -147,6 +147,32 @@ Vue.component("task-manager", {
         this.loading = false;
       }
     },
+    async ensureTodayInstanceForTemplate(template) {
+      const today = new Date().toISOString().split("T")[0];
+      // Cek apakah instance untuk template ini sudah ada hari ini
+      const { data: existing, error: eErr } = await this.supabase
+        .from("daily_tasks_instance")
+        .select("id")
+        .eq("user_id", this.user.id)
+        .eq("date", today)
+        .eq("task_id", template.id)
+        .limit(1);
+      if (eErr) throw eErr;
+      if (existing && existing.length > 0) return; // sudah ada
+      // Insert instance baru untuk hari ini
+      const { error: iErr } = await this.supabase.from("daily_tasks_instance").insert([
+        {
+          user_id: this.user.id,
+          task_id: template.id,
+          task_name: template.task_name,
+          priority: template.priority,
+          category: template.category,
+          date: today,
+          is_completed: false,
+        },
+      ]);
+      if (iErr && iErr.code !== "23505") throw iErr;
+    },
 
     toggleAddForm() {
       this.showAddForm = !this.showAddForm;
@@ -207,6 +233,18 @@ Vue.component("task-manager", {
           if (error) throw error;
 
           this.templates.unshift(data[0]);
+          // Buat instance untuk hari ini agar langsung muncul di Checklist
+          try {
+            await this.ensureTodayInstanceForTemplate(data[0]);
+          } catch (e) {
+            console.warn("Gagal membuat instance hari ini untuk template baru:", e.message);
+          }
+          // Beritahu komponen lain (Checklist) bahwa ada template baru
+          try {
+            window.dispatchEvent(new CustomEvent("template-added", { detail: { template: data[0] } }));
+          } catch (_) {
+            /* noop */
+          }
           alert("Template task berhasil ditambahkan!");
         }
 

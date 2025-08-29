@@ -18,72 +18,21 @@ Vue.component("checklist", {
   },
   template: `
         <div class="fade-in">
-            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
                 <div>
-                    <h2>✅ Checklist Hari Ini</h2>
+                    <h3>✅ Checklist Hari Ini</h3>
                     <small class="text-muted">{{ formatDate(today) }}</small>
                 </div>
-                <div class="text-end">
+            </div>
+            
+            <div class="text-start mb-2 mt-0">
                     <div class="d-flex flex-column align-items-end">
                         <div class="badge bg-primary fs-6 mb-2">{{ completedCount }} / {{ totalCount }} selesai</div>
-                        <div class="progress" style="width: 220px;">
+                        <div class="progress" style="width: 100%;">
                             <div class="progress-bar" :style="{ width: progressPercentage + '%' }"></div>
                         </div>
                         <small class="mt-1 text-muted">Skor hari ini: <strong :class="todayScoreDb>=0 ? 'text-success' : 'text-danger'">{{ todayScoreDb>=0?'+':'' }}{{ todayScoreDb }}</strong></small>
                     </div>
-                </div>
-            </div>
-
-            <!-- Filters -->
-            <div class="card mb-3">
-                <div class="card-body">
-                    <div class="row g-2 align-items-end">
-                        <div class="col-md-3">
-                            <label class="form-label mb-1">Prioritas</label>
-                            <select class="form-select" v-model="filterPriority">
-                                <option value="all">Semua</option>
-                                <option value="tinggi">Tinggi</option>
-                                <option value="sedang">Sedang</option>
-                                <option value="rendah">Rendah</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label mb-1">Kategori</label>
-                            <select class="form-select" v-model="filterCategory">
-                                <option value="all">Semua</option>
-                                <option v-for="cat in categoriesList" :key="cat" :value="cat">{{ cat || 'Tanpa Kategori' }}</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label mb-1">Cari</label>
-                            <input type="text" class="form-control" v-model.trim="searchText" placeholder="Cari nama task...">
-                        </div>
-                        <div class="col-md-2 d-flex gap-2">
-                            <button class="btn btn-outline-secondary w-100" @click="loadTodayTasks" title="Refresh">🔄 Refresh</button>
-                            <button class="btn btn-outline-primary w-100" @click="syncFromTemplates" title="Sinkron dari Template">🧩 Sinkron</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Add Ad-hoc Task -->
-            <div class="card mb-4">
-                <div class="card-body">
-                    <div class="row align-items-end">
-                        <div class="col-md-8">
-                            <label class="form-label">Tambah Task Tambahan (Tidak dari Template)</label>
-                            <input type="text" class="form-control" v-model="newAdHocTask" 
-                                   placeholder="Contoh: Meeting dengan klien" 
-                                   @keyup.enter="addAdHocTask">
-                        </div>
-                        <div class="col-md-4">
-                            <button class="btn btn-outline-primary w-100" @click="addAdHocTask" 
-                                    :disabled="!newAdHocTask.trim()">
-                                + Tambah Task
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- Tasks List -->
@@ -100,57 +49,79 @@ Vue.component("checklist", {
                         <p>📝 Belum ada task untuk hari ini.</p>
                         <p>Task dari template akan otomatis muncul, atau Anda bisa menambah task tambahan di atas.</p>
                     </div>
-                    <div v-else class="task-list">
-                        <div v-for="task in sortedTasks" :key="task.id" class="task-item d-flex align-items-center p-3 mb-3 border rounded"
-                             :class="[ task.is_completed ? 'task-completed bg-light' : '', 'priority-' + (task.priority || 'sedang') ]">
-                            <div class="form-check me-3">
-                                <input class="form-check-input form-check-input-lg" type="checkbox" :id="'task-' + task.id" :checked="task.is_completed" @change="toggleTask(task)" :disabled="loading">
-                            </div>
-                            
-                            <div class="flex-grow-1">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <h6 class="mb-1" :class="task.is_completed ? 'text-muted' : ''">
-                                            {{ task.task_name }}
-                                        </h6>
-                                        <div class="d-flex gap-2 align-items-center">
-                                            <span v-if="task.priority" 
-                                                  class="badge badge-sm" 
-                                                  :class="getPriorityBadgeClass(task.priority)">
-                                                {{ task.priority }}
-                                            </span>
-                                            <span v-if="task.category" 
-                                                  class="badge bg-light text-dark badge-sm">
-                                                {{ task.category }}
-                                            </span>
-                                            <span v-if="!task.task_id" 
-                                                  class="badge bg-info text-white badge-sm">
-                                                Ad-hoc
-                                            </span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="text-end">
-                                        <small v-if="task.is_completed && task.checked_at" class="text-success d-block">
-                                            ✅ {{ formatTime(task.checked_at) }}
-                                        </small>
-                                        <button v-if="!task.task_id" 
-                                                class="btn btn-sm btn-outline-danger mt-1"
-                                                @click="deleteAdHocTask(task.id)"
-                                                title="Hapus task ad-hoc">
-                                            🗑️
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+          <div v-else class="task-list">
+            <div class="row">
+              <div v-for="task in sortedTasks" :key="task.id" class="col-12 col-md-4">
+                <div class="task-item d-flex align-items-center p-3 mb-3 border rounded"
+                   :class="[ task.is_completed ? 'task-completed bg-light' : '', 'priority-' + (task.priority || 'sedang') ]">
+                  <div class="form-check me-3">
+                    <input class="form-check-input form-check-input-lg" type="checkbox" :id="'task-' + task.id" :checked="task.is_completed" @change="toggleTask(task)" :disabled="loading">
+                  </div>
+                  <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-start">
+                      <div>
+                        <h6 class="mb-1" :class="task.is_completed ? 'text-muted' : ''">
+                          {{ task.task_name }}
+                        </h6>
+                        <div class="d-flex gap-2 align-items-center">
+                          <span v-if="task.priority" 
+                              class="badge badge-sm" 
+                              :class="getPriorityBadgeClass(task.priority)">
+                            {{ task.priority }}
+                          </span>
+                          <span v-if="task.category" 
+                              class="badge bg-light text-dark badge-sm">
+                            {{ task.category }}
+                          </span>
+                          <span v-if="!task.task_id" 
+                              class="badge bg-info text-white badge-sm">
+                            Ad-hoc
+                          </span>
+                        </div>
+                      </div>
+                      <div class="text-end">
+                        <small v-if="task.is_completed && task.checked_at" class="text-success d-block">
+                          ✅ {{ formatTime(task.checked_at) }}
+                        </small>
+                        <button v-if="!task.task_id" 
+                            class="btn btn-sm btn-outline-danger mt-1"
+                            @click="deleteAdHocTask(task.id)"
+                            title="Hapus task ad-hoc">
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+                </div>
+            </div>
+
+            <!-- Add Ad-hoc Task -->
+            <div class="card mt-2">
+                <div class="card-body">
+                    <div class="row align-items-end">
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label">Tambah Task Tambahan (Tidak dari Template)</label>
+                            <input type="text" class="form-control" v-model="newAdHocTask" 
+                                   placeholder="Contoh: Meeting dengan klien" 
+                                   @keyup.enter="addAdHocTask">
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-outline-primary w-100" @click="addAdHocTask" 
+                                    :disabled="!newAdHocTask.trim()">
+                                + Tambah Task
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Daily Summary -->
-            <div class="row mt-4">
-                <div class="col-md-6">
+            <div class="row mt-2">
+                <div class="col-md-6 mb-2">
                     <div class="card">
                         <div class="card-body text-center">
                             <h5 class="card-title">🎯 Progress Hari Ini</h5>
@@ -161,7 +132,7 @@ Vue.component("checklist", {
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-6 mb-2">
                     <div class="card">
                         <div class="card-body text-center">
                             <h5 class="card-title">⚡ Skor Hari Ini</h5>
@@ -208,6 +179,44 @@ Vue.component("checklist", {
   },
   async mounted() {
     await this.initializeTodayTasks();
+    // Dengarkan event template baru agar langsung muncul tanpa refresh manual
+    this._onTemplateAdded = async (ev) => {
+      try {
+        const tpl = ev.detail?.template;
+        if (!tpl) return;
+        const today = this.today;
+        // Ambil instance yang baru dibuat untuk hari ini
+        const { data, error } = await this.supabase
+          .from("daily_tasks_instance")
+          .select("*")
+          .eq("user_id", this.user.id)
+          .eq("date", today)
+          .eq("task_id", tpl.id)
+          .limit(1);
+        if (error) throw error;
+        const instance = data && data[0];
+        if (instance) {
+          // Tambahkan ke list lokal jika belum ada
+          const exists = this.todayTasks.some((t) => t.id === instance.id);
+          if (!exists) {
+            this.todayTasks.push(instance);
+            this.updateCounts();
+            await this.loadTodayScore();
+          }
+        } else {
+          // fallback: reload semua task
+          await this.loadTodayTasks();
+        }
+      } catch (e) {
+        console.warn("Gagal memproses event template-added:", e.message);
+      }
+    };
+    window.addEventListener("template-added", this._onTemplateAdded);
+  },
+  beforeDestroy() {
+    if (this._onTemplateAdded) {
+      window.removeEventListener("template-added", this._onTemplateAdded);
+    }
   },
   methods: {
     async initializeTodayTasks() {
@@ -511,7 +520,7 @@ Vue.component("checklist", {
       if (score >= 5) return "🏆 Produktivitas tinggi!";
       if (score >= 3) return "⭐ Performa bagus!";
       if (score >= 1) return "👍 Terus tingkatkan!";
-      if (score === 0) return "⚖️ Seimbang, bisa lebih baik!";
+      if (score === 0) return "⚖️ Terus lanjutkan, bisa lebih baik!";
       return "📈 Fokus pada penyelesaian task!";
     },
   },

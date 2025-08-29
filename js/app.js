@@ -49,12 +49,17 @@ new Vue({
 
         // Listener perubahan auth
         supabaseClient.auth.onAuthStateChange(async (event, session) => {
+          const wasLoggedIn = !!this.user;
           this.session = session;
           this.user = session?.user || null;
           if (event === "SIGNED_IN" && this.user) {
             await this.postLoginBootstrap();
-            this.currentView = "dashboard";
-            this.showToast("Login berhasil", "success");
+            // Hanya ubah tampilan ke dashboard saat transisi dari belum login -> login
+            if (!wasLoggedIn) {
+              this.currentView = "dashboard";
+              this.closeAuthModal();
+              this.showToast("Login berhasil", "success");
+            }
           }
           if (event === "SIGNED_OUT") {
             this.currentView = "dashboard";
@@ -214,6 +219,8 @@ new Vue({
         password: this.authForm.password,
       });
       if (error) throw error;
+      // Pastikan modal login tertutup setelah berhasil login
+      this.closeAuthModal();
       this.resetAuthForm();
     },
 
@@ -288,6 +295,17 @@ new Vue({
         const t = new bootstrap.Toast(toastEl, { delay });
         toastEl.addEventListener("hidden.bs.toast", () => toastEl.remove());
         t.show();
+      } catch (_) {
+        /* noop */
+      }
+    },
+    // Helper untuk menutup modal auth (Bootstrap 5)
+    closeAuthModal() {
+      try {
+        const modalEl = document.getElementById("authModal");
+        if (!modalEl) return;
+        const instance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        instance.hide();
       } catch (_) {
         /* noop */
       }

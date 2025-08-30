@@ -12,7 +12,10 @@ Vue.component("dashboard", {
       chartInstance: null,
       chartRangeDays: 7, // 7 atau 30
       templateTargetCount: 0,
-      canPlayVideo: true,
+
+      // Hutan virtual
+      forestTrees: [],           // [{date:'YYYY-MM-DD', percent:number}, ...]
+      forestDaysRange: 21        // rentang hari yang ditampilkan di grid hutan
     };
   },
   template: `
@@ -28,31 +31,7 @@ Vue.component("dashboard", {
                 </div>
             </div>
 
-            <!-- Plant Scene Section -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">🌱 Taman Produktivitas</h5>
-                            <span class="badge" :class="templateTargetCount > 0 ? 'bg-success' : 'bg-secondary'">
-                                {{ completionPercent }}%
-                            </span>
-                        </div>
-                        <div class="card-body">
-              <div class="plant-scene-wrap">
-                <video v-if="plantIsVideo && canPlayVideo" class="plant-scene w-100 rounded" :key="plantSceneSrc" autoplay muted loop playsinline preload="auto" @error="canPlayVideo=false">
-                                  <source :src="plantSceneSrc" type="video/mp4" />
-                                  Browser Anda tidak mendukung video.
-                                </video>
-                <img v-else :src="plantIsVideo ? plantFallbackImageSrc : plantSceneSrc" alt="Ilustrasi tingkat produktivitas" class="plant-scene img-fluid rounded"/>
-                            </div>
-                            <small class="text-muted d-block mt-2">Ilustrasi berubah sesuai persentase penyelesaian tugas dari template.</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row mb-4">
+            <div class="row mb-2">
                 <div class="col-md-6 mb-3">
                     <div class="card stats-card">
                         <div class="card-header">
@@ -95,7 +74,12 @@ Vue.component("dashboard", {
                 </div>
             </div>
 
-            
+            <!-- Forest Section -->
+            <div class="row mb-4">
+                <div class="col-12">
+                  <forest-panel :today-percent="todayPercent" :trees="forestTrees"></forest-panel>
+                </div>
+            </div>
 
             <div class="row">
                 <div class="col-md-8 mb-4">
@@ -122,7 +106,7 @@ Vue.component("dashboard", {
                                 🎉 Semua tugas hari ini sudah selesai!
                             </div>
                             <div v-else>
-                                <div v-for="task in incompleteTasks" :key="task.id" 
+                                <div v-for="task in sortedIncompleteTasks" :key="task.id" 
                                      class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded"
                                      :class="'priority-' + (task.priority || 'sedang')">
                                     <div>
@@ -141,50 +125,29 @@ Vue.component("dashboard", {
   async mounted() {
     await this.loadDashboardData();
     await this.loadScoresRange(this.chartRangeDays);
+    await this.loadForestData(this.forestDaysRange);
     this.renderChart();
   },
   computed: {
-    completionPercent() {
-      // Gunakan rasio yang sudah dihitung dari template; fallback ke 0
+    // Persentase pohon untuk hari ini
+    todayPercent() {
       return this.templateTargetCount > 0 ? this.completionRatio : 0;
     },
-    plantSceneSrc() {
-      const p = this.completionPercent;
-      const scene = this.sceneFor(p);
-      return `assets/plants/${scene}`;
-    },
-    plantIsVideo() {
-      return this.plantSceneSrc.toLowerCase().endsWith(".mp4");
-    },
-    plantFallbackImageSrc() {
-      // Mapping fallback untuk kasus khusus plant0.mp4 -> plant-0-dead.png
-      const src = this.plantSceneSrc;
-      if (src.toLowerCase().endsWith("plant0.mp4")) {
-        return "assets/plants/plant-0-dead.png";
-      }
-      // Fallback umum: ganti ekstensi .mp4 menjadi .png (jika ada)
-      return src.replace(/\.mp4$/i, ".png");
-    },
-  },
-  watch: {
-    plantSceneSrc() {
-      // Reset agar mencoba memutar video saat sumber berubah
-      this.canPlayVideo = true;
-    },
+    sortedIncompleteTasks() {
+      const order = { tinggi: 3, sedang: 2, rendah: 1 };
+      return [...(this.incompleteTasks || [])].sort((a, b) => {
+        const ap = order[a.priority || "sedang"] || 2;
+        const bp = order[b.priority || "sedang"] || 2;
+        return bp - ap; // tinggi -> sedang -> rendah
+      });
+    }
   },
   methods: {
-    sceneFor(percent) {
-      if (percent <= 10) return "plant0.mp4";
-      if (percent <= 25) return "plant-1-wilted.png";
-      if (percent <= 50) return "plant-2-growing.png";
-      if (percent <= 89) return "plant-3-better.png";
-      return "plant-4-perfect.png";
-    },
     async loadDashboardData() {
       try {
-        const today = new Date().toISOString().split("T")[0];
+  const today = (window.WITA && window.WITA.today) ? window.WITA.today() : new Date().toISOString().slice(0,10);
 
-        // Skor hari ini (score_log) sekali query
+        // Skor hari ini
         const { data: todayScoreData } = await this.supabase
           .from("score_log")
           .select("score_delta")
@@ -208,7 +171,7 @@ Vue.component("dashboard", {
         this.todayTasks = todayTasksData || [];
         this.incompleteTasks = this.todayTasks.filter((t) => !t.is_completed);
 
-        // Rasio selesai vs target (hanya yang dari template)
+        // Rasio selesai vs target (hanya dari template/ada task_id)
         const templateTasks = this.todayTasks.filter((t) => !!t.task_id);
         this.templateTargetCount = templateTasks.length;
         if (templateTasks.length > 0) {
@@ -225,13 +188,63 @@ Vue.component("dashboard", {
       }
     },
 
+    // Mengisi data untuk hutan virtual pada rentang hari tertentu
+    async loadForestData(days) {
+      try {
+        // Build WITA-aware start/end date-only strings
+              const endStr = (window.WITA && window.WITA.today) ? window.WITA.today() : new Date().toISOString().slice(0,10);
+              const startStr = (window.WITA && window.WITA.advanceIso) ? window.WITA.advanceIso(endStr, -(days - 1)) : endStr;
+
+        // Ambil semua instance tugas dalam rentang (hanya field yang diperlukan)
+        const { data, error } = await this.supabase
+          .from("daily_tasks_instance")
+          .select("date, is_completed, task_id")
+          .eq("user_id", this.user.id)
+          .gte("date", startStr)
+          .lte("date", endStr);
+
+        if (error) throw error;
+
+        // Prefill semua tanggal agar hari tanpa tugas tetap muncul (0%)
+        const counters = new Map();
+        for (let i = 0; i < days; i++) {
+          const key = (window.WITA && window.WITA.advanceIso)
+            ? window.WITA.advanceIso(startStr, i)
+            : new Date(Date.parse(startStr) + i * 86400000).toISOString().slice(0, 10);
+          counters.set(key, { done: 0, total: 0 });
+        }
+
+        // Hitung hanya tugas yang berasal dari template (memiliki task_id)
+        (data || []).forEach((row) => {
+          if (!row.task_id) return;
+          const key = row.date;
+          const c = counters.get(key) || { done: 0, total: 0 };
+          c.total += 1;
+          if (row.is_completed) c.done += 1;
+          counters.set(key, c);
+        });
+
+        // Bentuk array untuk komponen hutan
+        const treesAsc = [];
+        counters.forEach((c, dateStr) => {
+          const percent = c.total > 0 ? Math.round((c.done / c.total) * 100) : 0;
+          treesAsc.push({ date: dateStr, percent });
+        });
+
+        // Urutkan terbaru duluan (biar grid bagian awal menampilkan hari-hari terakhir)
+        treesAsc.sort((a, b) => (a.date < b.date ? 1 : -1));
+
+        this.forestTrees = treesAsc;
+      } catch (e) {
+        console.error("Error loadForestData:", e);
+        this.forestTrees = [];
+      }
+    },
+
     async loadScoresRange(days) {
       try {
-        const end = new Date();
-        const start = new Date();
-        start.setDate(end.getDate() - (days - 1));
-        const startStr = start.toISOString().split("T")[0];
-        const endStr = end.toISOString().split("T")[0];
+        const endStr = (window.WITA && window.WITA.today) ? window.WITA.today() : new Date().toISOString().slice(0,10);
+        const startStr = (window.WITA && window.WITA.advanceIso) ? window.WITA.advanceIso(endStr, -(days - 1)) : endStr;
 
         const { data, error } = await this.supabase
           .from("score_log")
@@ -244,9 +257,8 @@ Vue.component("dashboard", {
         // Agregasi skor per hari
         const map = new Map();
         for (let i = 0; i < days; i++) {
-          const d = new Date(start);
-          d.setDate(start.getDate() + i);
-          map.set(d.toISOString().split("T")[0], 0);
+          const key = (window.WITA && window.WITA.advanceIso) ? window.WITA.advanceIso(startStr, i) : startStr;
+          map.set(key, 0);
         }
         (data || []).forEach((r) => {
           map.set(r.date, (map.get(r.date) || 0) + (r.score_delta || 0));
@@ -289,19 +301,19 @@ Vue.component("dashboard", {
                 borderColor: "#0d6efd",
                 backgroundColor: "rgba(13, 110, 253, 0.1)",
                 tension: 0.35,
-                fill: true,
-              },
-            ],
+                fill: true
+              }
+            ]
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
               y: { beginAtZero: true, grid: { color: "rgba(0,0,0,0.08)" } },
-              x: { grid: { color: "rgba(0,0,0,0.04)" } },
+              x: { grid: { color: "rgba(0,0,0,0.04)" } }
             },
-            plugins: { legend: { display: false } },
-          },
+            plugins: { legend: { display: false } }
+          }
         });
       });
     },
@@ -309,6 +321,6 @@ Vue.component("dashboard", {
     getPriorityBadgeClass(priority) {
       const classes = { tinggi: "bg-danger", sedang: "bg-warning text-dark", rendah: "bg-success" };
       return classes[priority] || "bg-secondary";
-    },
-  },
+    }
+  }
 });

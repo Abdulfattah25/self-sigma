@@ -4,7 +4,7 @@ Vue.component("checklist", {
     return {
       todayTasks: [],
       loading: false,
-      today: new Date().toISOString().split("T")[0],
+  today: (window.WITA && window.WITA.today) ? window.WITA.today() : new Date().toISOString().slice(0,10),
       completedCount: 0,
       totalCount: 0,
       newAdHocTask: "",
@@ -261,7 +261,7 @@ Vue.component("checklist", {
         this.loading = true;
 
         // First, check if today's tasks already exist
-        const { data: existingTasks } = await this.supabase
+  const { data: existingTasks } = await this.supabase
           .from("daily_tasks_instance")
           .select("*")
           .eq("user_id", this.user.id)
@@ -404,7 +404,8 @@ Vue.component("checklist", {
     async toggleTask(task) {
       try {
         const newStatus = !task.is_completed;
-        const now = new Date().toISOString();
+  // Keep full timestamp in UTC for checked_at, date-only uses WITA elsewhere
+  const now = new Date().toISOString();
 
         const { error } = await this.supabase
           .from("daily_tasks_instance")

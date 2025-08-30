@@ -199,7 +199,7 @@ Vue.component("task-manager", {
       }
     },
     async ensureTodayInstanceForTemplate(template) {
-      const today = new Date().toISOString().split("T")[0];
+      const today = (window.WITA && window.WITA.today) ? window.WITA.today() : new Date().toISOString().slice(0,10);
       // Cek apakah instance untuk template ini sudah ada hari ini
       const { data: existing, error: eErr } = await this.supabase
         .from("daily_tasks_instance")
@@ -298,7 +298,7 @@ Vue.component("task-manager", {
 
             // Propagate changes to today's instance so Checklist updates immediately
             try {
-              const today = new Date().toISOString().split("T")[0];
+              const today = (window.WITA && window.WITA.today) ? window.WITA.today() : new Date().toISOString().slice(0,10);
               await this.supabase
                 .from("daily_tasks_instance")
                 .update({

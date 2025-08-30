@@ -2,8 +2,8 @@ Vue.component("report", {
   props: ["user", "supabase"],
   data() {
     return {
-      currentMonth: new Date().getMonth(),
-      currentYear: new Date().getFullYear(),
+  currentMonth: (window.WITA && window.WITA.nowParts ? window.WITA.nowParts().month - 1 : new Date().getMonth()),
+  currentYear: (window.WITA && window.WITA.nowParts ? window.WITA.nowParts().year : new Date().getFullYear()),
       monthlyData: {
         totalTasks: 0,
         completedTasks: 0,
@@ -81,96 +81,101 @@ Vue.component("report", {
                     </div>
                 </div>
 
-                <!-- Completion Rate (full width) -->
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <div class="card report-card border-0 shadow-sm">
-                            <div class="card-header bg-white">
-                                <h5 class="mb-0">📈 Tingkat Penyelesaian</h5>
-                            </div>
-                            <div class="card-body text-center">
-                                <div class="display-5 mb-3" :class="completionRate >= 80 ? 'text-success' : completionRate >= 60 ? 'text-warning' : 'text-danger'">
-                                    {{ completionRate }}%
-                                </div>
-                                <div class="progress mb-2" style="height: 10px;">
-                                    <div class="progress-bar" :class="completionRate >= 80 ? 'bg-success' : completionRate >= 60 ? 'bg-warning' : 'bg-danger'" 
-                                         :style="{ width: completionRate + '%' }" role="progressbar" :aria-valuenow="completionRate" aria-valuemin="0" aria-valuemax="100"></div>
-                                </div>
-                                <p class="text-muted mb-0">{{ getCompletionMessage() }}</p>
-                            </div>
+                <!-- Combined section: Completion Rate, Calendar, Daily Details -->
+                <div class="row mb-4 gy-4">
+                  <!-- Completion Rate -->
+                  <div class="col-12 col-lg-4 order-lg-3">
+                    <div class="card report-card border-0 shadow-sm">
+                      <div class="card-header bg-white">
+                        <h5 class="mb-0">📈 Tingkat Penyelesaian</h5>
+                      </div>
+                      <div class="card-body text-center">
+                        <div class="display-5 mb-3" :class="completionRate >= 80 ? 'text-success' : completionRate >= 60 ? 'text-warning' : 'text-danger'">
+                          {{ completionRate }}%
                         </div>
+                        <div class="progress mb-2" style="height: 10px;">
+                          <div class="progress-bar" :class="completionRate >= 80 ? 'bg-success' : completionRate >= 60 ? 'bg-warning' : 'bg-danger'"
+                               :style="{ width: completionRate + '%' }" role="progressbar" :aria-valuenow="completionRate" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <p class="text-muted mb-0">{{ getCompletionMessage() }}</p>
+                      </div>
                     </div>
-                </div>
+                  </div>
 
-                <!-- Calendar Heatmap -->
-                <div class="card mb-4 report-card border-0 shadow-sm">
-                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                  <!-- Calendar Heatmap -->
+                  <div class="col-12 col-lg-4 order-lg-2">
+                    <div class="card report-card border-0 shadow-sm">
+                      <div class="card-header bg-white d-flex justify-content-between align-items-center">
                         <div>
                           <h5 class="mb-0">🗓️ Kalender Produktivitas</h5>
                           <small class="text-muted">Warna lebih gelap = produktivitas lebih tinggi</small>
                         </div>
                         <div class="d-none d-md-block small text-muted">Bulan: {{ monthNames[currentMonth] }} {{ currentYear }}</div>
-                    </div>
-                    <div class="card-body">
+                      </div>
+                      <div class="card-body">
                         <div class="calendar-heatmap">
-                            <div class="row">
-                                <div v-for="week in calendarWeeks" :key="week.weekNumber" class="col-12 mb-2">
-                                    <div class="d-flex gap-1">
-                                        <div v-for="day in week.days" :key="day.date" 
-                                             class="calendar-day" 
-                                             :class="getHeatmapClass(day.score)"
-                                             :title="getHeatmapTooltip(day)">
-                                            {{ day.day }}
-                                        </div>
-                                    </div>
+                          <div class="row">
+                            <div v-for="week in calendarWeeks" :key="week.weekNumber" class="col-12 mb-2">
+                              <div class="d-flex gap-1">
+                                <div v-for="day in week.days" :key="day.date"
+                                     class="calendar-day"
+                                     :class="getHeatmapClass(day.score)"
+                                     :title="getHeatmapTooltip(day)">
+                                  {{ day.day }}
                                 </div>
+                              </div>
                             </div>
-                            <div class="mt-3 d-flex align-items-center gap-2">
-                                <small class="text-muted">Kurang</small>
-                                <div class="heatmap-legend d-flex gap-1">
-                                    <div class="legend-item heatmap-0"></div>
-                                    <div class="legend-item heatmap-1"></div>
-                                    <div class="legend-item heatmap-2"></div>
-                                    <div class="legend-item heatmap-3"></div>
-                                    <div class="legend-item heatmap-4"></div>
-                                </div>
-                                <small class="text-muted">Tinggi</small>
+                          </div>
+                          <div class="mt-3 d-flex align-items-center gap-2">
+                            <small class="text-muted">Kurang</small>
+                            <div class="heatmap-legend d-flex gap-1">
+                              <div class="legend-item heatmap-0"></div>
+                              <div class="legend-item heatmap-1"></div>
+                              <div class="legend-item heatmap-2"></div>
+                              <div class="legend-item heatmap-3"></div>
+                              <div class="legend-item heatmap-4"></div>
                             </div>
+                            <small class="text-muted">Tinggi</small>
+                          </div>
                         </div>
+                      </div>
                     </div>
-                </div>
+                  </div>
 
-                <!-- Detailed Table -->
-                <div class="card report-card border-0 shadow-sm">
-                    <div class="card-header bg-white text-center">
+                  <!-- Detailed Table -->
+                  <div class="col-12 col-lg-4 order-lg-1">
+                    <div class="card report-card border-0 shadow-sm h-100">
+                      <div class="card-header bg-white text-center">
                         <h5 class="mb-0">📋 Detail Harian</h5>
-                    </div>
-                    <div class="card-body">
+                      </div>
+                      <div class="card-body">
                         <div class="table-responsive">
-                            <table class="table table-striped text-center">
-                                <thead>
-                                    <tr>
-                                        <th>Tanggal</th>
-                                        <th>Total Task</th>
-                                        <th>Selesai</th>
-                                        <th>Belum Selesai</th>
-                                        <th>Skor</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="day in monthlyData.dailyStats" :key="day.date">
-                                        <td>{{ formatDate(day.date) }}</td>
-                                        <td>{{ day.totalTasks }}</td>
-                                        <td class="text-success">{{ day.completedTasks }}</td>
-                                        <td class="text-warning">{{ day.incompleteTasks }}</td>
-                                        <td :class="day.score >= 0 ? 'text-success' : 'text-danger'">
-                                            {{ day.score >= 0 ? '+' : '' }}{{ day.score }}
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                          <table class="table table-striped table-sm text-center">
+                            <thead>
+                              <tr>
+                                <th>Tanggal</th>
+                                <th>Total</th>
+                                <th>Selesai</th>
+                                <th>Belum</th>
+                                <th>Skor</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr v-for="day in monthlyData.dailyStats" :key="day.date">
+                                <td>{{ formatDate(day.date) }}</td>
+                                <td>{{ day.totalTasks }}</td>
+                                <td class="text-success">{{ day.completedTasks }}</td>
+                                <td class="text-warning">{{ day.incompleteTasks }}</td>
+                                <td :class="day.score >= 0 ? 'text-success' : 'text-danger'">
+                                  {{ day.score >= 0 ? '+' : '' }}{{ day.score }}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
                         </div>
+                      </div>
                     </div>
+                  </div>
                 </div>
             </div>
         </div>
@@ -206,8 +211,10 @@ Vue.component("report", {
     calendarWeeks() {
       const year = this.currentYear;
       const month = this.currentMonth;
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
+  const firstDay = new Date(`${year}-${('0'+(month+1)).slice(-2)}-01T00:00:00Z`);
+  const lastDay = new Date(`${year}-${('0'+(month+1)).slice(-2)}-01T00:00:00Z`);
+  lastDay.setUTCMonth(lastDay.getUTCMonth() + 1);
+  lastDay.setUTCDate(0);
 
       const weeks = [];
       let currentWeek = [];
@@ -221,8 +228,8 @@ Vue.component("report", {
 
       // Add all days of the month
       for (let day = 1; day <= lastDay.getDate(); day++) {
-        const date = new Date(year, month, day);
-        const dateStr = date.toISOString().split("T")[0];
+  const date = new Date(Date.UTC(year, month, day));
+  const dateStr = date.toISOString().split("T")[0];
         const dayData = this.monthlyData.dailyStats.find((d) => d.date === dateStr);
 
         currentWeek.push({
@@ -261,8 +268,8 @@ Vue.component("report", {
       try {
         this.loading = true;
 
-        const startDate = new Date(this.currentYear, this.currentMonth, 1).toISOString().split("T")[0];
-        const endDate = new Date(this.currentYear, this.currentMonth + 1, 0).toISOString().split("T")[0];
+  const startDate = (window.WITA && window.WITA.monthStartIso) ? window.WITA.monthStartIso(this.currentYear, this.currentMonth) : new Date(this.currentYear, this.currentMonth, 1).toISOString().slice(0,10);
+  const endDate = (window.WITA && window.WITA.monthEndIso) ? window.WITA.monthEndIso(this.currentYear, this.currentMonth) : new Date(this.currentYear, this.currentMonth + 1, 0).toISOString().slice(0,10);
 
         // Load daily tasks for the month
         const { data: tasksData, error: tasksError } = await this.supabase
@@ -327,10 +334,10 @@ Vue.component("report", {
       // Get all dates in the month
       const year = this.currentYear;
       const month = this.currentMonth;
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 
       for (let day = 1; day <= daysInMonth; day++) {
-        const date = new Date(year, month, day).toISOString().split("T")[0];
+  const date = new Date(Date.UTC(year, month, day)).toISOString().split("T")[0];
         const dayTasks = tasksByDate[date] || [];
         const dayCompleted = dayTasks.filter((t) => t.is_completed).length;
         const dayScore = scoresByDate[date] || 0;

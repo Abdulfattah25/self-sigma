@@ -1,10 +1,10 @@
 // Panel siap pakai untuk Dashboard
-Vue.component('forest-panel', {
+Vue.component("forest-panel", {
   props: {
-    title: { type: String, default: 'Taman Produktivitas' },
+    title: { type: String, default: "Taman Produktivitas" },
     todayPercent: { type: Number, default: null }, // persen hari ini
-    trees: { type: Array, default: () => [] },     // riwayat harian
-    showTodayTile: { type: Boolean, default: true }
+    trees: { type: Array, default: () => [] }, // riwayat harian
+    showTodayTile: { type: Boolean, default: true },
   },
   computed: {
     normalizedTrees() {
@@ -12,14 +12,16 @@ Vue.component('forest-panel', {
       return arr;
     },
     todayTileData() {
-      const todayIso = (window.WITA && window.WITA.today) ? window.WITA.today() : new Date().toISOString().slice(0,10);
-      const pct = Number.isFinite(this.todayPercent) ? this.todayPercent : (this.normalizedTrees.find(t => t.date === todayIso)?.percent ?? 0);
+      const todayIso = window.WITA && window.WITA.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
+      const pct = Number.isFinite(this.todayPercent)
+        ? this.todayPercent
+        : this.normalizedTrees.find((t) => t.date === todayIso)?.percent ?? 0;
       return { date: todayIso, percent: Math.max(0, Math.min(100, pct)) };
     },
     progressLabel() {
       const v = Number.isFinite(this.todayPercent) ? this.todayPercent : this.todayTileData.percent;
       return `${v}%`;
-    }
+    },
   },
   template: `
     <div class="card forest-panel">
@@ -44,5 +46,5 @@ Vue.component('forest-panel', {
         <small class="text-body-secondary d-block mt-2">Ilustrasi berubah sesuai persentase penyelesaian tugas.</small>
       </div>
     </div>
-  `
+  `,
 });

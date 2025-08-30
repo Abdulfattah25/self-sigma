@@ -17,12 +17,12 @@
     const base = Date.now() + OFFSET_MS;
     const target = base - n * 86400000;
     return new Date(target).toISOString().slice(0, 10);
-    }
+  }
 
   // Advance an ISO date string by delta days (works on calendar days)
   function advanceIso(iso, delta) {
     const [y, m, d] = iso.split("-").map((v) => parseInt(v, 10));
-    const dt = new Date(Date.UTC(y, (m - 1), d));
+    const dt = new Date(Date.UTC(y, m - 1, d));
     dt.setUTCDate(dt.getUTCDate() + delta);
     return dt.toISOString().slice(0, 10);
   }

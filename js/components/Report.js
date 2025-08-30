@@ -2,8 +2,8 @@ Vue.component("report", {
   props: ["user", "supabase"],
   data() {
     return {
-  currentMonth: (window.WITA && window.WITA.nowParts ? window.WITA.nowParts().month - 1 : new Date().getMonth()),
-  currentYear: (window.WITA && window.WITA.nowParts ? window.WITA.nowParts().year : new Date().getFullYear()),
+      currentMonth: window.WITA && window.WITA.nowParts ? window.WITA.nowParts().month - 1 : new Date().getMonth(),
+      currentYear: window.WITA && window.WITA.nowParts ? window.WITA.nowParts().year : new Date().getFullYear(),
       monthlyData: {
         totalTasks: 0,
         completedTasks: 0,
@@ -211,10 +211,10 @@ Vue.component("report", {
     calendarWeeks() {
       const year = this.currentYear;
       const month = this.currentMonth;
-  const firstDay = new Date(`${year}-${('0'+(month+1)).slice(-2)}-01T00:00:00Z`);
-  const lastDay = new Date(`${year}-${('0'+(month+1)).slice(-2)}-01T00:00:00Z`);
-  lastDay.setUTCMonth(lastDay.getUTCMonth() + 1);
-  lastDay.setUTCDate(0);
+      const firstDay = new Date(`${year}-${("0" + (month + 1)).slice(-2)}-01T00:00:00Z`);
+      const lastDay = new Date(`${year}-${("0" + (month + 1)).slice(-2)}-01T00:00:00Z`);
+      lastDay.setUTCMonth(lastDay.getUTCMonth() + 1);
+      lastDay.setUTCDate(0);
 
       const weeks = [];
       let currentWeek = [];
@@ -228,8 +228,8 @@ Vue.component("report", {
 
       // Add all days of the month
       for (let day = 1; day <= lastDay.getDate(); day++) {
-  const date = new Date(Date.UTC(year, month, day));
-  const dateStr = date.toISOString().split("T")[0];
+        const date = new Date(Date.UTC(year, month, day));
+        const dateStr = date.toISOString().split("T")[0];
         const dayData = this.monthlyData.dailyStats.find((d) => d.date === dateStr);
 
         currentWeek.push({
@@ -268,8 +268,14 @@ Vue.component("report", {
       try {
         this.loading = true;
 
-  const startDate = (window.WITA && window.WITA.monthStartIso) ? window.WITA.monthStartIso(this.currentYear, this.currentMonth) : new Date(this.currentYear, this.currentMonth, 1).toISOString().slice(0,10);
-  const endDate = (window.WITA && window.WITA.monthEndIso) ? window.WITA.monthEndIso(this.currentYear, this.currentMonth) : new Date(this.currentYear, this.currentMonth + 1, 0).toISOString().slice(0,10);
+        const startDate =
+          window.WITA && window.WITA.monthStartIso
+            ? window.WITA.monthStartIso(this.currentYear, this.currentMonth)
+            : new Date(this.currentYear, this.currentMonth, 1).toISOString().slice(0, 10);
+        const endDate =
+          window.WITA && window.WITA.monthEndIso
+            ? window.WITA.monthEndIso(this.currentYear, this.currentMonth)
+            : new Date(this.currentYear, this.currentMonth + 1, 0).toISOString().slice(0, 10);
 
         // Load daily tasks for the month
         const { data: tasksData, error: tasksError } = await this.supabase
@@ -334,10 +340,10 @@ Vue.component("report", {
       // Get all dates in the month
       const year = this.currentYear;
       const month = this.currentMonth;
-  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+      const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 
       for (let day = 1; day <= daysInMonth; day++) {
-  const date = new Date(Date.UTC(year, month, day)).toISOString().split("T")[0];
+        const date = new Date(Date.UTC(year, month, day)).toISOString().split("T")[0];
         const dayTasks = tasksByDate[date] || [];
         const dayCompleted = dayTasks.filter((t) => t.is_completed).length;
         const dayScore = scoresByDate[date] || 0;

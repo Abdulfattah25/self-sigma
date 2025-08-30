@@ -14,8 +14,8 @@ Vue.component("dashboard", {
       templateTargetCount: 0,
 
       // Hutan virtual
-      forestTrees: [],           // [{date:'YYYY-MM-DD', percent:number}, ...]
-      forestDaysRange: 21        // rentang hari yang ditampilkan di grid hutan
+      forestTrees: [], // [{date:'YYYY-MM-DD', percent:number}, ...]
+      forestDaysRange: 21, // rentang hari yang ditampilkan di grid hutan
     };
   },
   template: `
@@ -140,12 +140,12 @@ Vue.component("dashboard", {
         const bp = order[b.priority || "sedang"] || 2;
         return bp - ap; // tinggi -> sedang -> rendah
       });
-    }
+    },
   },
   methods: {
     async loadDashboardData() {
       try {
-  const today = (window.WITA && window.WITA.today) ? window.WITA.today() : new Date().toISOString().slice(0,10);
+        const today = window.WITA && window.WITA.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
 
         // Skor hari ini
         const { data: todayScoreData } = await this.supabase
@@ -192,8 +192,8 @@ Vue.component("dashboard", {
     async loadForestData(days) {
       try {
         // Build WITA-aware start/end date-only strings
-              const endStr = (window.WITA && window.WITA.today) ? window.WITA.today() : new Date().toISOString().slice(0,10);
-              const startStr = (window.WITA && window.WITA.advanceIso) ? window.WITA.advanceIso(endStr, -(days - 1)) : endStr;
+        const endStr = window.WITA && window.WITA.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
+        const startStr = window.WITA && window.WITA.advanceIso ? window.WITA.advanceIso(endStr, -(days - 1)) : endStr;
 
         // Ambil semua instance tugas dalam rentang (hanya field yang diperlukan)
         const { data, error } = await this.supabase
@@ -208,9 +208,10 @@ Vue.component("dashboard", {
         // Prefill semua tanggal agar hari tanpa tugas tetap muncul (0%)
         const counters = new Map();
         for (let i = 0; i < days; i++) {
-          const key = (window.WITA && window.WITA.advanceIso)
-            ? window.WITA.advanceIso(startStr, i)
-            : new Date(Date.parse(startStr) + i * 86400000).toISOString().slice(0, 10);
+          const key =
+            window.WITA && window.WITA.advanceIso
+              ? window.WITA.advanceIso(startStr, i)
+              : new Date(Date.parse(startStr) + i * 86400000).toISOString().slice(0, 10);
           counters.set(key, { done: 0, total: 0 });
         }
 
@@ -243,8 +244,8 @@ Vue.component("dashboard", {
 
     async loadScoresRange(days) {
       try {
-        const endStr = (window.WITA && window.WITA.today) ? window.WITA.today() : new Date().toISOString().slice(0,10);
-        const startStr = (window.WITA && window.WITA.advanceIso) ? window.WITA.advanceIso(endStr, -(days - 1)) : endStr;
+        const endStr = window.WITA && window.WITA.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
+        const startStr = window.WITA && window.WITA.advanceIso ? window.WITA.advanceIso(endStr, -(days - 1)) : endStr;
 
         const { data, error } = await this.supabase
           .from("score_log")
@@ -257,7 +258,7 @@ Vue.component("dashboard", {
         // Agregasi skor per hari
         const map = new Map();
         for (let i = 0; i < days; i++) {
-          const key = (window.WITA && window.WITA.advanceIso) ? window.WITA.advanceIso(startStr, i) : startStr;
+          const key = window.WITA && window.WITA.advanceIso ? window.WITA.advanceIso(startStr, i) : startStr;
           map.set(key, 0);
         }
         (data || []).forEach((r) => {
@@ -301,19 +302,19 @@ Vue.component("dashboard", {
                 borderColor: "#0d6efd",
                 backgroundColor: "rgba(13, 110, 253, 0.1)",
                 tension: 0.35,
-                fill: true
-              }
-            ]
+                fill: true,
+              },
+            ],
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
               y: { beginAtZero: true, grid: { color: "rgba(0,0,0,0.08)" } },
-              x: { grid: { color: "rgba(0,0,0,0.04)" } }
+              x: { grid: { color: "rgba(0,0,0,0.04)" } },
             },
-            plugins: { legend: { display: false } }
-          }
+            plugins: { legend: { display: false } },
+          },
         });
       });
     },
@@ -321,6 +322,6 @@ Vue.component("dashboard", {
     getPriorityBadgeClass(priority) {
       const classes = { tinggi: "bg-danger", sedang: "bg-warning text-dark", rendah: "bg-success" };
       return classes[priority] || "bg-secondary";
-    }
-  }
+    },
+  },
 });

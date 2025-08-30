@@ -184,11 +184,11 @@ new Vue({
     setDailyQuote() {
       if (!DAILY_QUOTES.length) return;
       // Use WITA day-of-year approximation by using WITA 'today' parts
-      const parts = (window.WITA && window.WITA.nowParts ? window.WITA.nowParts() : { year: new Date().getFullYear() });
+      const parts = window.WITA && window.WITA.nowParts ? window.WITA.nowParts() : { year: new Date().getFullYear() };
       const y = parts.year;
       // Build date with WITA today and compute day-of-year by counting from Jan 1 WITA
       try {
-        const todayIso = (window.WITA && window.WITA.today) ? window.WITA.today() : new Date().toISOString().slice(0,10);
+        const todayIso = window.WITA && window.WITA.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
         const startIso = `${y}-01-01`;
         const dayOfYear = Math.floor((Date.parse(todayIso) - Date.parse(startIso)) / 86400000);
         this.dailyQuote = DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length];
@@ -279,13 +279,13 @@ new Vue({
 
     // Utilities tanggal
     getToday() {
-      return (window.WITA && window.WITA.today) ? window.WITA.today() : new Date().toISOString().slice(0,10);
+      return window.WITA && window.WITA.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
     },
     getISODateNDaysAgo(n) {
       if (window.WITA && window.WITA.isoDateNDaysAgo) return window.WITA.isoDateNDaysAgo(n);
       const d = new Date();
       d.setDate(d.getDate() - n);
-      return d.toISOString().slice(0,10);
+      return d.toISOString().slice(0, 10);
     },
 
     // Toast helper (Bootstrap 5)

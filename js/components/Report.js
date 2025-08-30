@@ -142,12 +142,12 @@ Vue.component("report", {
 
                 <!-- Detailed Table -->
                 <div class="card report-card border-0 shadow-sm">
-                    <div class="card-header bg-white">
+                    <div class="card-header bg-white text-center">
                         <h5 class="mb-0">📋 Detail Harian</h5>
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table class="table table-striped">
+                            <table class="table table-striped text-center">
                                 <thead>
                                     <tr>
                                         <th>Tanggal</th>

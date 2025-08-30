@@ -325,24 +325,13 @@ new Vue({
 
       <div v-else>
         <!-- Navbar (mobile-visible, no hamburger) -->
-        <nav class="navbar navbar-dark bg-primary">
-          <div class="container d-flex align-items-center w-100">
+        <nav class="navbar navbar-dark bg-primary app-navbar">
+          <div class="container-fluid d-flex align-items-center w-100">
             <a class="navbar-brand" href="#">📊 Productivity Tracker</a>
-
-            <!-- Desktop nav links -->
-            <ul class="navbar-nav d-none d-md-flex flex-row ms-4">
-              <li class="nav-item me-3">
-                <a class="nav-link" :class="{ active: currentView==='dashboard' }" href="#" @click.prevent="setView('dashboard')">🏠 Dashboard</a>
-              </li>
-              <li v-if="user" class="nav-item me-3">
-                <a class="nav-link" :class="{ active: currentView==='checklist' }" href="#" @click.prevent="setView('checklist')">✅ Checklist</a>
-              </li>
-              <li v-if="user" class="nav-item me-3">
-                <a class="nav-link" :class="{ active: currentView==='tasks' }" href="#" @click.prevent="setView('tasks')">🎯 Task Manager</a>
-              </li>
-              <li v-if="user" class="nav-item">
-                <a class="nav-link" :class="{ active: currentView==='report' }" href="#" @click.prevent="setView('report')">📊 Report</a>
-              </li>
+            
+            <!-- Desktop nav links (hidden, replaced by sidebar) -->
+            <ul class="navbar-nav d-none flex-row ms-4">
+              <!-- hidden -->
             </ul>
 
             <!-- Right: auth/account (visible on all sizes) -->
@@ -356,6 +345,34 @@ new Vue({
             </ul>
           </div>
         </nav>
+
+        <!-- Desktop Fixed Sidebar -->
+        <aside v-if="user" class="sidebar-fixed d-none d-md-block">
+          <div class="sidebar-inner">
+            <div class="list-group list-group-flush sidebar-menu">
+              <a href="#" class="list-group-item list-group-item-action d-flex align-items-center"
+                 :class="{ active: currentView==='dashboard' }" @click.prevent="setView('dashboard')">
+                <i class="bi bi-house-fill me-2 text-primary"></i>
+                <span>Dashboard</span>
+              </a>
+              <a v-if="user" href="#" class="list-group-item list-group-item-action d-flex align-items-center"
+                 :class="{ active: currentView==='checklist' }" @click.prevent="setView('checklist')">
+                <i class="bi bi-check2-square me-2 text-success"></i>
+                <span>Checklist</span>
+              </a>
+              <a v-if="user" href="#" class="list-group-item list-group-item-action d-flex align-items-center"
+                 :class="{ active: currentView==='tasks' }" @click.prevent="setView('tasks')">
+                <i class="bi bi-list-task me-2 text-info"></i>
+                <span>Task Manager</span>
+              </a>
+              <a v-if="user" href="#" class="list-group-item list-group-item-action d-flex align-items-center"
+                 :class="{ active: currentView==='report' }" @click.prevent="setView('report')">
+                <i class="bi bi-graph-up-arrow me-2 text-warning"></i>
+                <span>Report</span>
+              </a>
+            </div>
+          </div>
+        </aside>
 
         <!-- Mobile Bottom Navigation -->
         <nav class="mobile-bottom-nav d-md-none">
@@ -385,31 +402,33 @@ new Vue({
           </a>
         </nav>
 
-        <!-- Content -->
-        <div class="container mt-4">
-          <div v-if="!user && currentView==='dashboard'">
-            <div class="row justify-content-center">
-              <div class="col-lg-8">
-                <div class="text-center mb-5">
-                  <h1 class="display-5 mb-3">📊 Productivity Tracker</h1>
-                  <p class="lead">Kelola tugas harian Anda dengan sistem scoring yang memotivasi!</p>
-                  <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#authModal">Mulai Sekarang</button>
-                </div>
-                <div class="row">
-                  <div class="col-md-4 mb-3"><div class="card h-100 text-center"><div class="card-body"><div class="display-4 text-primary mb-2">✅</div><h6>Task Management</h6><p class="text-muted">Kelola tugas harian dengan template</p></div></div></div>
-                  <div class="col-md-4 mb-3"><div class="card h-100 text-center"><div class="card-body"><div class="display-4 text-success mb-2">⚡</div><h6>Scoring System</h6><p class="text-muted">Poin memotivasi untuk menyelesaikan tugas</p></div></div></div>
-                  <div class="col-md-4 mb-3"><div class="card h-100 text-center"><div class="card-body"><div class="display-4 text-info mb-2">📊</div><h6>Progress Tracking</h6><p class="text-muted">Laporan visual perkembangan</p></div></div></div>
+        <!-- Main content area (below header, beside sidebar) -->
+        <main class="main-content" :class="{ 'with-sidebar': !!user }">
+          <div class="container-fluid pt-3">
+            <div v-if="!user && currentView==='dashboard'">
+              <div class="row justify-content-center">
+                <div class="col-lg-8">
+                  <div class="text-center mb-5">
+                    <h1 class="mb-3">📊 Productivity Tracker</h1>
+                    <p class="lead">Kelola tugas harian Anda dengan sistem scoring yang memotivasi!</p>
+                    <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#authModal">Mulai Sekarang</button>
+                  </div>
+                  <div class="row">
+                    <div class="col-md-4 mb-3"><div class="card h-100 text-center"><div class="card-body"><div class="display-4 text-primary mb-2">✅</div><h6>Task Management</h6><p class="text-muted">Kelola tugas harian dengan template</p></div></div></div>
+                    <div class="col-md-4 mb-3"><div class="card h-100 text-center"><div class="card-body"><div class="display-4 text-success mb-2">⚡</div><h6>Scoring System</h6><p class="text-muted">Poin memotivasi untuk menyelesaikan tugas</p></div></div></div>
+                    <div class="col-md-4 mb-3"><div class="card h-100 text-center"><div class="card-body"><div class="display-4 text-info mb-2">📊</div><h6>Progress Tracking</h6><p class="text-muted">Laporan visual perkembangan</p></div></div></div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <dashboard v-if="user && currentView==='dashboard'" :user="user" :supabase="supabaseClient" :daily-quote="dailyQuote"></dashboard>
-          <checklist v-if="user && currentView==='checklist'" :user="user" :supabase="supabaseClient"></checklist>
-          <task-manager v-if="user && currentView==='tasks'" :user="user" :supabase="supabaseClient"></task-manager>
-          <report v-if="user && currentView==='report'" :user="user" :supabase="supabaseClient"></report>
-          <profile v-if="user && currentView==='profile'" :user="user" :supabase="supabaseClient"></profile>
-        </div>
+            <dashboard v-if="user && currentView==='dashboard'" :user="user" :supabase="supabaseClient" :daily-quote="dailyQuote"></dashboard>
+            <checklist v-if="user && currentView==='checklist'" :user="user" :supabase="supabaseClient"></checklist>
+            <task-manager v-if="user && currentView==='tasks'" :user="user" :supabase="supabaseClient"></task-manager>
+            <report v-if="user && currentView==='report'" :user="user" :supabase="supabaseClient"></report>
+            <profile v-if="user && currentView==='profile'" :user="user" :supabase="supabaseClient"></profile>
+          </div>
+        </main>
 
         <!-- Auth Modal -->
         <div class="modal fade" id="authModal" tabindex="-1">

@@ -327,7 +327,8 @@ body {
 /* Make room for bottom nav on small screens */
 @media (max-width: 767.98px) {
   body {
-    padding-bottom: 80px; /* Avoid content hidden behind bottom nav */
+    /* Bottom nav height (64px) + small breathing room (8px) + safe area */
+    padding-bottom: calc(64px + 8px + env(safe-area-inset-bottom));
   }
 }
 
@@ -466,4 +467,156 @@ body {
   .mobile-bottom-nav .mobile-nav-item {
     font-size: 0.7rem;
   }
+}
+
+/* Desktop Sidebar */
+.sidebar-card {
+  border: none;
+  border-radius: 14px;
+  background: #ffffff;
+}
+.sidebar-menu .list-group-item {
+  border: none;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  color: #495057;
+}
+.sidebar-menu .list-group-item i {
+  font-size: 1.1rem;
+}
+.sidebar-menu .list-group-item:hover {
+  background: rgba(13, 110, 253, 0.06);
+}
+.sidebar-menu .list-group-item.active {
+  background: rgba(13, 110, 253, 0.15);
+  color: #0d6efd;
+  font-weight: 600;
+}
+
+/* Fixed header */
+.app-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1060; /* above content */
+}
+
+/* Fixed full-height sidebar (desktop) */
+.sidebar-fixed {
+  position: fixed;
+  top: 56px; /* below navbar height */
+  left: 0;
+  width: 240px;
+  height: calc(100vh - 56px);
+  z-index: 1061; /* above navbar so header sits beside sidebar visually */
+  padding: 0.75rem;
+}
+.sidebar-fixed .sidebar-inner {
+  height: 100%;
+  overflow-y: auto;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.05);
+}
+.sidebar-menu .list-group-item {
+  border: none;
+  padding: 0.8rem 1rem;
+}
+.sidebar-menu .list-group-item.active {
+  background: rgba(13, 110, 253, 0.12);
+  color: #0d6efd;
+  font-weight: 600;
+}
+
+/* Main content area: offset by fixed navbar and sidebar */
+.main-content {
+  padding-top: 56px; /* navbar height */
+  margin-left: 0; /* default: no sidebar */
+}
+@media (min-width: 768px) {
+  .main-content.with-sidebar {
+    margin-left: 240px; /* sidebar width when visible */
+  }
+}
+
+/* Mobile adjustments (no sidebar) */
+@media (max-width: 767.98px) {
+  .app-navbar {
+    position: fixed;
+  }
+  /* Remove large padding to avoid double spacing with body padding-bottom */
+  .main-content {
+    padding-bottom: 8px;
+  }
+}
+
+/* --- Layering fixes: modals and toasts over fixed header/sidebar --- */
+.modal {
+  z-index: 2000; /* above sidebar (1061) and navbar (1060) */
+}
+.modal-backdrop {
+  z-index: 1990;
+}
+#toastContainer {
+  z-index: 2100; /* keep toasts on top of modal too */
+  top: 64px !important; /* push below fixed navbar */
+}
+
+/* Optional: adjust on very small screens to keep visibility */
+@media (max-width: 576px) {
+  #toastContainer {
+    top: 60px !important;
+  }
+}
+
+/* Task modal mobile sizing: avoid fullscreen on mobile */
+@media (max-width: 576px) {
+  .task-modal .modal-dialog {
+    width: calc(100% - 2rem); /* leave margin on sides */
+    max-width: 480px; /* reasonable cap */
+    margin: 1rem auto; /* spacing from edges */
+  }
+  .task-modal .modal-content {
+    border-radius: 12px;
+  }
+  .task-modal .modal-dialog.modal-dialog-centered {
+    align-items: center;
+  }
+}
+
+/* Fix dropdown stacking within Task Manager templates grid */
+.templates-grid .card {
+  position: relative; /* create stacking context */
+}
+.templates-grid .dropdown,
+.templates-grid .dropdown-toggle,
+.templates-grid .dropdown-menu {
+  position: relative;
+  z-index: 1200; /* above cards and common shadows */
+}
+.templates-grid .dropdown-menu {
+  transform: translate3d(0, 0, 0); /* avoid clipping due to transforms */
+}
+
+/* Prevent layout shift and ensure dropdown overlays properly */
+.templates-grid .card .dropdown-toggle {
+  white-space: nowrap; /* prevent button text wrapping */
+}
+.templates-grid .card {
+  will-change: transform; /* avoid reflow/resize when dropdown opens */
+}
+/* When dropdown is open, raise this card above neighbors */
+.templates-grid .card.dropdown-open {
+  z-index: 1300;
+}
+/* Always render dropdown menu above sibling cards and outside clipping */
+.templates-grid .dropdown-menu {
+  position: absolute; /* detach from normal flow inside card */
+  z-index: 1400; /* above elevated card */
+}
+/* Optional: avoid expanding card by constraining overflow and height growth */
+.templates-grid .card .card-body {
+  overflow: visible; /* allow menu to overflow without clipping */
 }

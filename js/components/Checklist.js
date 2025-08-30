@@ -75,7 +75,7 @@ Vue.component("checklist", {
                           </span>
                           <span v-if="!task.task_id" 
                               class="badge bg-info text-white badge-sm">
-                            Ad-hoc
+                            Tambahan
                           </span>
                         </div>
                       </div>
@@ -86,7 +86,7 @@ Vue.component("checklist", {
                         <button v-if="!task.task_id" 
                             class="btn btn-sm btn-outline-danger mt-1"
                             @click="deleteAdHocTask(task.id)"
-                            title="Hapus task ad-hoc">
+                            title="Hapus task tambahan">
                           🗑️
                         </button>
                       </div>
@@ -159,16 +159,22 @@ Vue.component("checklist", {
     sortedTasks() {
       const priorityOrder = { tinggi: 3, sedang: 2, rendah: 1 };
       const filtered = this.todayTasks.filter((t) => {
-        const byPriority = this.filterPriority === "all" || (t.priority || "sedang") === this.filterPriority;
+        const pr = t.priority || "sedang";
+        const byPriority = this.filterPriority === "all" || pr === this.filterPriority;
         const byCategory = this.filterCategory === "all" || (t.category || null) === this.filterCategory;
         const bySearch = !this.searchText || (t.task_name || "").toLowerCase().includes(this.searchText.toLowerCase());
         return byPriority && byCategory && bySearch;
       });
       return filtered.sort((a, b) => {
+        // Incomplete first
         if (a.is_completed !== b.is_completed) return a.is_completed ? 1 : -1;
-        const aPriority = priorityOrder[a.priority] || 2;
-        const bPriority = priorityOrder[b.priority] || 2;
-        return bPriority - aPriority;
+        const ap = priorityOrder[a.priority || "sedang"] || 2;
+        const bp = priorityOrder[b.priority || "sedang"] || 2;
+        if (bp !== ap) return bp - ap; // tinggi dulu
+        // stable fallback by created_at if available
+        const at = new Date(a?.created_at || 0).getTime();
+        const bt = new Date(b?.created_at || 0).getTime();
+        return at - bt;
       });
     },
 
@@ -211,11 +217,42 @@ Vue.component("checklist", {
         console.warn("Gagal memproses event template-added:", e.message);
       }
     };
+
+    // Dengarkan event template diupdate untuk patch nama/priority/category pada task hari ini
+    this._onTemplateUpdated = (ev) => {
+      try {
+        const tpl = ev.detail?.template;
+        if (!tpl) return;
+        let changed = false;
+        this.todayTasks = this.todayTasks.map((t) => {
+          if (t.task_id === tpl.id) {
+            changed = true;
+            return {
+              ...t,
+              task_name: tpl.task_name,
+              priority: tpl.priority || t.priority,
+              category: tpl.category !== undefined ? tpl.category : t.category,
+            };
+          }
+          return t;
+        });
+        if (changed) {
+          this.updateCounts();
+        }
+      } catch (e) {
+        console.warn("Gagal memproses event template-updated:", e.message);
+      }
+    };
+
     window.addEventListener("template-added", this._onTemplateAdded);
+    window.addEventListener("template-updated", this._onTemplateUpdated);
   },
   beforeDestroy() {
     if (this._onTemplateAdded) {
       window.removeEventListener("template-added", this._onTemplateAdded);
+    }
+    if (this._onTemplateUpdated) {
+      window.removeEventListener("template-updated", this._onTemplateUpdated);
     }
   },
   methods: {
@@ -339,7 +376,9 @@ Vue.component("checklist", {
         await this.loadTodayScore();
       } catch (error) {
         console.error("Error loading today tasks:", error);
-        alert("Gagal memuat task hari ini: " + error.message);
+        this.$root &&
+          this.$root.showToast &&
+          this.$root.showToast("Gagal memuat task hari ini: " + error.message, "danger");
       } finally {
         this.loading = false;
       }
@@ -367,7 +406,6 @@ Vue.component("checklist", {
         const newStatus = !task.is_completed;
         const now = new Date().toISOString();
 
-        // Update task status
         const { error } = await this.supabase
           .from("daily_tasks_instance")
           .update({
@@ -379,11 +417,9 @@ Vue.component("checklist", {
 
         if (error) throw error;
 
-        // Update local state
         task.is_completed = newStatus;
         task.checked_at = newStatus ? now : null;
 
-        // Log score change
         await this.logScoreChange(
           newStatus ? 1 : -1,
           newStatus ? `Menyelesaikan: ${task.task_name}` : `Membatalkan: ${task.task_name}`
@@ -393,7 +429,9 @@ Vue.component("checklist", {
         await this.loadTodayScore();
       } catch (error) {
         console.error("Error toggling task:", error);
-        alert("Gagal mengubah status task: " + error.message);
+        this.$root &&
+          this.$root.showToast &&
+          this.$root.showToast("Gagal mengubah status task: " + error.message, "danger");
       }
     },
 
@@ -406,7 +444,7 @@ Vue.component("checklist", {
           .insert([
             {
               user_id: this.user.id,
-              task_id: null, // Ad-hoc task doesn't have template
+              task_id: null,
               task_name: this.newAdHocTask.trim(),
               priority: "sedang",
               category: null,
@@ -416,29 +454,20 @@ Vue.component("checklist", {
           ])
           .select();
 
-        if (error) {
-          if (error.code === "23505") {
-            alert("Task ad-hoc dengan nama sama sudah ada untuk hari ini.");
-            return;
-          }
-          throw error;
-        }
+        if (error) throw error;
 
-        // Add to local tasks
         this.todayTasks.push(data[0]);
         this.updateCounts();
-
-        // Clear input
         this.newAdHocTask = "";
       } catch (error) {
-        console.error("Error adding ad-hoc task:", error);
-        alert("Gagal menambahkan task: " + error.message);
+        console.error("Error adding task tambahan:", error);
+        this.$root &&
+          this.$root.showToast &&
+          this.$root.showToast("Gagal menambahkan task: " + error.message, "danger");
       }
     },
 
     async deleteAdHocTask(taskId) {
-      if (!confirm("Yakin ingin menghapus task ini?")) return;
-
       try {
         const { error } = await this.supabase
           .from("daily_tasks_instance")
@@ -448,13 +477,12 @@ Vue.component("checklist", {
 
         if (error) throw error;
 
-        // Remove from local tasks
         this.todayTasks = this.todayTasks.filter((t) => t.id !== taskId);
         this.updateCounts();
         await this.loadTodayScore();
       } catch (error) {
-        console.error("Error deleting ad-hoc task:", error);
-        alert("Gagal menghapus task: " + error.message);
+        console.error("Error deleting task tambahan:", error);
+        this.$root && this.$root.showToast && this.$root.showToast("Gagal menghapus task: " + error.message, "danger");
       }
     },
 

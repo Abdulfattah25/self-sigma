@@ -35,7 +35,10 @@ body {
   transform: translateY(-2px);
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
 }
+.setting-btn {
+  background: var(--gradient-3);
 
+}
 .btn.active {
   background-color: rgba(255, 255, 255, 0.2);
 }
@@ -131,6 +134,7 @@ body {
   background: linear-gradient(135deg, #5b86e5 0%, #36d1dc 100%);
   color: #fff;
   border: none;
+  margin-top: 20px;
 }
 
 /* Stats Cards */
@@ -330,7 +334,6 @@ body {
   padding-top: 24px; /* override default 72px to avoid extra scroll */
   padding-bottom: 24px;
 }
-
 
 /* Landing visual mock */
 .landing-visual {
@@ -573,13 +576,6 @@ body {
   }
 }
 
-/* Hide default top navbar toggler on mobile, we use bottom nav */
-@media (max-width: 767.98px) {
-  .navbar .navbar-toggler {
-    display: none !important;
-  }
-}
-
 /* Navbar adjustments for mobile */
 @media (max-width: 767.98px) {
   .navbar .navbar-brand {
@@ -719,7 +715,7 @@ body {
 }
 .sidebar-menu .list-group-item {
   border: none;
-  padding: 0.75rem 1rem;
+  padding: 0.8rem 1rem; /* merged: last-winning padding */
   display: flex;
   align-items: center;
   color: #495057;
@@ -731,7 +727,7 @@ body {
   background: rgba(13, 110, 253, 0.06);
 }
 .sidebar-menu .list-group-item.active {
-  background: rgba(13, 110, 253, 0.15);
+  background: rgba(13, 110, 253, 0.12); /* keep last-winning value */
   color: #0d6efd;
   font-weight: 600;
 }
@@ -762,15 +758,6 @@ body {
   background: #ffffff;
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.05);
 }
-.sidebar-menu .list-group-item {
-  border: none;
-  padding: 0.8rem 1rem;
-}
-.sidebar-menu .list-group-item.active {
-  background: rgba(13, 110, 253, 0.12);
-  color: #0d6efd;
-  font-weight: 600;
-}
 
 /* Main content area: offset by fixed navbar and sidebar */
 .main-content {
@@ -779,15 +766,12 @@ body {
 }
 @media (min-width: 768px) {
   .main-content.with-sidebar {
-    margin-left: 240px; /* sidebar width when visible */
+    margin-left: calc(240px + 1.5rem); /* final offset merged */
   }
 }
 
 /* Mobile adjustments (no sidebar) */
 @media (max-width: 767.98px) {
-  .app-navbar {
-    position: fixed;
-  }
   /* Remove large padding to avoid double spacing with body padding-bottom */
   .main-content {
     padding-bottom: 8px;
@@ -837,34 +821,26 @@ body {
 /* Fix dropdown stacking within Task Manager templates grid */
 .templates-grid .card {
   position: relative; /* create stacking context */
+  will-change: transform; /* avoid reflow/resize when dropdown opens */
 }
 .templates-grid .dropdown,
-.templates-grid .dropdown-toggle,
-.templates-grid .dropdown-menu {
+.templates-grid .dropdown-toggle {
   position: relative;
   z-index: 1200; /* above cards and common shadows */
 }
+.templates-grid .card.dropdown-open {
+  z-index: 1300;
+}
 .templates-grid .dropdown-menu {
+  position: absolute; /* detach from normal flow inside card */
+  z-index: 1400; /* above elevated card */
   transform: translate3d(0, 0, 0); /* avoid clipping due to transforms */
 }
-
 /* Prevent layout shift and ensure dropdown overlays properly */
 .templates-grid .card .dropdown-toggle {
   white-space: nowrap; /* prevent button text wrapping */
 }
-.templates-grid .card {
-  will-change: transform; /* avoid reflow/resize when dropdown opens */
-}
-/* When dropdown is open, raise this card above neighbors */
-.templates-grid .card.dropdown-open {
-  z-index: 1300;
-}
 /* Always render dropdown menu above sibling cards and outside clipping */
-.templates-grid .dropdown-menu {
-  position: absolute; /* detach from normal flow inside card */
-  z-index: 1400; /* above elevated card */
-}
-/* Optional: avoid expanding card by constraining overflow and height growth */
 .templates-grid .card .card-body {
   overflow: visible; /* allow menu to overflow without clipping */
 }
@@ -998,13 +974,5 @@ body {
   .landing-theme .mini-card .h4 {
     white-space: nowrap;
     font-size: 1.1rem;
-  }
-}
-/* Fix: samakan offset main content dengan total lebar sidebar (width + padding-x)
-   Sidebar: width: 240px; padding-left/right: 0.75rem (total 1.5rem)
-   240px + 1.5rem => pastikan main-content tidak overlap/overflow */
-@media (min-width: 768px) {
-  .main-content.with-sidebar {
-    margin-left: calc(240px + 1.5rem);
   }
 }

@@ -22,8 +22,8 @@ Vue.component("report", {
   },
   template: `
         <div class="report-page fade-in">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h3>📊 Laporan Produktivitas</h3>
+            <div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+                <h4>📊 Laporan Produktivitas</h4>
                 <button class="btn btn-sm btn-outline-primary" data-export-btn @click="exportReport" title="Export PDF laporan bulan ini">
                   ⭳ Export PDF
                 </button>

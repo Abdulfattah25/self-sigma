@@ -18,9 +18,9 @@ Vue.component("checklist", {
   },
   template: `
         <div class="fade-in">
-            <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mt-3">
                 <div>
-                    <h3>✅ Checklist Hari Ini</h3>
+                    <h4>✅ Checklist Hari Ini</h4>
                     <small class="text-muted">{{ formatDate(today) }}</small>
                 </div>
             </div>

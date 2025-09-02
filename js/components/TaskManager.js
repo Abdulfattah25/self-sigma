@@ -30,8 +30,8 @@ Vue.component("task-manager", {
   },
   template: `
         <div class="fade-in">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h3>🎯 Task Manager</h3>
+            <div class="d-flex justify-content-between align-items-center mb-3 mt-3">
+                <h4>🎯 Task Manager</h4>
                 <button class="btn btn-primary btn-icon" @click="openAddModal">
                     <i class="bi bi-plus-lg"></i>
                     Tambah

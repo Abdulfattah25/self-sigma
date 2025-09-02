@@ -1,8 +1,8 @@
 /* Grid dasar hutan: default 6 kolom pada layar lebar */
 .forest-grid {
   display: grid;
-  grid-template-columns: repeat(10, minmax(0, 1fr)); /* 6 kolom desktop */
-  gap: 12px;
+  grid-template-columns: repeat(10, minmax(0, 1fr)); /* 10 kolom desktop */
+  gap: 0;
 }
 
 /* Item grid berisi tile + caption */
@@ -87,14 +87,14 @@
 @media (max-width: 992px) {
   .forest-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 8px;
+    gap: 0;
   }
   .forest-panel .today-tile { max-width: 160px; }  /* tetap di tengah karena margin:auto */
 }
 @media (max-width: 576px) {
   .forest-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 2px;
+    gap: 0;
   }
   .forest-panel .today-tile { max-width: 140px; }  /* tetap di tengah */
   .plant-caption { font-size: 11px; }

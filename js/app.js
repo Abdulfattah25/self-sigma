@@ -428,7 +428,7 @@ new Vue({
 
         <!-- Main content area (below header, beside sidebar) -->
         <main class="main-content" :class="{ 'with-sidebar': !!user }">
-          <div class="container-fluid p-0">
+          <div class="container-fluid">
             <!-- Landing (Logged-out) -->
             <div v-if="!user && currentView==='dashboard'" class="landing-theme">
               <section class="hero-section position-relative overflow-hidden">

@@ -222,41 +222,12 @@ Vue.component("profile", {
               </div>
 
               <!-- Tombol Pengaturan -> Dropdown (z-index tinggi) -->
-              <div class="ms-auto position-relative" ref="settingsDropdown" style="z-index: 1700;">
-                <button
-                  class="btn glass-btn btn-sm btn-icon"
-                  @click.stop="toggleMenu"
-                  :aria-expanded="showMenu ? 'true' : 'false'">
-                  <i class="bi bi-gear"></i>
-                  <span>Pengaturan</span>
-                </button>
-                <ul
-                  v-if="showMenu"
-                  class="dropdown-menu dropdown-menu-end show mt-2"
-                  style="display:block; position:absolute; right:0; transform:translateY(4px); z-index: 1700;">
-                  <li>
-                    <button class="dropdown-item d-flex align-items-center gap-2" @click="selectSection('edit-nama')">
-                      <i class="bi bi-pencil-square"></i> Edit Nama
-                    </button>
-                  </li>
-                  <li>
-                    <button class="dropdown-item d-flex align-items-center gap-2" @click="selectSection('password')">
-                      <i class="bi bi-shield-lock"></i> Password
-                    </button>
-                  </li>
-                  <li>
-                    <button class="dropdown-item d-flex align-items-center gap-2" @click="selectSection('tema')">
-                      <i class="bi bi-palette"></i> Tema
-                    </button>
-                  </li>
-                  <li><hr class="dropdown-divider" /></li>
-                  <li>
-                    <button class="dropdown-item d-flex align-items-center gap-2" @click="selectSection('plant')">
-                      <i class="bi bi-flower3"></i> Ganti Tanaman
-                    </button>
-                  </li>
-                </ul>
-              </div>
+              
+                <div class="d-flex gap-2">
+                  <button class="btn btn-danger-outline ms-auto" @click="signOut">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                  </button>
+                </div>
             </div>
           </div>
 
@@ -274,10 +245,42 @@ Vue.component("profile", {
                   <label class="form-label">Email</label>
                   <div class="form-control-plaintext">{{ form.email || '-' }}</div>
                 </div>
-                <div class="d-flex gap-2">
-                  <button class="btn btn-danger ms-auto" @click="signOut">
-                    <i class="bi bi-box-arrow-right"></i> Logout
+
+                <!-- Perbaikan: jadikan pembungkus relatif & sekecil tombol -->
+                <div class="position-relative d-inline-block" ref="settingsDropdown" style="z-index: 1700;">
+                  <button
+                    class="btn btn-sm btn-icon btn-primary setting-btn p-1"
+                    @click.stop="toggleMenu"
+                    :aria-expanded="showMenu ? 'true' : 'false'">
+                    <i class="bi bi-gear"></i>
+                    <span>Pengaturan</span>
                   </button>
+                  <ul
+                    v-if="showMenu"
+                    class="dropdown-menu show mt-2"
+                    style="display:block; position:absolute; left:0; top:100%; z-index:1700;">
+                    <li>
+                      <button class="dropdown-item d-flex align-items-center gap-2" @click="selectSection('edit-nama')">
+                        <i class="bi bi-pencil-square"></i> Edit Nama
+                      </button>
+                    </li>
+                    <li>
+                      <button class="dropdown-item d-flex align-items-center gap-2" @click="selectSection('password')">
+                        <i class="bi bi-shield-lock"></i> Password
+                      </button>
+                    </li>
+                    <li>
+                      <button class="dropdown-item d-flex align-items-center gap-2" @click="selectSection('tema')">
+                        <i class="bi bi-palette"></i> Tema
+                      </button>
+                    </li>
+                    <li><hr class="dropdown-divider" /></li>
+                    <li>
+                      <button class="dropdown-item d-flex align-items-center gap-2" @click="selectSection('plant')">
+                        <i class="bi bi-flower3"></i> Ganti Tanaman
+                      </button>
+                    </li>
+                  </ul>
                 </div>
               </div>
 

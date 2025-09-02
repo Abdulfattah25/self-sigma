@@ -10,6 +10,9 @@ Vue.component("report", {
         incompleteTasks: 0,
         totalScore: 0,
         dailyStats: [],
+        activityStats: [], // agregasi konsistensi per kegiatan
+        forestTrees: [], // data taman produktivitas untuk bulan yang dipilih
+        forestAvgPercent: 0,
       },
       loading: false,
       chartInstance: null,
@@ -20,7 +23,10 @@ Vue.component("report", {
   template: `
         <div class="report-page fade-in">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h3>📊 Laporan Produktivitas</h3>               
+                <h3>📊 Laporan Produktivitas</h3>
+                <button class="btn btn-sm btn-outline-primary" data-export-btn @click="exportReport" title="Export PDF laporan bulan ini">
+                  ⭳ Export PDF
+                </button>
             </div>
             
              <div class="d-flex align-items-center gap-2 mb-3">
@@ -81,10 +87,8 @@ Vue.component("report", {
                     </div>
                 </div>
 
-                <!-- Combined section: Completion Rate, Calendar, Daily Details -->
-                <div class="row mb-4 gy-4">
-                  <!-- Completion Rate -->
-                  <div class="col-12 col-lg-4 order-lg-3">
+                <!-- Completion Rate -->
+                  <div class="col-12 mb-3">
                     <div class="card report-card border-0 shadow-sm">
                       <div class="card-header bg-white">
                         <h5 class="mb-0">📈 Tingkat Penyelesaian</h5>
@@ -100,53 +104,71 @@ Vue.component("report", {
                         <p class="text-muted mb-0">{{ getCompletionMessage() }}</p>
                       </div>
                     </div>
-                  </div>
+                  </div>                
 
-                  <!-- Calendar Heatmap -->
-                  <div class="col-12 col-lg-4 order-lg-2">
-                    <div class="card report-card border-0 shadow-sm">
-                      <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                        <div>
-                          <h5 class="mb-0">🗓️ Kalender Produktivitas</h5>
-                          <small class="text-muted">Warna lebih gelap = produktivitas lebih tinggi</small>
-                        </div>
-                        <div class="d-none d-md-block small text-muted">Bulan: {{ monthNames[currentMonth] }} {{ currentYear }}</div>
-                      </div>
-                      <div class="card-body">
-                        <div class="calendar-heatmap">
-                          <div class="row">
-                            <div v-for="week in calendarWeeks" :key="week.weekNumber" class="col-12 mb-2">
-                              <div class="d-flex gap-1">
-                                <div v-for="day in week.days" :key="day.date"
-                                     class="calendar-day"
-                                     :class="getHeatmapClass(day.score)"
-                                     :title="getHeatmapTooltip(day)">
-                                  {{ day.day }}
+                <!-- Taman Produktivitas (History Bulan Dipilih) -->
+                <div class="mb-4">
+                  <forest-panel
+                    :title="' Taman Produktivitas — ' + monthNames[currentMonth] + ' ' + currentYear"
+                    :today-percent="monthlyData.forestAvgPercent"
+                    :trees="monthlyData.forestTrees"
+                    :show-today-tile="false">
+                  </forest-panel>
+                </div>
+
+                <!-- Konsistensi Kegiatan Bulan Ini -->               
+                
+                <div class="row mb-3">
+                <div class="col-12 col-lg-6">
+                  <div class="card mb-4">
+                  <div class="card-header text-center bg-whiter">
+                    <h5 class="mb-0">📌 Konsistensi Kegiatan Bulan Ini</h5>
+                    <small class="text-muted">Persentase dikerjakan dan jumlah dikerjakan/tidak</small>
+                  </div>
+                  <div class="card-body">
+                    <div v-if="monthlyData.activityStats.length === 0" class="text-center text-muted">Belum ada data kegiatan pada bulan ini.</div>
+                    <div v-else class="table-responsive">
+                      <table class="table table-sm align-middle">
+                        <thead>
+                          <tr>
+                            <th style="min-width:220px;">Kegiatan</th>
+                            <th class="text-center">Total</th>
+                            <th class="text-center">Dikerjakan</th>
+                            <th class="text-center">Tidak</th>
+                            <th class="text-center" style="width:45%">Persentase</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="act in monthlyData.activityStats" :key="act.key">
+                            <td>
+                              <div class="fw-semibold">{{ act.name }}</div>
+                              <small class="text-muted">{{ act.type }}</small>
+                            </td>
+                            <td class="text-center">{{ act.total }}</td>
+                            <td class="text-center text-success">{{ act.completed }}</td>
+                            <td class="text-center text-warning">{{ act.notCompleted }}</td>
+                            <td class="text-center">
+                              <div class="d-flex align-items-center gap-2">
+                                <div class="progress flex-grow-1" style="height:8px;">
+                                  <div class="progress-bar" :class="act.percent >= 80 ? 'bg-success' : act.percent >= 60 ? 'bg-warning' : 'bg-danger'" :style="{ width: act.percent + '%' }"></div>
                                 </div>
+                                <span class="small fw-bold">{{ act.percent }}%</span>
                               </div>
-                            </div>
-                          </div>
-                          <div class="mt-3 d-flex align-items-center gap-2">
-                            <small class="text-muted">Kurang</small>
-                            <div class="heatmap-legend d-flex gap-1">
-                              <div class="legend-item heatmap-0"></div>
-                              <div class="legend-item heatmap-1"></div>
-                              <div class="legend-item heatmap-2"></div>
-                              <div class="legend-item heatmap-3"></div>
-                              <div class="legend-item heatmap-4"></div>
-                            </div>
-                            <small class="text-muted">Tinggi</small>
-                          </div>
-                        </div>
-                      </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
+                </div>
+                </div>
 
                   <!-- Detailed Table -->
-                  <div class="col-12 col-lg-4 order-lg-1">
+                  <div class="col-12 col-lg-6">
                     <div class="card report-card border-0 shadow-sm h-100">
-                      <div class="card-header bg-white text-center">
+                      <div class="card-header bg-whiter text-center">
                         <h5 class="mb-0">📋 Detail Harian</h5>
+                        <small class="text-muted">Jumlah skor yang didapatkan setiap harinya</small>
                       </div>
                       <div class="card-body">
                         <div class="table-responsive">
@@ -312,22 +334,171 @@ Vue.component("report", {
       }
     },
 
+    async exportReport() {
+      const btn = this.$el.querySelector("[data-export-btn]");
+      const prevDisplay = btn ? btn.style.display : null;
+      let restoreVideos;
+      try {
+        // Ensure html2pdf is available (lazy load if needed)
+        if (typeof html2pdf === "undefined") {
+          await this._loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js");
+          if (typeof html2pdf === "undefined") throw new Error("html2pdf gagal dimuat");
+        }
+
+        const container = this.$el; // root element of this component
+        if (!container) return alert("Elemen laporan tidak ditemukan.");
+
+        // Replace any <video> with <img> poster (legacy safety)
+        restoreVideos = this._swapVideosForImages(container);
+
+        if (btn) btn.style.display = "none";
+
+        const year = this.currentYear;
+        const monthName = this.monthNames[this.currentMonth];
+        const isAllowedImg = (src) => {
+          if (!src) return false;
+          const s = src.toLowerCase();
+          return s.startsWith("data:image/png") || s.startsWith("data:image/jpeg") || /\.(png|jpe?g)(\?|#|$)/i.test(s);
+        };
+        const opt = {
+          margin: 10,
+          filename: `Laporan-Produktivitas-${monthName}-${year}.pdf`,
+          image: { type: "jpeg", quality: 0.95 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            allowTaint: false,
+            imageTimeout: 15000,
+            logging: false,
+            ignoreElements: (el) => {
+              if (!el || !el.tagName) return false;
+              const tag = el.tagName.toUpperCase();
+              if (tag === "VIDEO") return true;
+              if (tag === "IMG") {
+                const src = el.getAttribute("src") || "";
+                const s = src.toLowerCase();
+                return !(
+                  s.startsWith("data:image/png") ||
+                  s.startsWith("data:image/jpeg") ||
+                  /\.(png|jpe?g)(\?|#|$)/.test(s)
+                );
+              }
+              return false;
+            },
+            onclone: (doc) => {
+              try {
+                const win = doc.defaultView || window;
+                const scope = doc.querySelector(".report-page") || doc.body;
+                // Remove unsupported inline IMG in clone
+                scope.querySelectorAll("img").forEach((img) => {
+                  const src = (img.getAttribute("src") || "").toLowerCase();
+                  if (
+                    !(
+                      src.startsWith("data:image/png") ||
+                      src.startsWith("data:image/jpeg") ||
+                      /\.(png|jpe?g)(\?|#|$)/.test(src)
+                    )
+                  ) {
+                    img.parentNode && img.parentNode.removeChild(img);
+                  }
+                });
+                // Strip any background/mask images globally to avoid unsupported formats
+                const style = doc.createElement("style");
+                style.textContent = `
+                  *, *::before, *::after { background-image: none !important; -webkit-mask-image: none !important; mask-image: none !important; }
+                `;
+                doc.head.appendChild(style);
+                // Additionally clear inline background-image urls that were set via style attributes
+                scope.querySelectorAll("*").forEach((node) => {
+                  try {
+                    if (node.style && node.style.backgroundImage) node.style.backgroundImage = "none";
+                    if (node.style && (node.style.webkitMaskImage || node.style.maskImage)) {
+                      node.style.webkitMaskImage = "none";
+                      node.style.maskImage = "none";
+                    }
+                  } catch {}
+                });
+              } catch {}
+            },
+          },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+          pagebreak: { mode: ["css", "legacy"] },
+        };
+        await html2pdf().set(opt).from(container).save();
+      } catch (e) {
+        console.error("Export PDF failed:", e);
+        alert("Gagal mengekspor PDF.");
+      } finally {
+        if (btn) btn.style.display = prevDisplay;
+        if (typeof restoreVideos === "function") {
+          try {
+            restoreVideos();
+          } catch {}
+        }
+      }
+    },
+
+    _loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing) {
+          if (typeof html2pdf !== "undefined") return resolve();
+          existing.addEventListener("load", () => resolve());
+          existing.addEventListener("error", (e) => reject(e));
+          return;
+        }
+        const s = document.createElement("script");
+        s.src = src;
+        s.async = true;
+        s.onload = () => resolve();
+        s.onerror = (e) => reject(e);
+        document.head.appendChild(s);
+      });
+    },
+
+    // Swap all <video> elements inside container with <img> using their poster; returns a restore function
+    _swapVideosForImages(container) {
+      const replacements = [];
+      try {
+        const videos = container.querySelectorAll("video");
+        videos.forEach((v) => {
+          const img = document.createElement("img");
+          img.className = v.className || "";
+          const poster = v.getAttribute("poster") || "";
+          // Fallback poster if missing
+          img.src = poster || "assets/forest/plant-3-better.png";
+          img.alt = v.getAttribute("alt") || "";
+          img.style.cssText = v.style.cssText;
+          // Ensure same sizing behavior
+          img.width = v.width || undefined;
+          img.height = v.height || undefined;
+          if (v.parentNode) {
+            v.parentNode.replaceChild(img, v);
+            replacements.push({ parent: img.parentNode, img, video: v });
+          }
+        });
+      } catch {}
+      return () => {
+        replacements.forEach(({ parent, img, video }) => {
+          try {
+            if (parent && img.parentNode === parent) parent.replaceChild(video, img);
+          } catch {}
+        });
+      };
+    },
+
     processMonthlyData(tasksData, scoresData) {
       // Group tasks by date
       const tasksByDate = {};
-      tasksData.forEach((task) => {
-        if (!tasksByDate[task.date]) {
-          tasksByDate[task.date] = [];
-        }
+      (tasksData || []).forEach((task) => {
+        if (!tasksByDate[task.date]) tasksByDate[task.date] = [];
         tasksByDate[task.date].push(task);
       });
 
       // Group scores by date
       const scoresByDate = {};
-      scoresData.forEach((score) => {
-        if (!scoresByDate[score.date]) {
-          scoresByDate[score.date] = 0;
-        }
+      (scoresData || []).forEach((score) => {
+        if (!scoresByDate[score.date]) scoresByDate[score.date] = 0;
         scoresByDate[score.date] += score.score_delta;
       });
 
@@ -364,12 +535,70 @@ Vue.component("report", {
         totalScore += dayScore;
       }
 
+      // Aggregate by activity (task) across the month
+      const activityMap = new Map();
+      (tasksData || []).forEach((t) => {
+        const key = t.task_id ? `tpl:${t.task_id}` : `adhoc:${t.task_name}`;
+        const entry = activityMap.get(key) || {
+          key,
+          name: t.task_name || "(Tanpa Nama)",
+          type: t.task_id ? "Kegiatan harian" : "Kegiatan tambahan",
+          total: 0,
+          completed: 0,
+        };
+        entry.total += 1;
+        if (t.is_completed) entry.completed += 1;
+        activityMap.set(key, entry);
+      });
+      const activityStats = Array.from(activityMap.values()).map((e) => ({
+        ...e,
+        notCompleted: e.total - e.completed,
+        percent: e.total > 0 ? Math.round((e.completed / e.total) * 100) : 0,
+      }));
+      activityStats.sort((a, b) => {
+        if (b.percent !== a.percent) return b.percent - a.percent;
+        if (b.total !== a.total) return b.total - a.total;
+        return a.name.localeCompare(b.name);
+      });
+
+      // Build forest trees for selected month (template tasks only)
+      const nowParts = window.WITA && window.WITA.nowParts ? window.WITA.nowParts() : null;
+      const isCurrentMonth = nowParts && nowParts.year === year && nowParts.month - 1 === month;
+      const endDay = isCurrentMonth ? nowParts.day : daysInMonth;
+      const counters = new Map();
+      for (let d = 1; d <= endDay; d++) {
+        const iso = new Date(Date.UTC(year, month, d)).toISOString().slice(0, 10);
+        counters.set(iso, { done: 0, total: 0 });
+      }
+      (tasksData || []).forEach((t) => {
+        if (!t.task_id) return; // hanya task dari template
+        const key = t.date;
+        if (!counters.has(key)) return; // jaga-jaga hanya dalam rentang
+        const c = counters.get(key);
+        c.total += 1;
+        if (t.is_completed) c.done += 1;
+        counters.set(key, c);
+      });
+      const forestTrees = [];
+      counters.forEach((c, dateStr) => {
+        const percent = c.total > 0 ? Math.round((c.done / c.total) * 100) : 0;
+        forestTrees.push({ date: dateStr, percent });
+      });
+      // urutkan terbaru duluan agar yang terbaru tampil dulu
+      forestTrees.sort((a, b) => (a.date < b.date ? 1 : -1));
+      const forestAvgPercent = forestTrees.length
+        ? Math.round(forestTrees.reduce((s, t) => s + (t.percent || 0), 0) / forestTrees.length)
+        : 0;
+
       this.monthlyData = {
         totalTasks,
         completedTasks,
         incompleteTasks: totalTasks - completedTasks,
         totalScore,
         dailyStats,
+        activityStats,
+        forestTrees,
+        forestAvgPercent,
       };
     },
 

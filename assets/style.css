@@ -4,11 +4,21 @@
   --success-color: #198754;
   --warning-color: #ffc107;
   --danger-color: #dc3545;
+
+  --gradient-1: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  --gradient-2: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --gradient-3: linear-gradient(135deg, #36d1dc 0%, #5b86e5 100%);
+  --glass-bg: rgba(255, 255, 255, 0.18);
+  --glass-border: rgba(255, 255, 255, 0.35);
+  --text-invert: #f8fafc;
 }
 
 body {
-  background-color: #f8f9fa;
+  background-color: #f6f8fc;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-image: radial-gradient(1000px 400px at -10% -20%, rgba(13, 110, 253, 0.08), transparent 60%),
+    radial-gradient(800px 300px at 120% -10%, rgba(118, 75, 162, 0.08), transparent 60%);
+  background-attachment: fixed;
 }
 
 .navbar-brand {
@@ -211,34 +221,265 @@ body {
   }
 }
 
-/* Dark mode support */
-/* @media (prefers-color-scheme: dark) {
-  body {
-    background-color: #0f1216;
-    color: #e7e7e7;
-  }
-  .card {
-    background-color: #161a20;
-    border-color: rgba(255, 255, 255, 0.06);
-  }
-  .card-header {
-    background: #161a20;
-    border-bottom-color: rgba(255, 255, 255, 0.06);
-  }
-  .progress {
-    background-color: rgba(255, 255, 255, 0.08);
-  }
-  .calendar-day {
-    color: #e7e7e7;
-  }
-  .quote-card {
-    color: #fff;
-  }
-} */
-
 /* Navbar subtle glass */
 .navbar.bg-primary {
   background: linear-gradient(90deg, #0d6efd, #0b5ed7);
+}
+
+/* Elegant palette for logged-out landing */
+.navbar.bg-elegant {
+  background: linear-gradient(90deg, #3676c9, #3e5c9e); /* slate -> near-black */
+}
+
+/* Override gradients only within logged-out landing */
+.landing-theme {
+  /* Replace default blue-ish gradients with elegant violet → rose and fresh cyan → emerald for CTAs */
+  --gradient-3: linear-gradient(135deg, #3a3ded 0%, #db2777 100%); /* hero background */
+  --gradient-1: linear-gradient(135deg, #06b6d4 0%, #10b981 100%); /* primary CTA button */
+}
+
+/* Modern navbar tweaks */
+.modern-navbar {
+  backdrop-filter: saturate(140%) blur(8px);
+  box-shadow: 0 10px 24px rgba(13, 110, 253, 0.12);
+}
+.brand-badge {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--text-invert);
+  color: var(--primary-color);
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+/* Glass elements */
+.glass-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px) saturate(140%);
+  border-radius: 16px;
+  color: #fff;
+}
+
+/* Gradient button */
+.btn-gradient {
+  background-image: var(--gradient-1);
+  color: #fff;
+  border: none;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.btn-gradient:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(79, 172, 254, 0.25);
+  filter: brightness(1.05);
+}
+.glass-btn {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  color: #fff !important;
+  backdrop-filter: blur(8px);
+}
+
+/* Landing hero */
+.hero-section {
+  padding-top: 72px;
+  padding-bottom: 24px;
+  background-image: var(--gradient-3);
+  position: relative;
+  color: var(--text-invert);
+  border-radius: 0 0 24px 24px;
+}
+.hero-title {
+  color: #fff;
+}
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 24px;
+  backdrop-filter: blur(8px);
+  letter-spacing: 0.2px;
+}
+.hero-perks .perk {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  backdrop-filter: blur(6px);
+}
+.hero-blur {
+  position: absolute;
+  filter: blur(60px);
+  opacity: 0.5;
+  z-index: 0;
+}
+
+/* Ensure landing hero fills viewport height (without overlapping next section) */
+.landing-theme .hero-section {
+  min-height: calc(100vh - 56px); /* subtract fixed navbar height */
+  display: flex;
+  align-items: center; /* vertically center content */
+  padding-top: 24px; /* override default 72px to avoid extra scroll */
+  padding-bottom: 24px;
+}
+
+
+/* Landing visual mock */
+.landing-visual {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(13, 110, 253, 0.12);
+}
+.icon-bubble {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+}
+.mini-card {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+.mock-panel {
+  background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  padding: 14px;
+}
+.mock-panel .task-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.mock-panel .task-row:hover {
+  background: rgba(13, 110, 253, 0.06);
+  transform: translateX(2px);
+}
+.hero-illustration {
+  width: 100%;
+  max-height: 160px;
+  object-fit: cover;
+  display: block;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Quote preview in hero */
+.quote-preview {
+  border-radius: 14px;
+}
+
+/* Section styles */
+.section-kicker {
+  display: inline-block;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0d6efd;
+  background: rgba(13, 110, 253, 0.08);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+.feature-card {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  background: #fff;
+  padding: 16px;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 28px rgba(13, 110, 253, 0.12);
+  border-color: rgba(13, 110, 253, 0.3);
+}
+
+/* Auth modal styling */
+.auth-modal .modal-content {
+  border: none;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+}
+.auth-modal-content .modal-header .modal-title {
+  font-weight: 800;
+}
+.auth-visual {
+  background-image: var(--gradient-2);
+  position: relative;
+  border-radius: 18px 0 0 18px;
+  overflow: hidden;
+}
+.auth-visual::after {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.18), transparent 60%);
+  animation: pulse 6s ease-in-out infinite;
+}
+@keyframes pulse {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(10deg) scale(1.05);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+}
+.auth-form .form-control-modern {
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 10px 40px 10px 38px;
+  background: #fff;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.05s ease;
+}
+.auth-form .form-control-modern:focus {
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+  border-color: rgba(13, 110, 253, 0.5);
+}
+.field {
+  position: relative;
+}
+.field .icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6c757d;
+  font-size: 1rem;
+}
+.toggle-password {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: #6c757d;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+.toggle-password:hover {
+  background: rgba(0, 0, 0, 0.04);
 }
 
 /* Tables */
@@ -551,6 +792,12 @@ body {
   .main-content {
     padding-bottom: 8px;
   }
+
+  /* Hero compact on mobile */
+  .hero-section {
+    border-radius: 0 0 18px 18px;
+    padding-top: 64px;
+  }
 }
 
 /* --- Layering fixes: modals and toasts over fixed header/sidebar --- */
@@ -620,4 +867,144 @@ body {
 /* Optional: avoid expanding card by constraining overflow and height growth */
 .templates-grid .card .card-body {
   overflow: visible; /* allow menu to overflow without clipping */
+}
+
+/* --- Mobile layout enhancements for landing page --- */
+@media (max-width: 767.98px) {
+  /* Remove white gap between fixed navbar and landing hero */
+  .main-content > .container-fluid > .landing-theme {
+    margin-top: -5px; /* cancel .main-content padding-top (navbar height) */
+  }
+
+  /* Center hero content and tighten paddings */
+  .landing-theme .hero-section {
+    text-align: center;
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+  .landing-theme .hero-section .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .landing-theme .hero-badge {
+    margin-left: auto;
+    margin-right: auto;
+    font-size: 0.87rem;
+  }
+  /* Center CTAs */
+  .landing-theme .d-flex.gap-2.my-4,
+  .landing-theme .d-flex.gap-2.mt-4,
+  .landing-theme .d-flex.gap-2 {
+    justify-content: center;
+  }
+  /* Visual panel sizing */
+  .landing-theme .landing-visual {
+    max-width: 520px;
+    margin-top: -0px;
+    border-radius: 16px;
+  }
+  .landing-theme .mock-panel {
+    padding: 12px;
+    border-radius: 12px;
+  }
+  /* Ensure feature titles have no top margin on mobile, keep on desktop */
+  #fitur .feature-card h6,
+  #fitur .feature-card h6.mt-3 {
+    margin-top: 0 !important;
+  }
+  /* Space before features so it doesn't feel cramped */
+  .landing-theme #fitur.container {
+    margin-top: 2rem !important;
+    margin-bottom: 2.5rem !important;
+  }
+  /* Feature cards: horizontal layout for better scanability */
+  #fitur .feature-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    text-align: left;
+    padding: 14px;
+  }
+  #fitur .feature-card .icon-bubble {
+    flex: 0 0 40px;
+  }
+}
+
+/* Ultra-small phones: refine layout at <=567px */
+@media (max-width: 567px) {
+  /* Hero: tighter, readable */
+  .landing-theme .hero-title {
+    font-size: 1.6rem;
+    line-height: 1.25;
+  }
+  .landing-theme .lead {
+    font-size: 0.95rem;
+  }
+  /* CTA buttons stack and fill width for easier tap */
+  .landing-theme .d-flex.gap-2.my-4 .btn,
+  .landing-theme .d-flex.gap-2.mt-4 .btn {
+    width: 100%;
+  }
+  .landing-theme .d-flex.gap-2.my-4 {
+    gap: 10px;
+  }
+
+  /* Ensure feature titles have no top margin on very small screens */
+  #fitur .feature-card h6,
+  #fitur .feature-card h6.mt-3 {
+    margin-top: 0 !important;
+  }
+
+  /* Visual panel uses full width on very small screens */
+  .landing-theme .landing-visual {
+    max-width: 100%;
+    margin-top: 8px;
+  }
+
+  /* Feature grid: force single column for better readability */
+  #fitur .col-6 {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+  #fitur .feature-card {
+    padding: 12px;
+  }
+  #fitur .feature-card .icon-bubble {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* Ensure login button text readable on elegant dark navbar */
+.navbar.bg-elegant .nav-link.btn.btn-light {
+  color: #111827 !important;
+}
+
+/* Mini-card: prevent label wrapping on small screens */
+@media (max-width: 576px) {
+  .landing-theme .mini-card .d-flex.align-items-center {
+    gap: 8px;
+  }
+  .landing-theme .mini-card .icon-bubble {
+    width: 14px;
+    height: 14px;
+    font-size: 0.95rem;
+    margin-right: 0.2rem !important; /* override me-3 if present */
+  }
+  .landing-theme .mini-card .small.text-muted {
+    overflow: hidden;
+    font-size: 0.75rem;
+  }
+  .landing-theme .mini-card .h4 {
+    white-space: nowrap;
+    font-size: 1.1rem;
+  }
+}
+/* Fix: samakan offset main content dengan total lebar sidebar (width + padding-x)
+   Sidebar: width: 240px; padding-left/right: 0.75rem (total 1.5rem)
+   240px + 1.5rem => pastikan main-content tidak overlap/overflow */
+@media (min-width: 768px) {
+  .main-content.with-sidebar {
+    margin-left: calc(240px + 1.5rem);
+  }
 }

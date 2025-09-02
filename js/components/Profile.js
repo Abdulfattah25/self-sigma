@@ -2,19 +2,115 @@ Vue.component("profile", {
   props: ["user", "supabase"],
   data() {
     return {
+      // overview | edit-nama | password | tema | plant
+      activeSection: "overview",
       form: {
         fullName: this.user?.user_metadata?.full_name || "",
         email: this.user?.email || "",
-        password: "",
         newPassword: "",
         confirmNewPassword: "",
       },
+      show: {
+        newPassword: false,
+        confirmNewPassword: false,
+      },
+
+      // Dropdown Pengaturan
+      showMenu: false,
+
+      // Tema
+      theme: localStorage.getItem("pt_theme") || "system", // system | light | dark
+      appliedTheme: "light",
+      mql: null,
+
+      // Tanaman
+      plantOptions: [
+        { value: "monstera", label: "Monstera 🌿" },
+        { value: "cactus", label: "Kaktus 🌵" },
+        { value: "bonsai", label: "Bonsai 🎍" },
+        { value: "succulent", label: "Succulent 🌱" },
+      ],
+      selectedPlant:
+        (typeof this.user?.user_metadata?.plant_type === "string"
+          ? this.user.user_metadata.plant_type
+          : null) ||
+        localStorage.getItem("pt_plant") ||
+        "monstera",
+
       loading: false,
       message: "",
       error: "",
     };
   },
+  mounted() {
+    // Terapkan tema dan dengarkan perubahan sistem (untuk mode 'system')
+    this.applyTheme();
+    if (window?.matchMedia) {
+      this.mql = window.matchMedia("(prefers-color-scheme: dark)");
+      this.mql.addEventListener?.("change", this.onSystemThemeChange);
+    }
+    // Tutup dropdown saat klik di luar
+    document.addEventListener("click", this.onDocumentClick);
+  },
+  beforeDestroy() {
+    if (this.mql?.removeEventListener) {
+      this.mql.removeEventListener("change", this.onSystemThemeChange);
+    }
+    document.removeEventListener("click", this.onDocumentClick);
+  },
   methods: {
+    // Dropdown
+    toggleMenu() {
+      this.showMenu = !this.showMenu;
+    },
+    onDocumentClick(e) {
+      const el = this.$refs.settingsDropdown;
+      if (this.showMenu && el && !el.contains(e.target)) {
+        this.showMenu = false;
+      }
+    },
+    selectSection(section) {
+      this.activeSection = section;
+      this.showMenu = false;
+      this.message = "";
+      this.error = "";
+      this.$nextTick(() => {
+        if (section === "edit-nama") {
+          this.$refs.inputFullName?.focus?.();
+        } else if (section === "password") {
+          this.$refs.inputNewPassword?.focus?.();
+        }
+      });
+    },
+
+    // Tema
+    onSystemThemeChange() {
+      if (this.theme === "system") this.applyTheme();
+    },
+    getEffectiveTheme() {
+      if (this.theme === "system") {
+        const dark = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
+        return dark ? "dark" : "light";
+      }
+      return this.theme;
+    },
+    applyTheme() {
+      const eff = this.getEffectiveTheme();
+      document.documentElement.setAttribute("data-bs-theme", eff);
+      this.appliedTheme = eff;
+    },
+    setTheme(next) {
+      this.theme = next;
+      localStorage.setItem("pt_theme", next);
+      this.applyTheme();
+      this.$root?.showToast?.("Tema diterapkan", "success");
+      // Kembali ke profil (overview) setelah memilih tema
+      if (this.activeSection === "tema") {
+        this.activeSection = "overview";
+      }
+    },
+
+    // Akun: Update Nama
     async updateName() {
       this.error = this.message = "";
       if (!this.form.fullName.trim()) {
@@ -23,17 +119,23 @@ Vue.component("profile", {
       }
       try {
         this.loading = true;
-        const { data, error } = await this.supabase.auth.updateUser({
+        const { error } = await this.supabase.auth.updateUser({
           data: { full_name: this.form.fullName.trim() },
         });
         if (error) throw error;
         this.message = "Nama berhasil diperbarui";
+        this.$root?.showToast?.("Nama berhasil diperbarui", "success");
+        // Kembali ke profil (overview)
+        this.activeSection = "overview";
       } catch (e) {
-        this.error = e.message;
+        this.error = e.message || "Gagal memperbarui nama";
+        this.$root?.showToast?.(this.error, "danger");
       } finally {
         this.loading = false;
       }
     },
+
+    // Keamanan: Update Password
     async updatePassword() {
       this.error = this.message = "";
       if (!this.form.newPassword || this.form.newPassword.length < 6) {
@@ -51,13 +153,44 @@ Vue.component("profile", {
         });
         if (error) throw error;
         this.message = "Password berhasil diubah";
+        this.$root?.showToast?.("Password berhasil diubah", "success");
         this.form.newPassword = this.form.confirmNewPassword = "";
+        this.show.newPassword = this.show.confirmNewPassword = false;
+        // Kembali ke profil (overview)
+        this.activeSection = "overview";
       } catch (e) {
-        this.error = e.message;
+        this.error = e.message || "Gagal mengubah password";
+        this.$root?.showToast?.(this.error, "danger");
       } finally {
         this.loading = false;
       }
     },
+    togglePassword(field) {
+      this.show[field] = !this.show[field];
+    },
+
+    // Tanaman: Update pilihan
+    async updatePlant() {
+      this.error = this.message = "";
+      try {
+        this.loading = true;
+        const { error } = await this.supabase.auth.updateUser({
+          data: { plant_type: this.selectedPlant },
+        });
+        if (error) throw error;
+        localStorage.setItem("pt_plant", this.selectedPlant);
+        this.message = "Tanaman berhasil diganti";
+        this.$root?.showToast?.("Tanaman berhasil diganti", "success");
+        // Kembali ke profil (overview)
+        this.activeSection = "overview";
+      } catch (e) {
+        this.error = e.message || "Gagal mengganti tanaman";
+        this.$root?.showToast?.(this.error, "danger");
+      } finally {
+        this.loading = false;
+      }
+    },
+
     async signOut() {
       try {
         const { error } = await this.supabase.auth.signOut();
@@ -69,47 +202,216 @@ Vue.component("profile", {
     },
   },
   template: `
-    <div class="container">
+    <div class="container profile-page">
       <div class="row justify-content-center">
-        <div class="col-lg-6">
-          <div class="card mb-3">
-            <div class="card-header"><strong>👤 Profil</strong></div>
+        <div class="col-lg-12">
+
+          <!-- Header / Hero card -->
+          <div class="card quote-card mb-3">
+            <div class="card-body d-flex align-items-center gap-3">
+              <div class="brand-badge flex-shrink-0" style="background: rgba(255,255,255,.2); color: #fff;">
+                {{ (form.fullName || form.email || 'U')[0]?.toUpperCase() }}
+              </div>
+              <div class="flex-grow-1">
+                <div class="small text-white-50 mb-1">Profil</div>
+                <div class="d-flex align-items-center gap-2">
+                  <h5 class="mb-0 text-white">{{ form.fullName || 'Pengguna' }}</h5>
+                  <span class="badge bg-light text-dark badge-sm">Akun aktif</span>
+                </div>
+                <div class="small text-white-75">{{ form.email }}</div>
+              </div>
+
+              <!-- Tombol Pengaturan -> Dropdown (z-index tinggi) -->
+              <div class="ms-auto position-relative" ref="settingsDropdown" style="z-index: 1700;">
+                <button
+                  class="btn glass-btn btn-sm btn-icon"
+                  @click.stop="toggleMenu"
+                  :aria-expanded="showMenu ? 'true' : 'false'">
+                  <i class="bi bi-gear"></i>
+                  <span>Pengaturan</span>
+                </button>
+                <ul
+                  v-if="showMenu"
+                  class="dropdown-menu dropdown-menu-end show mt-2"
+                  style="display:block; position:absolute; right:0; transform:translateY(4px); z-index: 1700;">
+                  <li>
+                    <button class="dropdown-item d-flex align-items-center gap-2" @click="selectSection('edit-nama')">
+                      <i class="bi bi-pencil-square"></i> Edit Nama
+                    </button>
+                  </li>
+                  <li>
+                    <button class="dropdown-item d-flex align-items-center gap-2" @click="selectSection('password')">
+                      <i class="bi bi-shield-lock"></i> Password
+                    </button>
+                  </li>
+                  <li>
+                    <button class="dropdown-item d-flex align-items-center gap-2" @click="selectSection('tema')">
+                      <i class="bi bi-palette"></i> Tema
+                    </button>
+                  </li>
+                  <li><hr class="dropdown-divider" /></li>
+                  <li>
+                    <button class="dropdown-item d-flex align-items-center gap-2" @click="selectSection('plant')">
+                      <i class="bi bi-flower3"></i> Ganti Tanaman
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kartu Pengaturan -->
+          <div class="card">
             <div class="card-body">
-              <div class="mb-3">
-                <label class="form-label">Nama</label>
-                <input type="text" v-model="form.fullName" class="form-control" placeholder="Nama lengkap">
-                <button class="btn btn-primary mt-2" :disabled="loading" @click="updateName">Simpan Nama</button>
+
+              <!-- Overview (awal buka): hanya nama, email, logout -->
+              <div v-show="activeSection === 'overview'" class="fade-in">
+                <div class="mb-3">
+                  <label class="form-label">Nama</label>
+                  <div class="form-control-plaintext">{{ form.fullName || '-' }}</div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Email</label>
+                  <div class="form-control-plaintext">{{ form.email || '-' }}</div>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-danger ms-auto" @click="signOut">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                  </button>
+                </div>
               </div>
-              <div class="mb-3">
-                <label class="form-label">Email</label>
-                <input type="email" v-model="form.email" class="form-control" disabled>
-                <small class="text-muted">Perubahan email belum didukung.</small>
+
+              <!-- Edit Nama -->
+              <div v-show="activeSection === 'edit-nama'" class="fade-in">
+                <div class="mb-3">
+                  <label class="form-label">Nama</label>
+                  <div class="field">
+                    <i class="bi bi-person icon"></i>
+                    <input
+                      type="text"
+                      ref="inputFullName"
+                      v-model="form.fullName"
+                      class="form-control"
+                      placeholder="Nama lengkap" />
+                  </div>
+                  <button class="btn btn-gradient mt-2 btn-icon" :disabled="loading" @click="updateName">
+                    <i class="bi bi-save"></i> Simpan Nama
+                  </button>
+                </div>
               </div>
-              <div class="mb-3">
-                <label class="form-label">Ganti Password</label>
-                <input type="password" v-model="form.newPassword" class="form-control mb-2" placeholder="Password baru">
-                <input type="password" v-model="form.confirmNewPassword" class="form-control" placeholder="Konfirmasi password baru">
-                <button class="btn btn-outline-primary mt-2" :disabled="loading" @click="updatePassword">Ubah Password</button>
+
+              <!-- Ganti Password -->
+              <div v-show="activeSection === 'password'" class="fade-in">
+                <div class="mb-3">
+                  <label class="form-label">Ganti Password</label>
+
+                  <div class="field mb-2">
+                    <i class="bi bi-key icon"></i>
+                    <input
+                      :type="show.newPassword ? 'text' : 'password'"
+                      ref="inputNewPassword"
+                      v-model="form.newPassword"
+                      class="form-control"
+                      placeholder="Password baru" />
+                    <button type="button" class="toggle-password" @click="togglePassword('newPassword')" :aria-label="show.newPassword ? 'Sembunyikan' : 'Tampilkan'">
+                      <i class="bi" :class="show.newPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
+                    </button>
+                  </div>
+
+                  <div class="field">
+                    <i class="bi bi-shield-check icon"></i>
+                    <input
+                      :type="show.confirmNewPassword ? 'text' : 'password'"
+                      v-model="form.confirmNewPassword"
+                      class="form-control"
+                      placeholder="Konfirmasi password baru" />
+                    <button type="button" class="toggle-password" @click="togglePassword('confirmNewPassword')" :aria-label="show.confirmNewPassword ? 'Sembunyikan' : 'Tampilkan'">
+                      <i class="bi" :class="show.confirmNewPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
+                    </button>
+                  </div>
+
+                  <button class="btn btn-outline-primary mt-3 btn-icon" :disabled="loading" @click="updatePassword">
+                    <i class="bi bi-shield-lock"></i> Ubah Password
+                  </button>
+                </div>
               </div>
-              <div class="d-flex gap-2">
-                <button class="btn btn-outline-secondary" @click="$root.setView('dashboard')">Kembali</button>
-                <button class="btn btn-danger ms-auto" @click="signOut">Logout</button>
+
+              <!-- Tema -->
+              <div v-show="activeSection === 'tema'" class="fade-in">
+                <div class="mb-2">
+                  <label class="form-label d-flex align-items-center gap-2">
+                    <i class="bi bi-palette"></i>
+                    Pilih Tema
+                  </label>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                  <input class="btn-check" type="radio" name="theme" id="theme-system" value="system" v-model="theme" @change="setTheme('system')" />
+                  <label class="btn btn-outline-secondary" :class="{ active: theme === 'system' }" for="theme-system">
+                    <i class="bi bi-laptop me-1"></i> Sistem
+                  </label>
+
+                  <input class="btn-check" type="radio" name="theme" id="theme-light" value="light" v-model="theme" @change="setTheme('light')" />
+                  <label class="btn btn-outline-secondary" :class="{ active: theme === 'light' }" for="theme-light">
+                    <i class="bi bi-sun me-1"></i> Terang
+                  </label>
+
+                  <input class="btn-check" type="radio" name="theme" id="theme-dark" value="dark" v-model="theme" @change="setTheme('dark')" />
+                  <label class="btn btn-outline-secondary" :class="{ active: theme === 'dark' }" for="theme-dark">
+                    <i class="bi bi-moon-stars me-1"></i> Gelap
+                  </label>
+                </div>
+                <small class="text-muted d-block mt-2">
+                  Tema aktif: <span class="fw-semibold text-capitalize">{{ appliedTheme }}</span>
+                </small>
               </div>
+
+              <!-- Ganti Tanaman -->
+              <div v-show="activeSection === 'plant'" class="fade-in">
+                <div class="mb-2">
+                  <label class="form-label d-flex align-items-center gap-2">
+                    <i class="bi bi-flower3"></i>
+                    Pilih Tanaman
+                  </label>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6" v-for="opt in plantOptions" :key="opt.value">
+                    <div
+                      class="card border-0 shadow-sm"
+                      :class="{'border-primary': selectedPlant === opt.value}"
+                    >
+                      <div class="card-body d-flex align-items-center gap-3">
+                        <div class="icon-bubble" style="background: rgba(13,110,253,.06);">
+                          <span style="font-size:1.1rem">{{ opt.label.split(' ').slice(-1)[0] }}</span>
+                        </div>
+                        <div class="flex-grow-1">
+                          <div class="fw-semibold text-capitalize">{{ opt.label }}</div>
+                          <div class="small text-muted">Pilih {{ opt.value }} sebagai tanaman Anda.</div>
+                        </div>
+                        <div class="form-check m-0">
+                          <input
+                            class="form-check-input"
+                            type="radio"
+                            name="plant"
+                            :id="'plant-' + opt.value"
+                            :value="opt.value"
+                            v-model="selectedPlant"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <button class="btn btn-outline-primary mt-3 btn-icon" :disabled="loading" @click="updatePlant">
+                  <i class="bi bi-check2-circle"></i> Simpan Tanaman
+                </button>
+              </div>
+
+              <!-- Alerts -->
               <div v-if="message" class="alert alert-success mt-3">{{ message }}</div>
               <div v-if="error" class="alert alert-danger mt-3">{{ error }}</div>
             </div>
           </div>
 
-          <div class="card">
-            <div class="card-header"><strong>⚙️ Pengaturan Lain</strong></div>
-            <div class="card-body">
-              <ul class="list-unstyled mb-0">
-                <li class="mb-2">🔔 Notifikasi (segera hadir)</li>
-                <li class="mb-2">🎨 Tema (segera hadir)</li>
-                <li class="mb-2">🗂️ Ekspor data (segera hadir)</li>
-              </ul>
-            </div>
-          </div>
         </div>
       </div>
     </div>

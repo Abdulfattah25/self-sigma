@@ -188,12 +188,25 @@ Vue.component("dashboard", {
       }
     },
 
-    // Mengisi data untuk hutan virtual pada rentang hari tertentu
+    // Mengisi data untuk hutan virtual: HANYA bulan berjalan (current month)
     async loadForestData(days) {
       try {
-        // Build WITA-aware start/end date-only strings
+        // Tentukan rentang tanggal untuk bulan berjalan (WITA-aware)
         const endStr = window.WITA && window.WITA.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
-        const startStr = window.WITA && window.WITA.advanceIso ? window.WITA.advanceIso(endStr, -(days - 1)) : endStr;
+        const parts =
+          window.WITA && window.WITA.nowParts
+            ? window.WITA.nowParts()
+            : (() => {
+                const d = new Date(endStr);
+                return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 };
+              })();
+        const startStr =
+          window.WITA && window.WITA.monthStartIso
+            ? window.WITA.monthStartIso(parts.year, parts.month - 1)
+            : `${parts.year}-${String(parts.month).padStart(2, "0")}-01`;
+
+        // Hitung jumlah hari inklusif pada rentang bulan berjalan hingga hari ini
+        const diffDays = Math.floor((Date.parse(endStr) - Date.parse(startStr)) / 86400000) + 1; // inklusif
 
         // Ambil semua instance tugas dalam rentang (hanya field yang diperlukan)
         const { data, error } = await this.supabase
@@ -205,9 +218,9 @@ Vue.component("dashboard", {
 
         if (error) throw error;
 
-        // Prefill semua tanggal agar hari tanpa tugas tetap muncul (0%)
+        // Prefill semua tanggal pada bulan berjalan agar hari tanpa tugas tetap muncul (0%)
         const counters = new Map();
-        for (let i = 0; i < days; i++) {
+        for (let i = 0; i < diffDays; i++) {
           const key =
             window.WITA && window.WITA.advanceIso
               ? window.WITA.advanceIso(startStr, i)
@@ -219,6 +232,7 @@ Vue.component("dashboard", {
         (data || []).forEach((row) => {
           if (!row.task_id) return;
           const key = row.date;
+          if (!counters.has(key)) return; // abaikan data di luar bulan berjalan (jaga-jaga)
           const c = counters.get(key) || { done: 0, total: 0 };
           c.total += 1;
           if (row.is_completed) c.done += 1;

@@ -1,5 +1,5 @@
 Vue.component("dashboard", {
-  props: ["user", "supabase", "dailyQuote"],
+  props: ["user", "supabase", "dailyQuote", "plant"], // tambah prop 'plant'
   data() {
     return {
       todayScore: 0,
@@ -16,6 +16,7 @@ Vue.component("dashboard", {
       // Hutan virtual
       forestTrees: [], // [{date:'YYYY-MM-DD', percent:number}, ...]
       forestDaysRange: 21, // rentang hari yang ditampilkan di grid hutan
+      themeObserver: null,
     };
   },
   template: `
@@ -32,10 +33,10 @@ Vue.component("dashboard", {
             </div>
 
             <div class="row mb-2">
-                <div class="col-md-6 mb-3">
-                    <div class="card stats-card">
-                        <div class="card-header">
-                            <h6 class="mb-0">📊 Skor Produktivitas</h6>
+        <div class="col-md-6 mb-3">
+          <div class="card stats-card dashboard-card card-accent card-accent--primary">
+                        <div class="card-header py-3">
+                            <h5 class="mb-0">📊 Skor Produktivitas</h5>
                         </div>
                         <div class="card-body">
                             <div class="row">
@@ -53,10 +54,10 @@ Vue.component("dashboard", {
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6 mb-3">
-                    <div class="card stats-card">
-                        <div class="card-header">
-                            <h6 class="mb-0">📋 Status Tugas</h6>
+        <div class="col-md-6 mb-3">
+          <div class="card stats-card dashboard-card card-accent card-accent--warning">
+                        <div class="card-header py-3">
+                            <h5 class="mb-0">📋 Status Tugas</h5>
                         </div>
                         <div class="card-body">
                             <div class="row">
@@ -76,15 +77,16 @@ Vue.component("dashboard", {
 
             <!-- Forest Section -->
             <div class="row mb-4">
-                <div class="col-12">
-                  <forest-panel :today-percent="todayPercent" :trees="forestTrees"></forest-panel>
+                <div class="col-12 ">
+                  <!-- pass plant ke forest-panel -->
+                  <forest-panel :title="' Taman Produktivitas '" :today-percent="todayPercent" :trees="forestTrees" :plant="plant"></forest-panel>
                 </div>
             </div>
 
             <div class="row">
-                <div class="col-md-8 mb-4">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="col-md-8 mb-4">
+          <div class="card dashboard-card dashboard-card--chart card-accent card-accent--primary">
+                        <div class="card-header py-3 d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">📈 Perubahan Skor</h5>
                             <div class="btn-group" role="group">
                                 <button class="btn btn-sm" :class="chartRangeDays===7 ? 'btn-primary' : 'btn-outline-primary'" @click="changeRange(7)">7 Hari</button>
@@ -96,9 +98,9 @@ Vue.component("dashboard", {
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-header">
+        <div class="col-md-4">
+          <div class="card dashboard-card dashboard-card--list card-accent card-accent--violet">
+                        <div class="card-header py-3">
                             <h5 class="mb-0">📋 Tugas Belum Selesai</h5>
                         </div>
                         <div class="card-body">
@@ -127,6 +129,28 @@ Vue.component("dashboard", {
     await this.loadScoresRange(this.chartRangeDays);
     await this.loadForestData(this.forestDaysRange);
     this.renderChart();
+
+    // Refresh chart when theme changes (dark/light)
+    const target = document.documentElement || document.body;
+    this.themeObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === "attributes" && m.attributeName === "data-bs-theme") {
+          this.renderChart();
+          break;
+        }
+      }
+    });
+    this.themeObserver.observe(target, { attributes: true, attributeFilter: ["data-bs-theme"] });
+  },
+  beforeDestroy() {
+    if (this.chartInstance) {
+      this.chartInstance.destroy();
+      this.chartInstance = null;
+    }
+    if (this.themeObserver) {
+      this.themeObserver.disconnect();
+      this.themeObserver = null;
+    }
   },
   computed: {
     // Persentase pohon untuk hari ini
@@ -191,7 +215,6 @@ Vue.component("dashboard", {
     // Mengisi data untuk hutan virtual: HANYA bulan berjalan (current month)
     async loadForestData(days) {
       try {
-        // Tentukan rentang tanggal untuk bulan berjalan (WITA-aware)
         const endStr = window.WITA && window.WITA.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
         const parts =
           window.WITA && window.WITA.nowParts
@@ -205,10 +228,8 @@ Vue.component("dashboard", {
             ? window.WITA.monthStartIso(parts.year, parts.month - 1)
             : `${parts.year}-${String(parts.month).padStart(2, "0")}-01`;
 
-        // Hitung jumlah hari inklusif pada rentang bulan berjalan hingga hari ini
-        const diffDays = Math.floor((Date.parse(endStr) - Date.parse(startStr)) / 86400000) + 1; // inklusif
+        const diffDays = Math.floor((Date.parse(endStr) - Date.parse(startStr)) / 86400000) + 1;
 
-        // Ambil semua instance tugas dalam rentang (hanya field yang diperlukan)
         const { data, error } = await this.supabase
           .from("daily_tasks_instance")
           .select("date, is_completed, task_id")
@@ -218,7 +239,6 @@ Vue.component("dashboard", {
 
         if (error) throw error;
 
-        // Prefill semua tanggal pada bulan berjalan agar hari tanpa tugas tetap muncul (0%)
         const counters = new Map();
         for (let i = 0; i < diffDays; i++) {
           const key =
@@ -228,25 +248,22 @@ Vue.component("dashboard", {
           counters.set(key, { done: 0, total: 0 });
         }
 
-        // Hitung hanya tugas yang berasal dari template (memiliki task_id)
         (data || []).forEach((row) => {
           if (!row.task_id) return;
           const key = row.date;
-          if (!counters.has(key)) return; // abaikan data di luar bulan berjalan (jaga-jaga)
+          if (!counters.has(key)) return;
           const c = counters.get(key) || { done: 0, total: 0 };
           c.total += 1;
           if (row.is_completed) c.done += 1;
           counters.set(key, c);
         });
 
-        // Bentuk array untuk komponen hutan
         const treesAsc = [];
         counters.forEach((c, dateStr) => {
           const percent = c.total > 0 ? Math.round((c.done / c.total) * 100) : 0;
           treesAsc.push({ date: dateStr, percent });
         });
 
-        // Urutkan terbaru duluan (biar grid bagian awal menampilkan hari-hari terakhir)
         treesAsc.sort((a, b) => (a.date < b.date ? 1 : -1));
 
         this.forestTrees = treesAsc;
@@ -269,7 +286,6 @@ Vue.component("dashboard", {
           .lte("date", endStr);
         if (error) throw error;
 
-        // Agregasi skor per hari
         const map = new Map();
         for (let i = 0; i < days; i++) {
           const key = window.WITA && window.WITA.advanceIso ? window.WITA.advanceIso(startStr, i) : startStr;
@@ -305,6 +321,16 @@ Vue.component("dashboard", {
           this.chartInstance.destroy();
           this.chartInstance = null;
         }
+
+        const isDark =
+          (document.documentElement && document.documentElement.getAttribute("data-bs-theme") === "dark") ||
+          (document.body && document.body.getAttribute && document.body.getAttribute("data-bs-theme") === "dark");
+        const gridY = isDark ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.08)";
+        const gridX = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)";
+        const tickColor = isDark ? "#cbd5e1" : "#475569";
+        const lineColor = isDark ? "#60a5fa" : "#0d6efd";
+        const fillColor = isDark ? "rgba(96,165,250,0.18)" : "rgba(13,110,253,0.1)";
+
         this.chartInstance = new Chart(ctx, {
           type: "line",
           data: {
@@ -313,8 +339,8 @@ Vue.component("dashboard", {
               {
                 label: "Skor Harian",
                 data: this.weeklyScores.scores,
-                borderColor: "#0d6efd",
-                backgroundColor: "rgba(13, 110, 253, 0.1)",
+                borderColor: lineColor,
+                backgroundColor: fillColor,
                 tension: 0.35,
                 fill: true,
               },
@@ -324,8 +350,8 @@ Vue.component("dashboard", {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-              y: { beginAtZero: true, grid: { color: "rgba(0,0,0,0.08)" } },
-              x: { grid: { color: "rgba(0,0,0,0.04)" } },
+              y: { beginAtZero: true, grid: { color: gridY }, ticks: { color: tickColor } },
+              x: { grid: { color: gridX }, ticks: { color: tickColor } },
             },
             plugins: { legend: { display: false } },
           },

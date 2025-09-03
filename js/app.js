@@ -14,6 +14,10 @@ new Vue({
       loading: true,
       dailyQuote: "",
 
+      // Global: pilihan tanaman (dipakai Dashboard & Report)
+      // Default ke localStorage jika ada, jika tidak ke 'bonsai'
+      selectedPlant: localStorage.getItem("pt_plant") || "bonsai",
+
       // Auth forms
       authMode: "login", // 'login' or 'register'
       authForm: {
@@ -48,6 +52,8 @@ new Vue({
         if (session) {
           this.session = session;
           this.user = session.user;
+          // Sinkron selectedPlant dari profile/localStorage
+          this.syncSelectedPlantFromProfile();
           await this.postLoginBootstrap();
         }
 
@@ -56,17 +62,22 @@ new Vue({
           const wasLoggedIn = !!this.user;
           this.session = session;
           this.user = session?.user || null;
+
           if (event === "SIGNED_IN" && this.user) {
+            // Update pilihan tanaman dari metadata saat login
+            this.syncSelectedPlantFromProfile();
             await this.postLoginBootstrap();
-            // Hanya ubah tampilan ke dashboard saat transisi dari belum login -> login
             if (!wasLoggedIn) {
               this.currentView = "dashboard";
               this.closeAuthModal();
               this.showToast("Login berhasil", "success");
             }
           }
+
           if (event === "SIGNED_OUT") {
             this.currentView = "dashboard";
+            // Tetap gunakan pilihan terakhir dari localStorage jika ada
+            this.selectedPlant = localStorage.getItem("pt_plant") || "bonsai";
           }
         });
 
@@ -76,6 +87,22 @@ new Vue({
         console.error(e);
       } finally {
         this.loading = false;
+      }
+    },
+
+    // Sinkronisasi state selectedPlant dari user metadata atau localStorage
+    syncSelectedPlantFromProfile() {
+      try {
+        const metaPlant = this.user?.user_metadata?.plant_type;
+        if (typeof metaPlant === "string" && metaPlant.trim()) {
+          this.selectedPlant = metaPlant.trim();
+          localStorage.setItem("pt_plant", this.selectedPlant);
+        } else {
+          // fallback ke localStorage bila metadata belum ada
+          this.selectedPlant = localStorage.getItem("pt_plant") || "bonsai";
+        }
+      } catch (_) {
+        this.selectedPlant = localStorage.getItem("pt_plant") || "bonsai";
       }
     },
 
@@ -150,7 +177,6 @@ new Vue({
 
     async applyOverduePenalties() {
       const today = this.getToday();
-      // Ambil task yang lewat (maks 30 hari ke belakang) dan belum selesai
       const startDate = this.getISODateNDaysAgo(30);
       const { data: overdue, error: oErr } = await supabaseClient
         .from("daily_tasks_instance")
@@ -165,7 +191,6 @@ new Vue({
       }
       if (!overdue || overdue.length === 0) return;
 
-      // Cek penalty yang sudah tercatat agar tidak dobel
       const reasons = overdue.map((i) => `penalty:${i.id}`);
       const { data: existingLogs, error: lErr } = await supabaseClient
         .from("score_log")
@@ -187,10 +212,8 @@ new Vue({
 
     setDailyQuote() {
       if (!DAILY_QUOTES.length) return;
-      // Use WITA day-of-year approximation by using WITA 'today' parts
       const parts = window.WITA && window.WITA.nowParts ? window.WITA.nowParts() : { year: new Date().getFullYear() };
       const y = parts.year;
-      // Build date with WITA today and compute day-of-year by counting from Jan 1 WITA
       try {
         const todayIso = window.WITA && window.WITA.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
         const startIso = `${y}-01-01`;
@@ -234,7 +257,6 @@ new Vue({
         password: this.authForm.password,
       });
       if (error) throw error;
-      // Pastikan modal login tertutup setelah berhasil login
       this.closeAuthModal();
       this.resetAuthForm();
     },
@@ -364,7 +386,7 @@ new Vue({
                    data-bs-target="#authModal">Masuk</a>
               </li>
               <li v-else class="nav-item">
-                <a class="nav-link" href="#" @click.prevent="setView('profile')">👤 {{ formatUserName() }}</a>
+                <a class="nav-link f" href="#" @click.prevent="setView('profile')">👤 {{ formatUserName() }}</a>
               </li>
             </ul>
           </div>
@@ -594,10 +616,22 @@ new Vue({
               </section>
             </div>
 
-            <dashboard v-if="user && currentView==='dashboard'" :user="user" :supabase="supabaseClient" :daily-quote="dailyQuote"></dashboard>
+                        <!-- Pass selectedPlant ke Dashboard dan Report -->
+            <dashboard
+              v-if="user && currentView==='dashboard'"
+              :user="user"
+              :supabase="supabaseClient"
+              :daily-quote="dailyQuote"
+              :plant="selectedPlant">
+            </dashboard>
             <checklist v-if="user && currentView==='checklist'" :user="user" :supabase="supabaseClient"></checklist>
             <task-manager v-if="user && currentView==='tasks'" :user="user" :supabase="supabaseClient"></task-manager>
-            <report v-if="user && currentView==='report'" :user="user" :supabase="supabaseClient"></report>
+            <report
+              v-if="user && currentView==='report'"
+              :user="user"
+              :supabase="supabaseClient"
+              :plant="selectedPlant">
+            </report>
             <profile v-if="user && currentView==='profile'" :user="user" :supabase="supabaseClient"></profile>
           </div>
         </main>

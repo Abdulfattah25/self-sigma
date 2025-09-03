@@ -25,17 +25,14 @@ Vue.component("profile", {
 
       // Tanaman
       plantOptions: [
-        { value: "monstera", label: "Monstera 🌿" },
-        { value: "cactus", label: "Kaktus 🌵" },
-        { value: "bonsai", label: "Bonsai 🎍" },
-        { value: "succulent", label: "Succulent 🌱" },
+        { value: "bonsai", label: "Bonsai �" },
+        { value: "monstera", label: "Monstera �" },
+        // Opsi lain bisa ditambahkan di masa depan
       ],
       selectedPlant:
-        (typeof this.user?.user_metadata?.plant_type === "string"
-          ? this.user.user_metadata.plant_type
-          : null) ||
+        (typeof this.user?.user_metadata?.plant_type === "string" ? this.user.user_metadata.plant_type : null) ||
         localStorage.getItem("pt_plant") ||
-        "monstera",
+        "bonsai",
 
       loading: false,
       message: "",
@@ -43,13 +40,11 @@ Vue.component("profile", {
     };
   },
   mounted() {
-    // Terapkan tema dan dengarkan perubahan sistem (untuk mode 'system')
     this.applyTheme();
     if (window?.matchMedia) {
       this.mql = window.matchMedia("(prefers-color-scheme: dark)");
       this.mql.addEventListener?.("change", this.onSystemThemeChange);
     }
-    // Tutup dropdown saat klik di luar
     document.addEventListener("click", this.onDocumentClick);
   },
   beforeDestroy() {
@@ -104,7 +99,6 @@ Vue.component("profile", {
       localStorage.setItem("pt_theme", next);
       this.applyTheme();
       this.$root?.showToast?.("Tema diterapkan", "success");
-      // Kembali ke profil (overview) setelah memilih tema
       if (this.activeSection === "tema") {
         this.activeSection = "overview";
       }
@@ -125,7 +119,6 @@ Vue.component("profile", {
         if (error) throw error;
         this.message = "Nama berhasil diperbarui";
         this.$root?.showToast?.("Nama berhasil diperbarui", "success");
-        // Kembali ke profil (overview)
         this.activeSection = "overview";
       } catch (e) {
         this.error = e.message || "Gagal memperbarui nama";
@@ -156,7 +149,6 @@ Vue.component("profile", {
         this.$root?.showToast?.("Password berhasil diubah", "success");
         this.form.newPassword = this.form.confirmNewPassword = "";
         this.show.newPassword = this.show.confirmNewPassword = false;
-        // Kembali ke profil (overview)
         this.activeSection = "overview";
       } catch (e) {
         this.error = e.message || "Gagal mengubah password";
@@ -178,10 +170,16 @@ Vue.component("profile", {
           data: { plant_type: this.selectedPlant },
         });
         if (error) throw error;
+
         localStorage.setItem("pt_plant", this.selectedPlant);
+
+        // Tambahan: update state global agar Dashboard/Report reaktif
+        if (this.$root) {
+          this.$root.selectedPlant = this.selectedPlant;
+        }
+
         this.message = "Tanaman berhasil diganti";
         this.$root?.showToast?.("Tanaman berhasil diganti", "success");
-        // Kembali ke profil (overview)
         this.activeSection = "overview";
       } catch (e) {
         this.error = e.message || "Gagal mengganti tanaman";
@@ -216,18 +214,15 @@ Vue.component("profile", {
                 <div class="small text-white-50 mb-1">Profil</div>
                 <div class="d-flex align-items-center gap-2">
                   <h5 class="mb-0 text-white">{{ form.fullName || 'Pengguna' }}</h5>
-                  <span class="badge bg-light text-dark badge-sm">Akun aktif</span>
                 </div>
                 <div class="small text-white-75">{{ form.email }}</div>
               </div>
 
-              <!-- Tombol Pengaturan -> Dropdown (z-index tinggi) -->
-              
-                <div class="d-flex gap-2">
-                  <button class="btn btn-danger-outline ms-auto" @click="signOut">
-                    <i class="bi bi-box-arrow-right"></i> Logout
-                  </button>
-                </div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-danger-outline ms-auto" @click="signOut">
+                  <i class="bi bi-box-arrow-right"></i> Logout
+                </button>
+              </div>
             </div>
           </div>
 
@@ -235,7 +230,7 @@ Vue.component("profile", {
           <div class="card">
             <div class="card-body">
 
-              <!-- Overview (awal buka): hanya nama, email, logout -->
+              <!-- Overview -->
               <div v-show="activeSection === 'overview'" class="fade-in">
                 <div class="mb-3">
                   <label class="form-label">Nama</label>
@@ -246,10 +241,9 @@ Vue.component("profile", {
                   <div class="form-control-plaintext">{{ form.email || '-' }}</div>
                 </div>
 
-                <!-- Perbaikan: jadikan pembungkus relatif & sekecil tombol -->
                 <div class="position-relative d-inline-block" ref="settingsDropdown" style="z-index: 1700;">
                   <button
-                    class="btn btn-sm btn-icon btn-primary setting-btn p-1"
+                    class="btn btn-outline-secondary btn-sm btn-icon"
                     @click.stop="toggleMenu"
                     :aria-expanded="showMenu ? 'true' : 'false'">
                     <i class="bi bi-gear"></i>
@@ -409,7 +403,6 @@ Vue.component("profile", {
                 </button>
               </div>
 
-              <!-- Alerts -->
               <div v-if="message" class="alert alert-success mt-3">{{ message }}</div>
               <div v-if="error" class="alert alert-danger mt-3">{{ error }}</div>
             </div>

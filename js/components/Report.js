@@ -1,5 +1,5 @@
 Vue.component("report", {
-  props: ["user", "supabase"],
+  props: ["user", "supabase", "plant"],
   data() {
     return {
       currentMonth: window.WITA && window.WITA.nowParts ? window.WITA.nowParts().month - 1 : new Date().getMonth(),
@@ -89,7 +89,7 @@ Vue.component("report", {
 
                 <!-- Completion Rate -->
                   <div class="col-12 mb-3">
-                    <div class="card report-card border-0 shadow-sm">
+                    <div class="card dashboard-card card-accent card-accent--primary report-card border-0 shadow-sm">
                       <div class="card-header bg-white">
                         <h5 class="mb-0">📈 Tingkat Penyelesaian</h5>
                       </div>
@@ -107,47 +107,48 @@ Vue.component("report", {
                   </div>                
 
                 <!-- Taman Produktivitas (History Bulan Dipilih) -->
-                <div class="mb-4">
-                  <forest-panel
-                    :title="' Taman Produktivitas — ' + monthNames[currentMonth] + ' ' + currentYear"
-                    :today-percent="monthlyData.forestAvgPercent"
-                    :trees="monthlyData.forestTrees"
-                    :show-today-tile="false">
-                  </forest-panel>
-                </div>
+      <div class="mb-4">
+        <forest-panel
+          :title="' Taman Produktivitas '"
+          :today-percent="monthlyData.forestAvgPercent"
+          :trees="monthlyData.forestTrees"
+          :show-today-tile="false"
+          :plant="plant">
+        </forest-panel>
+      </div>
 
                 <!-- Konsistensi Kegiatan Bulan Ini -->               
                 
                 <div class="row mb-3">
-                <div class="col-12 col-lg-6">
-                  <div class="card mb-4">
+                <div class="col-12 col-xl-7">
+                  <div class="card mb-4 dashboard-card card-accent card-accent--success">
                   <div class="card-header text-center bg-whiter">
                     <h5 class="mb-0">📌 Konsistensi Kegiatan Bulan Ini</h5>
                     <small class="text-muted">Persentase dikerjakan dan jumlah dikerjakan/tidak</small>
                   </div>
                   <div class="card-body">
                     <div v-if="monthlyData.activityStats.length === 0" class="text-center text-muted">Belum ada data kegiatan pada bulan ini.</div>
-                    <div v-else class="table-responsive">
+                    <div v-else class="table-responsive consistency-table">
                       <table class="table table-sm align-middle">
                         <thead>
                           <tr>
-                            <th style="min-width:220px;">Kegiatan</th>
+                            <th class="col-activity">Kegiatan</th>
                             <th class="text-center">Total</th>
                             <th class="text-center">Dikerjakan</th>
                             <th class="text-center">Tidak</th>
-                            <th class="text-center" style="width:45%">Persentase</th>
+                            <th class="text-center col-percent">Persentase</th>
                           </tr>
                         </thead>
                         <tbody>
                           <tr v-for="act in monthlyData.activityStats" :key="act.key">
-                            <td>
+                            <td class="col-activity">
                               <div class="fw-semibold">{{ act.name }}</div>
                               <small class="text-muted">{{ act.type }}</small>
                             </td>
                             <td class="text-center">{{ act.total }}</td>
                             <td class="text-center text-success">{{ act.completed }}</td>
                             <td class="text-center text-warning">{{ act.notCompleted }}</td>
-                            <td class="text-center">
+                            <td class="text-center col-percent">
                               <div class="d-flex align-items-center gap-2">
                                 <div class="progress flex-grow-1" style="height:8px;">
                                   <div class="progress-bar" :class="act.percent >= 80 ? 'bg-success' : act.percent >= 60 ? 'bg-warning' : 'bg-danger'" :style="{ width: act.percent + '%' }"></div>
@@ -164,14 +165,14 @@ Vue.component("report", {
                 </div>
 
                   <!-- Detailed Table -->
-                  <div class="col-12 col-lg-6">
-                    <div class="card report-card border-0 shadow-sm h-100">
+                  <div class="col-12 col-xl-5">
+                    <div class="card dashboard-card card-accent card-accent--warning report-card border-0 shadow-sm h-100">
                       <div class="card-header bg-whiter text-center">
                         <h5 class="mb-0">📋 Detail Harian</h5>
                         <small class="text-muted">Jumlah skor yang didapatkan setiap harinya</small>
                       </div>
                       <div class="card-body">
-                        <div class="table-responsive">
+                        <div class="table-responsive detail">
                           <table class="table table-striped table-sm text-center">
                             <thead>
                               <tr>

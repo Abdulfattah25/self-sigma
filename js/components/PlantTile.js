@@ -1,18 +1,5 @@
 // Komponen petak pohon + caption tanggal di bawah (opsional)
 (function () {
-  function localSceneFor(percent) {
-    const p = Math.max(0, Math.min(100, Number(percent) || 0));
-    // Gunakan hanya gambar PNG untuk semua kondisi
-    if (p <= 10) return "plant-0-dead.png";
-    if (p <= 25) return "plant-1-wilted.png";
-    if (p <= 50) return "plant-2-growing.png";
-    if (p <= 89) return "plant-3-better.png";
-    return "plant-4-perfect.png";
-  }
-  function localAssetUrl(fileName) {
-    return `assets/forest/${fileName}`;
-  }
-
   Vue.component("plant-tile", {
     props: {
       tree: { type: Object, required: true }, // { date:'YYYY-MM-DD', percent:0..100, poster? }
@@ -20,19 +7,27 @@
       captionBelow: { type: Boolean, default: false }, // tampilkan tanggal di bawah gambar (non-overlay)
       showPercentOverlay: { type: Boolean, default: true }, // kontrol overlay persen jika tidak compact/caption
       showDateOverlay: { type: Boolean, default: true }, // kontrol overlay tanggal jika tidak compact/caption
+      // tipe tanaman: 'bonsai' (default -> assets/forest) atau 'monstera' (-> assets/garden)
+      plant: { type: String, default: "bonsai" },
     },
     computed: {
-      fileName() {
-        if (window.ForestUtils && typeof ForestUtils.sceneFor === "function") {
-          return ForestUtils.sceneFor(this.tree.percent);
-        }
-        return localSceneFor(this.tree.percent);
-      },
       src() {
-        if (window.ForestUtils && typeof ForestUtils.assetUrl === "function") {
-          return ForestUtils.assetUrl(this.fileName);
+        const percent = Math.max(0, Math.min(100, Number(this.tree?.percent) || 0));
+        // 0..100 -> stage 0..4
+        const stage = Math.min(4, Math.floor(percent / 25));
+        if (this.plant === "monstera") {
+          // assets/garden/1..5.png
+          return `assets/garden/${stage + 1}.png`;
         }
-        return localAssetUrl(this.fileName);
+        // default bonsai -> assets/forest/plant-*.png
+        const forestFiles = [
+          "plant-0-dead.png",
+          "plant-1-wilted.png",
+          "plant-2-growing.png",
+          "plant-3-better.png",
+          "plant-4-perfect.png",
+        ];
+        return `assets/forest/${forestFiles[stage]}`;
       },
       dateLabel() {
         try {

@@ -36,8 +36,8 @@ Vue.component("checklist", {
             </div>
 
             <!-- Tasks List -->
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card checklist-card card-accent card-accent--primary">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">📋 Daftar Task</h5>
                     <button class="btn btn-sm btn-outline-secondary" @click="loadTodayTasks">🔄 Refresh</button>
                 </div>
@@ -99,30 +99,30 @@ Vue.component("checklist", {
                 </div>
             </div>
 
-            <!-- Add Ad-hoc Task -->
-            <div class="card mt-2">
-                <div class="card-body">
-                    <div class="row align-items-end">
-                        <div class="col-md-3 mb-2">
-                            <label class="form-label">Tambah Task Tambahan (Tidak dari Template)</label>
-                            <input type="text" class="form-control" v-model="newAdHocTask" 
-                                   placeholder="Contoh: Meeting dengan klien" 
-                                   @keyup.enter="addAdHocTask">
-                        </div>
-                        <div class="col-md-2">
-                            <button class="btn btn-outline-primary w-100" @click="addAdHocTask" 
-                                    :disabled="!newAdHocTask.trim()">
-                                + Tambah Task
-                            </button>
-                        </div>
-                    </div>
-                </div>
+      <!-- Add Ad-hoc Task -->
+      <div class="card mt-2 checklist-card card-accent card-accent--primary">
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-7 col-lg-6 py-3">
+              <label class="form-label fw-bold"> 📋 Tambah Task Tambahan (Tidak dari Template)</label>
+              <div class="input-group">
+                <input type="text" class="form-control" v-model="newAdHocTask" 
+                     placeholder="Contoh: Meeting dengan klien" 
+                     @keyup.enter="addAdHocTask">
+                <button class="btn btn-outline-primary mx-3" @click="addAdHocTask" 
+                    :disabled="!newAdHocTask.trim()">
+                  + Tambah Task
+                </button>
+              </div>
             </div>
+          </div>
+        </div>
+      </div>
 
             <!-- Daily Summary -->
             <div class="row mt-2">
                 <div class="col-md-6 mb-2">
-                    <div class="card">
+                    <div class="card checklist-card card-accent card-accent--success">
                         <div class="card-body text-center">
                             <h5 class="card-title">🎯 Progress Hari Ini</h5>
                             <div class="display-6 mb-2" :class="progressPercentage >= 80 ? 'text-success' : progressPercentage >= 50 ? 'text-warning' : 'text-danger'">
@@ -133,8 +133,8 @@ Vue.component("checklist", {
                     </div>
                 </div>
                 <div class="col-md-6 mb-2">
-                    <div class="card">
-                        <div class="card-body text-center">
+                    <div class="card checklist-card card-accent card-accent--warning">
+                        <div class="card-body text-center ">
                             <h5 class="card-title">⚡ Skor Hari Ini</h5>
                             <div class="display-6 mb-2" :class="todayScore >= 0 ? 'text-success' : 'text-danger'">
                                 {{ todayScore >= 0 ? '+' : '' }}{{ todayScore }}

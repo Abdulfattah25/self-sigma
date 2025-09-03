@@ -39,7 +39,7 @@ Vue.component("task-manager", {
             </div>
 
             <!-- Templates List -->
-            <div class="card">
+            <div class="card dashboard-card card-accent card-accent--primary">
                 <div class="card-header">
                     <h5 class="mb-0">📝 Template Task Harian</h5>
                     <small class="text-muted">Template ini akan otomatis muncul di checklist setiap hari</small>

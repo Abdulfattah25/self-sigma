@@ -9,6 +9,8 @@ Vue.component("dashboard", {
       weeklyScores: [],
       completionRatio: 0,
       loading: true,
+      weeklyAgenda: [],
+      monthlyAgenda: [],
       chartInstance: null,
       chartRangeDays: 7, // 7 atau 30
       templateTargetCount: 0,
@@ -84,10 +86,11 @@ Vue.component("dashboard", {
             </div>
 
             <div class="row">
-        <div class="col-md-4  mb-4">
+  <div class="col-md-4 mb-4">
           <div class="card dashboard-card dashboard-card--list card-accent card-accent--violet">
                         <div class="card-header py-3">
                             <h5 class="mb-0">📋 Tugas Belum Selesai</h5>
+                      <small class="text-muted">Tugas harian dari template</small>
                         </div>
                         <div class="card-body">
                             <div v-if="incompleteTasks.length === 0" class="text-center text-muted">
@@ -107,7 +110,57 @@ Vue.component("dashboard", {
                         </div>
                     </div>
                 </div>
-        <div class="col-md-8">
+                <div class="col-md-4 mb-3">
+                  <div class="card dashboard-card dashboard-card--list card-accent card-accent--success">
+                    <div class="card-header py-3">
+                      <h5 class="mb-0">📆 Agenda Mingguan</h5>
+                      <small class="text-muted">Tugas deadline minggu ini</small>
+                    </div>
+                    <div class="card-body">
+                      <div v-if="weeklyAgenda.length === 0" class="text-muted">Tidak ada deadline.</div>
+                      <div v-else>
+                        <div v-for="t in weeklyAgenda" :key="t.id" class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded" :class="'priority-' + (t.priority || 'sedang')">
+                          <div>
+                            <small class="fw-bold">{{ t.task_name }}</small><br>
+                            <small class="text-muted">{{ t.category || '-' }}</small>
+                          </div>
+                          <div class="text-end">
+                            <div><span class="badge" :class="getPriorityBadgeClass(t.priority)">{{ t.priority || 'sedang' }}</span></div>
+                            <div class="small text-muted mt-1">{{ formatDateSimple(t.deadline_date) }}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="card dashboard-card dashboard-card dashboard-card--list card-accent card-accent--warning">
+                    <div class="card-header py-3">
+                      <h5 class="mb-0">🗓️ Agenda Bulanan</h5>
+                      <small class="text-muted">Tugas deadline bulan ini & bulan depan</small>
+                    </div>
+                    <div class="card-body">
+                      <div v-if="monthlyAgenda.length === 0" class="text-muted">Tidak ada deadline.</div>
+                      <div v-else>
+                        <div v-for="t in monthlyAgenda" :key="t.id" class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded" :class="'priority-' + (t.priority || 'sedang')">
+                          <div>
+                            <small class="fw-bold">{{ t.task_name }}</small><br>
+                            <small class="text-muted">{{ t.category || '-' }}</small>
+                          </div>
+                          <div class="text-end">
+                            <div><span class="badge" :class="getPriorityBadgeClass(t.priority)">{{ t.priority || 'sedang' }}</span></div>
+                            <div class="small text-muted mt-1">{{ formatDateSimple(t.deadline_date) }}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+            </div>
+            <!-- New Agenda Sections -->
+            <div class="col-12 mt-3">
+              <div class="row g-3">
+      <div class="col-md-12">
           <div class="card dashboard-card dashboard-card--chart card-accent card-accent--primary">
                         <div class="card-header py-3 d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">📈 Perubahan Skor</h5>
@@ -121,6 +174,8 @@ Vue.component("dashboard", {
                         </div>
                     </div>
                 </div>
+                
+              </div>
             </div>
         </div>
     `,
@@ -128,7 +183,34 @@ Vue.component("dashboard", {
     await this.loadDashboardData();
     await this.loadScoresRange(this.chartRangeDays);
     await this.loadForestData(this.forestDaysRange);
+    await this.loadWeeklyAgenda();
+    await this.loadMonthlyAgenda();
     this.renderChart();
+
+    // Listen for deadline completion from Checklist so we can remove from agendas
+    this._onDeadlineCompleted = (ev) => {
+      try {
+        const instance = ev.detail?.instance;
+        const tplId = instance?.task_id;
+        if (!tplId) return;
+        // Remove locally
+        this.weeklyAgenda = (this.weeklyAgenda || []).filter((t) => t.id !== tplId);
+        this.monthlyAgenda = (this.monthlyAgenda || []).filter((t) => t.id !== tplId);
+        // Refresh server lists to be safe
+        this.loadWeeklyAgenda();
+        this.loadMonthlyAgenda();
+      } catch (e) {
+        console.warn("Error handling deadline-completed event", e);
+      }
+    };
+
+    this._onAgendaRefresh = () => {
+      this.loadWeeklyAgenda();
+      this.loadMonthlyAgenda();
+    };
+
+    window.addEventListener("deadline-completed", this._onDeadlineCompleted);
+    window.addEventListener("agenda-refresh", this._onAgendaRefresh);
 
     // Refresh chart when theme changes (dark/light)
     const target = document.documentElement || document.body;
@@ -151,6 +233,10 @@ Vue.component("dashboard", {
       this.themeObserver.disconnect();
       this.themeObserver = null;
     }
+    try {
+      if (this._onDeadlineCompleted) window.removeEventListener("deadline-completed", this._onDeadlineCompleted);
+      if (this._onAgendaRefresh) window.removeEventListener("agenda-refresh", this._onAgendaRefresh);
+    } catch (_) {}
   },
   computed: {
     // Persentase pohon untuk hari ini
@@ -357,6 +443,155 @@ Vue.component("dashboard", {
           },
         });
       });
+    },
+
+    formatDateSimple(dateString) {
+      if (!dateString) return "-";
+      try {
+        return new Date(dateString).toLocaleDateString("id-ID", { year: "numeric", month: "short", day: "2-digit" });
+      } catch (_) {
+        return dateString;
+      }
+    },
+
+    async loadWeeklyAgenda() {
+      try {
+        const today = window.WITA && window.WITA.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
+        const start = new Date(today);
+        const day = start.getDay();
+        // compute start of week (Monday as start)
+        const diffToMonday = (day + 6) % 7; // 0(Sun)->6,1(Mon)->0
+        start.setDate(start.getDate() - diffToMonday);
+        const startIso = start.toISOString().slice(0, 10);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 6);
+        const endIso = end.toISOString().slice(0, 10);
+
+        // fetch candidate templates in the week range
+        const { data: tmplData, error: tmplErr } = await this.supabase
+          .from("daily_tasks_template")
+          .select("*")
+          .eq("user_id", this.user.id)
+          .eq("jenis_task", "deadline")
+          .gte("deadline_date", startIso)
+          .lte("deadline_date", endIso)
+          .order("deadline_date", { ascending: true });
+
+        if (tmplErr) throw tmplErr;
+        const candidates = tmplData || [];
+
+        if (candidates.length === 0) {
+          this.weeklyAgenda = [];
+          return;
+        }
+
+        // exclude templates whose deadline < today and exclude those already completed on their deadline date
+        const ids = candidates.map((t) => t.id).filter(Boolean);
+        const { data: instances, error: instErr } = await this.supabase
+          .from("daily_tasks_instance")
+          .select("task_id, date, is_completed")
+          .in("task_id", ids)
+          .eq("user_id", this.user.id)
+          .in(
+            "date",
+            candidates.map((c) => c.deadline_date)
+          )
+          .order("date", { ascending: true });
+
+        if (instErr) throw instErr;
+
+        const completedSet = new Set(
+          (instances || []).filter((i) => i.is_completed).map((i) => `${i.task_id}::${i.date}`)
+        );
+
+        const todayIso = today;
+        this.weeklyAgenda = candidates.filter((t) => {
+          if (!t.deadline_date) return false;
+          // skip past deadlines
+          if (t.deadline_date < todayIso) return false;
+          // skip if there's a completed instance for this template on that date
+          if (completedSet.has(`${t.id}::${t.deadline_date}`)) return false;
+          return true;
+        });
+      } catch (e) {
+        console.error("Error loadWeeklyAgenda:", e);
+        this.weeklyAgenda = [];
+      }
+    },
+
+    async loadMonthlyAgenda() {
+      try {
+        const today = window.WITA && window.WITA.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
+        // We'll include deadlines from start of this month up to end of NEXT month
+        const d = new Date(today);
+        const year = d.getFullYear();
+        const monthStartIso = `${year}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+        // compute end of next month
+        const nextMonth = new Date(d.getFullYear(), d.getMonth() + 2, 0);
+        const endNextMonthIso = nextMonth.toISOString().slice(0, 10);
+
+        // Compute current week range to exclude those items
+        const weekStart = new Date(today);
+        const day = weekStart.getDay();
+        const diffToMonday = (day + 6) % 7;
+        weekStart.setDate(weekStart.getDate() - diffToMonday);
+        const weekStartIso = weekStart.toISOString().slice(0, 10);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        const weekEndIso = weekEnd.toISOString().slice(0, 10);
+
+        const { data: tmplData, error: tmplErr } = await this.supabase
+          .from("daily_tasks_template")
+          .select("*")
+          .eq("user_id", this.user.id)
+          .eq("jenis_task", "deadline")
+          .gte("deadline_date", monthStartIso)
+          .lte("deadline_date", endNextMonthIso)
+          .order("deadline_date", { ascending: true });
+
+        if (tmplErr) throw tmplErr;
+        const monthData = tmplData || [];
+
+        if (monthData.length === 0) {
+          this.monthlyAgenda = [];
+          return;
+        }
+
+        // fetch instances for these templates on their respective deadline dates to check completion
+        const ids = monthData.map((t) => t.id).filter(Boolean);
+        const uniqueDates = Array.from(new Set(monthData.map((t) => t.deadline_date).filter(Boolean)));
+
+        const { data: instances, error: instErr } = await this.supabase
+          .from("daily_tasks_instance")
+          .select("task_id, date, is_completed")
+          .in("task_id", ids)
+          .eq("user_id", this.user.id)
+          .in("date", uniqueDates)
+          .order("date", { ascending: true });
+
+        if (instErr) throw instErr;
+
+        const completedSet = new Set(
+          (instances || []).filter((i) => i.is_completed).map((i) => `${i.task_id}::${i.date}`)
+        );
+
+        const todayIso = today;
+        // exclude current-week items and also exclude those past or completed
+        this.monthlyAgenda = monthData.filter((t) => {
+          const dstr = t.deadline_date;
+          if (!dstr) return false;
+          // exclude if in current week
+          if (dstr >= weekStartIso && dstr <= weekEndIso) return false;
+          // exclude past
+          if (dstr < todayIso) return false;
+          // exclude if completed on the deadline date
+          if (completedSet.has(`${t.id}::${dstr}`)) return false;
+          return true;
+        });
+      } catch (e) {
+        console.error("Error loadMonthlyAgenda:", e);
+        this.monthlyAgenda = [];
+      }
     },
 
     getPriorityBadgeClass(priority) {

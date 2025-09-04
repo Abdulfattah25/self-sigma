@@ -1,6 +1,3 @@
--- Productivity Tracker Schema for Supabase
--- Jalankan di Supabase SQL Editor
-
 -- Extensions (untuk gen_random_uuid)
 create extension if not exists pgcrypto;
 
@@ -18,6 +15,8 @@ create table if not exists public.daily_tasks_template (
   task_name text not null,
   priority text not null default 'sedang' check (priority in ('tinggi','sedang','rendah')),
   category text,
+  jenis_task text not null default 'harian',
+  deadline_date date,
   created_at timestamptz not null default now()
 );
 
@@ -29,11 +28,66 @@ create table if not exists public.daily_tasks_instance (
   task_name text not null,
   priority text not null default 'sedang' check (priority in ('tinggi','sedang','rendah')),
   category text,
+  jenis_task text not null default 'harian',
+  deadline_date date,
   date date not null,
   is_completed boolean not null default false,
   checked_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+-- Ensure jenis_task allowed values
+DO $$
+BEGIN
+  -- Ensure columns exist (safe for older DBs that lack these columns)
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'daily_tasks_template' AND column_name = 'jenis_task'
+  ) THEN
+    ALTER TABLE public.daily_tasks_template ADD COLUMN jenis_task text not null default 'harian';
+  ELSE
+    -- enforce default and backfill NULLs if any
+    ALTER TABLE public.daily_tasks_template ALTER COLUMN jenis_task SET DEFAULT 'harian';
+    UPDATE public.daily_tasks_template SET jenis_task = 'harian' WHERE jenis_task IS NULL;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'daily_tasks_template' AND column_name = 'deadline_date'
+  ) THEN
+    ALTER TABLE public.daily_tasks_template ADD COLUMN deadline_date date;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'daily_tasks_instance' AND column_name = 'jenis_task'
+  ) THEN
+    ALTER TABLE public.daily_tasks_instance ADD COLUMN jenis_task text not null default 'harian';
+  ELSE
+    ALTER TABLE public.daily_tasks_instance ALTER COLUMN jenis_task SET DEFAULT 'harian';
+    UPDATE public.daily_tasks_instance SET jenis_task = 'harian' WHERE jenis_task IS NULL;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'daily_tasks_instance' AND column_name = 'deadline_date'
+  ) THEN
+    ALTER TABLE public.daily_tasks_instance ADD COLUMN deadline_date date;
+  END IF;
+
+  -- Add CHECK constraints idempotently
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'daily_tasks_template_jenis_check'
+  ) THEN
+    ALTER TABLE public.daily_tasks_template ADD CONSTRAINT daily_tasks_template_jenis_check CHECK (jenis_task IN ('harian','deadline'));
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'daily_tasks_instance_jenis_check'
+  ) THEN
+    ALTER TABLE public.daily_tasks_instance ADD CONSTRAINT daily_tasks_instance_jenis_check CHECK (jenis_task IN ('harian','deadline'));
+  END IF;
+END $$;
 
 -- 4) score_log (pencatatan perubahan skor)
 create table if not exists public.score_log (
@@ -229,37 +283,35 @@ create policy sl_delete_own on public.score_log
 
 -- Admin can SELECT all rows
 drop policy if exists "profiles admin read" on public.profiles;
-create policy "profiles admin read" on public.profiles
-for select
-using (
-  exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid()
-      and p.role = 'admin'
-      and p.is_active = true
-  )
-);
-
--- Admin can UPDATE all rows
 drop policy if exists "profiles admin update" on public.profiles;
+
+-- Helper: returns true when the current auth.uid() is an active admin
+create or replace function public.is_current_user_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists(
+    select 1 from public.profiles
+    where id = auth.uid()
+      and role = 'admin'
+      and is_active = true
+  );
+$$;
+
+-- Grant execute so policy evaluation can call it (safe to allow execute)
+grant execute on function public.is_current_user_admin() to public;
+
+-- Admin policies that use the helper (no recursive SELECT from within policy)
+create policy "profiles admin read" on public.profiles
+  for select
+  using ( public.is_current_user_admin() );
+
 create policy "profiles admin update" on public.profiles
-for update
-using (
-  exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid()
-      and p.role = 'admin'
-      and p.is_active = true
-  )
-)
-with check (
-  exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid()
-      and p.role = 'admin'
-      and p.is_active = true
-  )
-);
+  for update
+  using ( public.is_current_user_admin() )
+  with check ( public.is_current_user_admin() );
 
 -- Users can read their own profile
 drop policy if exists "profiles self read" on public.profiles;
@@ -281,17 +333,3 @@ from auth.users u
 left join public.profiles p on p.id = u.id
 where p.id is null;
 
--- Promote your account to admin (replace with your values)
--- select id, email from auth.users order by created_at desc;
--- then:
--- insert into public.profiles (id, email, role, is_active)
--- values ('<YOUR-USER-ID>', '<you@example.com>', 'admin', true)
--- on conflict (id) do update
--- set email = excluded.email,
---     role = excluded.role,
---     is_active = excluded.is_active;
-
--- Catatan:
--- - Kolom users.id tidak auto default ke auth.uid(), klien harus mengirim id=auth.uid() saat upsert (sudah dilakukan di app.js)
--- - score_delta dibiarkan integer agar fleksibel (mendukung -3 penalti, -1 uncheck, +1 selesai)
--- - Partial unique index mencegah duplikasi materialisasi dan ad-hoc per hari

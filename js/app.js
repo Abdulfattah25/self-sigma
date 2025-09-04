@@ -48,6 +48,17 @@ new Vue({
   methods: {
     async initializeApp() {
       try {
+        // Early check: ensure Supabase config appears present. If anonKey is missing
+        // the requests will be sent without an apikey header and fail with 500.
+        if (!window.SUPABASE_CONFIG || !window.SUPABASE_CONFIG.url || !window.SUPABASE_CONFIG.anonKey) {
+          console.error("Supabase config missing or incomplete: check js/config.js (window.SUPABASE_CONFIG)");
+          // showToast is available as a method on this Vue instance
+          try {
+            this.showToast("Konfigurasi Supabase belum diatur. Periksa js/config.js (anonKey/url)", "danger", 8000);
+          } catch (_) {}
+          this.loading = false;
+          return;
+        }
         // Cek session aktif
         const {
           data: { session },
@@ -55,6 +66,22 @@ new Vue({
         if (session) {
           this.session = session;
           this.user = session.user;
+
+          // Block access immediately if the profile is disabled
+          const active = await this.ensureAccountActive();
+          if (!active) {
+            // sign out and inform user
+            try {
+              await supabaseClient.auth.signOut();
+            } catch (_) {}
+            this.showToast("Akun Anda dinonaktifkan: tidak dapat mengakses aplikasi.", "danger", 6000);
+            this.user = null;
+            this.session = null;
+            this.isAdmin = false;
+            this.loading = false;
+            return;
+          }
+
           // Determine admin role from profiles
           await this.refreshAdminFlag();
           this.syncSelectedPlantFromProfile();
@@ -66,8 +93,22 @@ new Vue({
           const wasLoggedIn = !!this.user;
           this.session = session;
           this.user = session?.user || null;
-          if (this.user) await this.refreshAdminFlag();
-          else this.isAdmin = false;
+          if (this.user) {
+            // Ensure account still active on sign in or session change
+            const active = await this.ensureAccountActive();
+            if (!active) {
+              try {
+                await supabaseClient.auth.signOut();
+              } catch (_) {}
+              this.showToast("Akun Anda dinonaktifkan: tidak dapat mengakses aplikasi.", "danger", 6000);
+              this.user = null;
+              this.session = null;
+              this.isAdmin = false;
+              return;
+            }
+
+            await this.refreshAdminFlag();
+          } else this.isAdmin = false;
 
           if (event === "SIGNED_IN" && this.user) {
             this.syncSelectedPlantFromProfile();
@@ -101,18 +142,74 @@ new Vue({
           this.isAdmin = false;
           return;
         }
+
+        // Prefer reading from profiles table. If it fails (RLS/policy), log and
+        // fall back to user metadata if available.
         const { data, error } = await supabaseClient
           .from("profiles")
           .select("role, is_active")
           .eq("id", this.user.id)
           .single();
+
         if (error) {
-          this.isAdmin = false;
+          // Log the error to aid debugging (RLS/policy denials, network, etc.)
+          console.warn("refreshAdminFlag: profiles select failed:", error);
+
+          // Detect common server-side issues and give actionable feedback
+          const msg = (error.message || "").toString();
+          if (error.code === "42P17" || /infinite recursion/i.test(msg)) {
+            console.error(
+              "Detected infinite recursion in RLS policy for 'profiles'. Review policies that reference 'profiles' or call functions that read 'profiles'."
+            );
+            try {
+              this.showToast(
+                "Server policy error pada tabel profiles (infinite recursion). Periksa RLS policy di Supabase.",
+                "danger",
+                8000
+              );
+            } catch (_) {}
+          } else if (/No API key found/i.test(msg) || /apikey/i.test(msg)) {
+            console.error(
+              "Request reached Supabase but no API key was sent. Ensure window.SUPABASE_CONFIG.anonKey is set and valid."
+            );
+            try {
+              this.showToast("Supabase API key tidak ditemukan. Periksa konfigurasi anonKey.", "danger", 7000);
+            } catch (_) {}
+          }
+
+          // Fallback: check role in user metadata (if you stored role there)
+          const metaRole = this.user?.user_metadata?.role;
+          this.isAdmin = metaRole === "admin";
           return;
         }
+
         this.isAdmin = data?.role === "admin" && data?.is_active !== false;
-      } catch (_) {
-        this.isAdmin = false;
+      } catch (e) {
+        console.warn("refreshAdminFlag error:", e);
+        this.isAdmin = this.user?.user_metadata?.role === "admin";
+      }
+    },
+
+    // Check whether the current user's profile row is active. Returns true when
+    // active or when we cannot determine (fallback). If profile explicitly has
+    // is_active = false, return false.
+    async ensureAccountActive() {
+      try {
+        if (!this.user) return true;
+        const { data, error } = await supabaseClient
+          .from("profiles")
+          .select("is_active")
+          .eq("id", this.user.id)
+          .single();
+        if (error) {
+          console.warn("ensureAccountActive: profiles select failed:", error);
+          // If we can't read the profile (unexpected), don't lock the user out.
+          return true;
+        }
+        return data?.is_active !== false;
+      } catch (e) {
+        console.warn("ensureAccountActive error:", e);
+        return true;
       }
     },
 
@@ -544,7 +641,7 @@ new Vue({
                     <div class="col-lg-6">
                       <div class="landing-visual glass-card p-0">
                         <div class="p-4">
-                          <div class="row">
+                          <div class="row g-3">
                             <div class="col-6">
                               <div class="mini-card">
                                 <div class="d-flex align-items-center">

@@ -267,8 +267,12 @@ Vue.component("checklist", {
           .eq("user_id", this.user.id)
           .eq("date", this.today);
 
+        // Always try to sync templates into today's instances (this will insert
+        // deadline templates whose deadline_date === today and missing harian templates)
+        await this.syncFromTemplates();
+
         if (!existingTasks || existingTasks.length === 0) {
-          // Create today's tasks from templates
+          // Create today's tasks from templates (fallback)
           await this.createTodayTasksFromTemplates();
         }
 
@@ -291,15 +295,26 @@ Vue.component("checklist", {
 
         if (templates && templates.length > 0) {
           // Create instances for today
-          const instances = templates.map((t) => ({
-            user_id: this.user.id,
-            task_id: t.id,
-            task_name: t.task_name,
-            priority: t.priority,
-            category: t.category,
-            date: this.today,
-            is_completed: false,
-          }));
+          const instances = templates
+            .filter((t) => {
+              const jenis = t.jenis_task || "harian";
+              if (jenis === "harian") return true;
+              if (jenis === "deadline" && t.deadline_date) {
+                return t.deadline_date === this.today;
+              }
+              return false;
+            })
+            .map((t) => ({
+              user_id: this.user.id,
+              task_id: t.id,
+              task_name: t.task_name,
+              priority: t.priority,
+              category: t.category,
+              jenis_task: t.jenis_task || "harian",
+              deadline_date: t.deadline_date || null,
+              date: this.today,
+              is_completed: false,
+            }));
 
           const { error } = await this.supabase.from("daily_tasks_instance").insert(instances);
 
@@ -317,7 +332,7 @@ Vue.component("checklist", {
 
         const { data: templates, error: tErr } = await this.supabase
           .from("daily_tasks_template")
-          .select("id, task_name, priority, category")
+          .select("id, task_name, priority, category, jenis_task, deadline_date")
           .eq("user_id", this.user.id);
 
         if (tErr) throw tErr;
@@ -333,12 +348,23 @@ Vue.component("checklist", {
         const existingIds = new Set((existing || []).map((i) => i.task_id).filter(Boolean));
         const toInsert = (templates || [])
           .filter((t) => !existingIds.has(t.id))
+          .filter((t) => {
+            const jenis = t.jenis_task || "harian";
+            if (jenis === "harian") return true;
+            // include deadline templates only if their deadline_date is today
+            if (jenis === "deadline" && t.deadline_date) {
+              return t.deadline_date === this.today;
+            }
+            return false;
+          })
           .map((t) => ({
             user_id: this.user.id,
             task_id: t.id,
             task_name: t.task_name,
             priority: t.priority,
             category: t.category,
+            jenis_task: t.jenis_task || "harian",
+            deadline_date: t.deadline_date || null,
             date: this.today,
             is_completed: false,
           }));
@@ -349,10 +375,8 @@ Vue.component("checklist", {
         }
 
         await this.loadTodayTasks();
-        alert("Sinkronisasi selesai");
       } catch (error) {
         console.error("Error syncFromTemplates:", error);
-        alert("Gagal sinkronisasi: " + error.message);
       } finally {
         this.loading = false;
       }
@@ -434,6 +458,15 @@ Vue.component("checklist", {
 
         this.updateCounts();
         await this.loadTodayScore();
+        // If this task is a deadline instance and now completed, notify other components
+        try {
+          if (task.jenis_task === "deadline" && newStatus) {
+            window.dispatchEvent(new CustomEvent("deadline-completed", { detail: { instance: task } }));
+          } else {
+            // For any toggle, signal dashboard to refresh agendas (safe)
+            window.dispatchEvent(new CustomEvent("agenda-refresh"));
+          }
+        } catch (_) {}
       } catch (error) {
         console.error("Error toggling task:", error);
         this.$root &&

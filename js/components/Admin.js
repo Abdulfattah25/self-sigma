@@ -34,7 +34,8 @@ Vue.component("admin", {
       this.errorMsg = "";
       const { data, error } = await this.supabase
         .from("profiles")
-        .select("id, email, role, is_active")
+        // include full_name if available; keep email for fallback
+        .select("id, email, role, is_active, full_name")
         .order("email", { ascending: true });
       if (error) {
         this.errorMsg = error.message;
@@ -81,7 +82,7 @@ Vue.component("admin", {
       </div>
 
       <div v-else>
-        <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex justify-content-between align-items-center my-3">
           <h4 class="mb-0">Admin Dashboard</h4>
           <div class="d-flex gap-2">
             <button class="btn btn-outline-secondary btn-sm" @click="loadProfiles">Reload</button>
@@ -101,21 +102,23 @@ Vue.component("admin", {
               <table class="table table-striped align-middle">
                 <thead>
                   <tr>
+                    <th scope="col">Nama</th>
                     <th scope="col">Email</th>
                     <th scope="col" style="width: 180px;">Role</th>
                     <th scope="col" style="width: 100px;">Aktif</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="u in users" :key="u.id">
-                    <td>{{ u.email }}</td>
+          <tr v-for="u in users" :key="u.id">
+            <td class="fw-semibold">{{ u.full_name ? u.full_name : (u.email ? u.email.split('@')[0] : u.email) }}</td>
+            <td class="text-muted small">{{ u.email }}</td>
                     <td>
                       <select class="form-select form-select-sm" v-model="u.role">
                         <option value="user">user</option>
                         <option value="admin">admin</option>
                       </select>
                     </td>
-                    <td>
+            <td>
                       <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" v-model="u.is_active">
                       </div>

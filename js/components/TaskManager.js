@@ -7,6 +7,8 @@ Vue.component("task-manager", {
         task_name: "",
         priority: "sedang",
         category: "",
+        jenis_task: "harian", // 'harian' | 'deadline'
+        deadline_date: null, // YYYY-MM-DD when jenis_task === 'deadline'
       },
       loading: false,
       editingId: null,
@@ -27,6 +29,12 @@ Vue.component("task-manager", {
         return bt - at;
       });
     },
+    dailyTemplates() {
+      return (this.sortedTemplates || []).filter((t) => (t.jenis_task || "harian") === "harian");
+    },
+    deadlineTemplates() {
+      return (this.sortedTemplates || []).filter((t) => (t.jenis_task || "harian") === "deadline");
+    },
   },
   template: `
         <div class="fade-in">
@@ -38,65 +46,88 @@ Vue.component("task-manager", {
                 </button>
             </div>
 
-            <!-- Templates List -->
-            <div class="card dashboard-card card-accent card-accent--primary">
-                <div class="card-header">
+            <!-- Templates: Harian + Deadline -->
+            <div class="row mb-3">
+              <div class="col-md-6 mb-3">
+                <div class="card dashboard-card card-accent card-accent--primary h-100">
+                  <div class="card-header">
                     <h5 class="mb-0">📝 Template Task Harian</h5>
                     <small class="text-muted">Template ini akan otomatis muncul di checklist setiap hari</small>
-                </div>
-                <div class="card-body">
-                    <div v-if="templates.length === 0" class="text-center text-muted py-4">
-                        <p>Belum ada template task.</p>
-                        <p>Tambahkan template pertama Anda untuk memulai!</p>
+                  </div>
+                  <div class="card-body">
+                    <div v-if="dailyTemplates.length === 0" class="text-center text-muted py-4">
+                      <p>Tidak ada template harian.</p>
                     </div>
                     <div v-else>
-                        <div class="row templates-grid">
-                            <div v-for="template in sortedTemplates" :key="template.id" class="col-md-6 mb-3">
-                                <div class="card h-100" :class="'priority-' + template.priority">
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <div class="flex-grow-1">
-                                                <h6 class="card-title mb-1">{{ template.task_name }}</h6>
-                                                <div class="mb-2">
-                                                    <span class="badge badge-sm me-2" :class="getPriorityBadgeClass(template.priority)">
-                                                        {{ template.priority.toUpperCase() }}
-                                                    </span>
-                                                    <span v-if="template.category" class="badge bg-light text-dark badge-sm">
-                                                        {{ template.category }}
-                                                    </span>
-                                                </div>
-                                                <small class="text-muted">
-                                                    Dibuat: {{ formatDate(template.created_at) }}
-                                                </small>
-                                            </div>
-                                            <div class="dropdown">
-                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
-                                                        type="button" :id="'dropdown-' + template.id" 
-                                                        data-bs-toggle="dropdown" data-bs-display="static" data-bs-boundary="viewport">
-                                                    ⋮
-                                                </button>
-                                                <ul class="dropdown-menu dropdown-menu-end" :aria-labelledby="'dropdown-' + template.id">
-                                                    <li>
-                                                        <a class="dropdown-item text-primary" href="#" 
-                                                           @click.prevent="openEditModal(template)">
-                                                            ✏️ Edit
-                                                        </a>
-                                                    </li>
-                                                    <li>
-                                                        <a class="dropdown-item text-danger" href="#" 
-                                                           @click.prevent="openDeleteConfirm(template)">
-                                                            🗑️ Hapus
-                                                        </a>
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
+                      <div class="row templates-grid">
+                        <div v-for="template in dailyTemplates" :key="template.id" class="col-md-12 mb-3">
+                          <div class="card h-100" :class="'priority-' + template.priority">
+                            <div class="card-body">
+                              <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                  <h6 class="card-title mb-1">{{ template.task_name }}</h6>
+                                  <div class="mb-2">
+                                    <span class="badge badge-sm me-2" :class="getPriorityBadgeClass(template.priority)">{{ template.priority.toUpperCase() }}</span>
+                                    <span v-if="template.category" class="badge bg-light text-dark badge-sm">{{ template.category }}</span>
+                                  </div>
+                                  <small class="text-muted">Dibuat: {{ formatDate(template.created_at) }}</small>
                                 </div>
+                                <div class="dropdown">
+                                  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" :id="'dropdown-' + template.id" data-bs-toggle="dropdown" data-bs-display="static" data-bs-boundary="viewport">⋮</button>
+                                  <ul class="dropdown-menu dropdown-menu-end" :aria-labelledby="'dropdown-' + template.id">
+                                    <li><a class="dropdown-item text-primary" href="#" @click.prevent="openEditModal(template)">✏️ Edit</a></li>
+                                    <li><a class="dropdown-item text-danger" href="#" @click.prevent="openDeleteConfirm(template)">🗑️ Hapus</a></li>
+                                  </ul>
+                                </div>
+                              </div>
                             </div>
+                          </div>
                         </div>
+                      </div>
                     </div>
+                  </div>
                 </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                <div class="card dashboard-card card-accent card-accent--info h-100">
+                  <div class="card-header">
+                    <h5 class="mb-0">🗓️ Template Task Deadline</h5>
+                    <small class="text-muted">Task sekali pakai berdasarkan tanggal deadline</small>
+                  </div>
+                  <div class="card-body">
+                    <div v-if="deadlineTemplates.length === 0" class="text-center text-muted py-4">
+                      <p>Tidak ada template deadline.</p>
+                    </div>
+                    <div v-else>
+                      <div class="row templates-grid">
+                        <div v-for="template in deadlineTemplates" :key="template.id" class="col-md-12 mb-3">
+                          <div class="card h-100" :class="'priority-' + template.priority">
+                            <div class="card-body">
+                              <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                  <h6 class="card-title mb-1">{{ template.task_name }}</h6>
+                                  <div class="mb-2">
+                                    <span class="badge badge-sm me-2" :class="getPriorityBadgeClass(template.priority)">{{ template.priority.toUpperCase() }}</span>
+                                    <span v-if="template.category" class="badge bg-light text-dark badge-sm">{{ template.category }}</span>
+                                  </div>
+                                  <small class="text-muted">Deadline: {{ template.deadline_date ? new Date(template.deadline_date).toLocaleDateString('id-ID') : '-' }}</small>
+                                </div>
+                                <div class="dropdown">
+                                  <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" :id="'dropdown-' + template.id" data-bs-toggle="dropdown" data-bs-display="static" data-bs-boundary="viewport">⋮</button>
+                                  <ul class="dropdown-menu dropdown-menu-end" :aria-labelledby="'dropdown-' + template.id">
+                                    <li><a class="dropdown-item text-primary" href="#" @click.prevent="openEditModal(template)">✏️ Edit</a></li>
+                                    <li><a class="dropdown-item text-danger" href="#" @click.prevent="openDeleteConfirm(template)">🗑️ Hapus</a></li>
+                                  </ul>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Add/Edit Modal -->
@@ -127,6 +158,19 @@ Vue.component("task-manager", {
                           <label class="form-label">Kategori (Opsional)</label>
                           <input type="text" class="form-control" v-model.trim="newTask.category" 
                                  placeholder="Contoh: Kesehatan">
+                        </div>
+                      </div>
+                      <div class="row">
+                        <div class="col-md-4 mb-3">
+                          <label class="form-label">Jenis Task</label>
+                          <select class="form-select" v-model="newTask.jenis_task">
+                            <option value="harian">Harian (materialisasi otomatis)</option>
+                            <option value="deadline">Deadline (berlaku sekali pada tanggal)</option>
+                          </select>
+                        </div>
+                        <div class="col-md-4 mb-3" v-if="newTask.jenis_task === 'deadline'">
+                          <label class="form-label">Tanggal Deadline</label>
+                          <input type="date" class="form-control" v-model="newTask.deadline_date" />
                         </div>
                       </div>
                       <div class="d-flex gap-2">
@@ -165,6 +209,10 @@ Vue.component("task-manager", {
         </div>
     `,
   async mounted() {
+    // remove expired deadline templates/instances first
+    try {
+      await this.cleanPastDeadlines();
+    } catch (_) {}
     await this.loadTemplates();
     // Elevate card when dropdown opens to ensure menu overlays neighbors
     try {
@@ -199,6 +247,9 @@ Vue.component("task-manager", {
       }
     },
     async ensureTodayInstanceForTemplate(template) {
+      // Only materialize templates that are daily; deadline tasks are single-shot and
+      // should not be auto-created each day.
+      if (template && template.jenis_task && template.jenis_task !== "harian") return;
       const today = window.WITA && window.WITA.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
       // Cek apakah instance untuk template ini sudah ada hari ini
       const { data: existing, error: eErr } = await this.supabase
@@ -218,6 +269,8 @@ Vue.component("task-manager", {
           task_name: template.task_name,
           priority: template.priority,
           category: template.category,
+          jenis_task: template.jenis_task || "harian",
+          deadline_date: template.deadline_date || null,
           date: today,
           is_completed: false,
         },
@@ -229,7 +282,7 @@ Vue.component("task-manager", {
     openAddModal() {
       this.editingId = null;
       this.modalMode = "add";
-      this.newTask = { task_name: "", priority: "sedang", category: "" };
+      this.newTask = { task_name: "", priority: "sedang", category: "", jenis_task: "harian", deadline_date: null };
       try {
         const el = this.$refs.taskModal;
         const instance = (window.bootstrap && window.bootstrap.Modal.getInstance(el)) || new window.bootstrap.Modal(el);
@@ -243,6 +296,8 @@ Vue.component("task-manager", {
         task_name: template.task_name,
         priority: template.priority,
         category: template.category || "",
+        jenis_task: template.jenis_task || "harian",
+        deadline_date: template.deadline_date || null,
       };
       try {
         const el = this.$refs.taskModal;
@@ -259,7 +314,7 @@ Vue.component("task-manager", {
           instance.hide();
         }
       } catch (_) {}
-      this.newTask = { task_name: "", priority: "sedang", category: "" };
+      this.newTask = { task_name: "", priority: "sedang", category: "", jenis_task: "harian", deadline_date: null };
       this.editingId = null;
       this.modalMode = "add";
     },
@@ -285,6 +340,8 @@ Vue.component("task-manager", {
               task_name: name,
               priority: this.newTask.priority,
               category: this.newTask.category || null,
+              jenis_task: this.newTask.jenis_task || "harian",
+              deadline_date: this.newTask.jenis_task === "deadline" ? this.newTask.deadline_date : null,
             })
             .eq("id", this.editingId)
             .eq("user_id", this.user.id)
@@ -306,6 +363,8 @@ Vue.component("task-manager", {
                   task_name: updated.task_name,
                   priority: updated.priority || "sedang",
                   category: updated.category || null,
+                  jenis_task: updated.jenis_task || "harian",
+                  deadline_date: updated.deadline_date || null,
                 })
                 .eq("user_id", this.user.id)
                 .eq("task_id", updated.id)
@@ -324,6 +383,14 @@ Vue.component("task-manager", {
 
           this.$root && this.$root.showToast && this.$root.showToast("Template berhasil diperbarui!", "success");
         } else {
+          // Validation: jika jenis_task == 'deadline', pastikan deadline_date terisi
+          if (this.newTask.jenis_task === "deadline" && !this.newTask.deadline_date) {
+            this.$root &&
+              this.$root.showToast &&
+              this.$root.showToast("Tanggal deadline wajib diisi untuk jenis 'deadline'", "warning");
+            this.loading = false;
+            return;
+          }
           // INSERT
           const { data, error } = await this.supabase
             .from("daily_tasks_template")
@@ -333,6 +400,8 @@ Vue.component("task-manager", {
                 task_name: name,
                 priority: this.newTask.priority,
                 category: this.newTask.category || null,
+                jenis_task: this.newTask.jenis_task || "harian",
+                deadline_date: this.newTask.jenis_task === "deadline" ? this.newTask.deadline_date : null,
               },
             ])
             .select();
@@ -442,5 +511,29 @@ Vue.component("task-manager", {
       const card = dropdown.closest(".card");
       if (card) card.classList.remove("dropdown-open");
     },
+    // async cleanPastDeadlines() {
+    //   try {
+    //     const today = window.WITA && window.WITA.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
+    //     // Delete instances for this user with jenis_task='deadline' and date < today
+    //     const { error: instErr } = await this.supabase
+    //       .from('daily_tasks_instance')
+    //       .delete()
+    //       .eq('user_id', this.user.id)
+    //       .eq('jenis_task', 'deadline')
+    //       .lt('date', today);
+    //     if (instErr) console.warn('cleanPastDeadlines: failed to delete instances', instErr.message || instErr);
+
+    //     // Optionally delete templates that are past (deadline_date < today)
+    //     const { error: tplErr } = await this.supabase
+    //       .from('daily_tasks_template')
+    //       .delete()
+    //       .eq('user_id', this.user.id)
+    //       .eq('jenis_task', 'deadline')
+    //       .lt('deadline_date', today);
+    //     if (tplErr) console.warn('cleanPastDeadlines: failed to delete templates', tplErr.message || tplErr);
+    //   } catch (e) {
+    //     console.warn('cleanPastDeadlines error', e);
+    //   }
+    // },
   },
 });

@@ -421,8 +421,14 @@ Vue.component("checklist", {
         task.is_completed = newStatus;
         task.checked_at = newStatus ? now : null;
 
+        // Use user-configured reward for completion; default to 1
+        const rawReward = this.$root?.user?.user_metadata?.score_reward_complete;
+        const parsedReward = parseFloat(rawReward);
+        const reward = Number.isFinite(parsedReward) ? parsedReward : 1;
+        const delta = newStatus ? reward : -reward;
+
         await this.logScoreChange(
-          newStatus ? 1 : -1,
+          delta,
           newStatus ? `Menyelesaikan: ${task.task_name}` : `Membatalkan: ${task.task_name}`
         );
 

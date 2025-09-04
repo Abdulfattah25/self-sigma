@@ -2,13 +2,16 @@ Vue.component("profile", {
   props: ["user", "supabase"],
   data() {
     return {
-      // overview | edit-nama | password | tema | plant
+      // overview | edit-nama | password | tema | plant | skor
       activeSection: "overview",
       form: {
         fullName: this.user?.user_metadata?.full_name || "",
         email: this.user?.email || "",
         newPassword: "",
         confirmNewPassword: "",
+        // Score settings
+        scoreReward: this.user?.user_metadata?.score_reward_complete ?? 1,
+        scorePenalty: this.user?.user_metadata?.score_penalty_overdue ?? -2,
       },
       show: {
         newPassword: false,
@@ -189,6 +192,53 @@ Vue.component("profile", {
       }
     },
 
+    // Skor: Simpan pengaturan
+    async saveScoreSettings() {
+      this.error = this.message = "";
+      const reward = parseFloat(this.form.scoreReward);
+      const penalty = parseFloat(this.form.scorePenalty);
+
+      if (!Number.isFinite(reward)) {
+        this.error = "Nilai skor selesai tidak valid";
+        this.$root?.showToast?.(this.error, "danger");
+        return;
+      }
+      if (!Number.isFinite(penalty)) {
+        this.error = "Nilai penalti tidak valid";
+        this.$root?.showToast?.(this.error, "danger");
+        return;
+      }
+
+      try {
+        this.loading = true;
+        const { error } = await this.supabase.auth.updateUser({
+          data: {
+            score_reward_complete: reward,
+            score_penalty_overdue: penalty,
+          },
+        });
+        if (error) throw error;
+
+        // Update user metadata in-place for reactive components
+        if (this.$root?.user) {
+          this.$root.user.user_metadata = {
+            ...(this.$root.user.user_metadata || {}),
+            score_reward_complete: reward,
+            score_penalty_overdue: penalty,
+          };
+        }
+
+        this.message = "Pengaturan skor disimpan";
+        this.$root?.showToast?.("Pengaturan skor disimpan", "success");
+        this.activeSection = "overview";
+      } catch (e) {
+        this.error = e.message || "Gagal menyimpan pengaturan skor";
+        this.$root?.showToast?.(this.error, "danger");
+      } finally {
+        this.loading = false;
+      }
+    },
+
     async signOut() {
       try {
         const { error } = await this.supabase.auth.signOut();
@@ -219,7 +269,7 @@ Vue.component("profile", {
               </div>
 
               <div class="d-flex gap-2">
-                <button class="btn btn-danger-outline ms-auto" @click="signOut">
+                <button class="btn btn-danger-outline ms-auto text-light fw-bold" @click="signOut">
                   <i class="bi bi-box-arrow-right"></i> Logout
                 </button>
               </div>
@@ -266,6 +316,11 @@ Vue.component("profile", {
                     <li>
                       <button class="dropdown-item d-flex align-items-center gap-2" @click="selectSection('tema')">
                         <i class="bi bi-palette"></i> Tema
+                      </button>
+                    </li>
+                    <li>
+                      <button class="dropdown-item d-flex align-items-center gap-2" @click="selectSection('skor')">
+                        <i class="bi bi-123"></i> Pengaturan Skor
                       </button>
                     </li>
                     <li><hr class="dropdown-divider" /></li>
@@ -316,11 +371,11 @@ Vue.component("profile", {
                   </div>
 
                   <div class="field">
-                    <i class="bi bi-shield-check icon"></i>
+                    <i class="bi bi-shield-check icon me-2"></i>
                     <input
                       :type="show.confirmNewPassword ? 'text' : 'password'"
                       v-model="form.confirmNewPassword"
-                      class="form-control"
+                      class="form-control "
                       placeholder="Konfirmasi password baru" />
                     <button type="button" class="toggle-password" @click="togglePassword('confirmNewPassword')" :aria-label="show.confirmNewPassword ? 'Sembunyikan' : 'Tampilkan'">
                       <i class="bi" :class="show.confirmNewPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
@@ -360,6 +415,31 @@ Vue.component("profile", {
                 <small class="text-muted d-block mt-2">
                   Tema aktif: <span class="fw-semibold text-capitalize">{{ appliedTheme }}</span>
                 </small>
+              </div>
+
+              <!-- Pengaturan Skor -->
+              <div v-show="activeSection === 'skor'" class="fade-in">
+                <div class="mb-2">
+                  <label class="form-label d-flex align-items-center gap-2">
+                    <i class="bi bi-123"></i>
+                    Pengaturan Skor
+                  </label>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-3">
+                    <label class="form-label">Skor Selesai (+)</label>
+                    <input type="number" step="1" class="form-control" v-model.number="form.scoreReward" />
+                    <small class="text-muted">Default: 1</small>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Penalti Tidak Dikerjakan (−)</label>
+                    <input type="number" step="1" class="form-control" v-model.number="form.scorePenalty" />
+                    <small class="text-muted">Default: -2</small>
+                  </div>
+                </div>
+                <button class="btn btn-outline-primary mt-3 btn-icon" :disabled="loading" @click="saveScoreSettings">
+                  <i class="bi bi-save"></i> Simpan Pengaturan Skor
+                </button>
               </div>
 
               <!-- Ganti Tanaman -->

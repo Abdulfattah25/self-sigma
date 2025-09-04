@@ -52,7 +52,7 @@ Vue.component("report", {
                 <!-- Summary Cards -->
                 <div class="row g-3 mb-4">
                     <div class="col-6 col-md-3">
-                        <div class="card report-metric metric-primary text-dark border-0 h-100">
+                        <div class="card report-metric metric-primary text-dark border-0 h-100 dashboard-card card-accent card-accent--primary">
                             <div class="card-body text-center py-3">
                                 <div class="fs-5 fw-bold">{{ monthlyData.totalTasks }}</div>
                                 <small class="text-muted">Total Task</small>
@@ -60,7 +60,7 @@ Vue.component("report", {
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <div class="card report-metric metric-success text-dark border-0 h-100">
+                        <div class="card report-metric metric-success text-dark border-0 h-100 dashboard-card card-accent card-accent--success">
                             <div class="card-body text-center py-3">
                                 <div class="fs-5 fw-bold">{{ monthlyData.completedTasks }}</div>
                                 <small class="text-muted">Task Selesai</small>
@@ -68,7 +68,7 @@ Vue.component("report", {
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <div class="card report-metric metric-warning text-dark border-0 h-100">
+                        <div class="card report-metric metric-warning text-dark border-0 h-100 dashboard-card card-accent card-accent--warning">
                             <div class="card-body text-center py-3">
                                 <div class="fs-5 fw-bold">{{ monthlyData.incompleteTasks }}</div>
                                 <small class="text-muted">Belum Selesai</small>
@@ -76,7 +76,7 @@ Vue.component("report", {
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <div class="card report-metric metric-score text-dark border-0 h-100">
+                        <div class="card report-metric metric-score text-dark border-0 h-100 dashboard-card card-accent card-accent--violet">
                             <div class="card-body text-center py-3">
                                 <div class="fs-5 fw-bold" :class="monthlyData.totalScore >= 0 ? '' : ''">
                                     {{ monthlyData.totalScore >= 0 ? '+' : '' }}{{ monthlyData.totalScore }}
@@ -89,8 +89,8 @@ Vue.component("report", {
 
                 <!-- Completion Rate -->
                   <div class="col-12 mb-3">
-                    <div class="card dashboard-card card-accent card-accent--primary report-card border-0 shadow-sm">
-                      <div class="card-header bg-white">
+                    <div class="card  report-card border-0 shadow-sm">
+                      <div class="card-header bg-whiter ">
                         <h5 class="mb-0">📈 Tingkat Penyelesaian</h5>
                       </div>
                       <div class="card-body text-center">
@@ -168,7 +168,7 @@ Vue.component("report", {
                   <div class="col-12 col-xl-5">
                     <div class="card dashboard-card card-accent card-accent--warning report-card border-0 shadow-sm h-100">
                       <div class="card-header bg-whiter text-center">
-                        <h5 class="mb-0">📋 Detail Harian</h5>
+                        <h5 class="mb-0">📋 Detail Skor Harian</h5>
                         <small class="text-muted">Jumlah skor yang didapatkan setiap harinya</small>
                       </div>
                       <div class="card-body">

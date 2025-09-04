@@ -11,6 +11,11 @@
   --glass-bg: rgba(255, 255, 255, 0.18);
   --glass-border: rgba(255, 255, 255, 0.35);
   --text-invert: #f8fafc;
+
+  --scrollbar-size: 10px;
+  --scrollbar-track: rgba(0, 0, 0, 0.06);
+  --scrollbar-thumb: rgba(13, 110, 253, 0.38);
+  --scrollbar-thumb-hover: rgba(13, 110, 253, 0.55);
 }
 
 body {
@@ -193,7 +198,60 @@ body {
 [data-bs-theme="dark"] .toggle-password:hover {
   background: rgba(255, 255, 255, 0.06);
 }
+/* WebKit browsers */
+body::-webkit-scrollbar,
+.sidebar-fixed .sidebar-inner::-webkit-scrollbar,
+.modal .modal-body::-webkit-scrollbar,
+.offcanvas-body::-webkit-scrollbar,
+#toastContainer::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+body::-webkit-scrollbar-track,
+.sidebar-fixed .sidebar-inner::-webkit-scrollbar-track,
+.modal .modal-body::-webkit-scrollbar-track,
+.offcanvas-body::-webkit-scrollbar-track,
+#toastContainer::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 999px;
+}
+body::-webkit-scrollbar-thumb,
+.sidebar-fixed .sidebar-inner::-webkit-scrollbar-thumb,
+.modal .modal-body::-webkit-scrollbar-thumb,
+.offcanvas-body::-webkit-scrollbar-thumb,
+#toastContainer::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 999px;
+  border: 2px solid transparent; /* creates inner padding/gap */
+  background-clip: padding-box;
+}
+body::-webkit-scrollbar-thumb:hover,
+.sidebar-fixed .sidebar-inner::-webkit-scrollbar-thumb:hover,
+.modal .modal-body::-webkit-scrollbar-thumb:hover,
+.offcanvas-body::-webkit-scrollbar-thumb:hover,
+#toastContainer::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+body::-webkit-scrollbar-corner {
+  background: transparent;
+}
 
+/* Dark theme variants */
+[data-bs-theme="dark"] {
+  --scrollbar-track: rgba(148, 163, 184, 0.12);
+  --scrollbar-thumb: rgba(148, 163, 184, 0.45);
+  --scrollbar-thumb-hover: rgba(148, 163, 184, 0.65);
+}
+[data-bs-theme="dark"] body {
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* Make scrollbars a bit slimmer on small screens */
+@media (max-width: 576px) {
+  :root {
+    --scrollbar-size: 8px;
+  }
+}
 /* Toasts readable in dark */
 [data-bs-theme="dark"] .toast .btn-close-white {
   filter: none;
@@ -646,6 +704,14 @@ body {
   transform: translateY(-50%);
   color: #6c757d;
   font-size: 1rem;
+  pointer-events: none; /* prevent blocking input clicks */
+}
+/* Add padding so text/placeholder won’t overlap icons/buttons */
+.field .form-control,
+.field .form-select,
+.field .form-control-modern {
+  padding-left: 38px; /* space for left icon */
+  padding-right: 44px; /* space for right toggle button if present */
 }
 .toggle-password {
   position: absolute;
@@ -657,9 +723,6 @@ body {
   color: #6c757d;
   padding: 6px 8px;
   border-radius: 8px;
-}
-.toggle-password:hover {
-  background: rgba(0, 0, 0, 0.04);
 }
 
 /* Tables */
@@ -916,16 +979,16 @@ body {
   background: #fff;
 }
 .report-page .metric-primary {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  background: linear-gradient(135deg, #dbeeff 0%, #3ed1d1 100%);
 }
 .report-page .metric-success {
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  background: linear-gradient(135deg, #dbeeff 0%, #43e97b 100%);
 }
 .report-page .metric-warning {
-  background: linear-gradient(135deg, #fddb92 0%, #d1fdff 100%);
+  background: linear-gradient(135deg, #dbeeff 0%, #fddb92 100%);
 }
 .report-page .metric-score {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #dbeeff 0%, #764ba2 100%);
 }
 .report-page .report-card {
   border-radius: 14px;
@@ -1194,6 +1257,10 @@ body {
   /* Remove white gap between fixed navbar and landing hero */
   .main-content > .container-fluid > .landing-theme {
     margin-top: -5px; /* cancel .main-content padding-top (navbar height) */
+    padding: 0;
+  }
+  .container-fluid {
+    padding: 0;
   }
 
   /* Center hero content and tighten paddings */
@@ -1319,4 +1386,9 @@ body {
     white-space: nowrap;
     font-size: 1.1rem;
   }
+}
+/* Prevent horizontal scroll on full-bleed landing */
+.landing-theme,
+.landing-theme .hero-section {
+  overflow-x: hidden;
 }

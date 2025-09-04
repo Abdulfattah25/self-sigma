@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin Dashboard</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+      [v-cloak] {
+        display: none;
+      }
+      body {
+        background-color: #f6f8fc;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app" class="container py-4" v-cloak>
+      <div v-if="loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <div class="mt-2">Memuat...</div>
+      </div>
+
+      <div v-else>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3 class="mb-0">Admin Dashboard</h3>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" @click="loadProfiles">Reload</button>
+            <a href="index.html" class="btn btn-outline-dark btn-sm">Kembali ke Aplikasi</a>
+          </div>
+        </div>
+
+        <div v-if="errorMsg" class="alert alert-danger">{{ errorMsg }}</div>
+        <div v-if="successMsg" class="alert alert-success">{{ successMsg }}</div>
+
+        <div class="card">
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-striped align-middle">
+                <thead>
+                  <tr>
+                    <th scope="col">Email</th>
+                    <th scope="col" style="width: 180px">Role</th>
+                    <th scope="col" style="width: 100px">Aktif</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="u in users" :key="u.id">
+                    <td>{{ u.email }}</td>
+                    <td>
+                      <select class="form-select form-select-sm" v-model="u.role">
+                        <option value="user">user</option>
+                        <option value="admin">admin</option>
+                      </select>
+                    </td>
+                    <td>
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" v-model="u.is_active" />
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="d-flex justify-content-end">
+              <button class="btn btn-primary" :disabled="!hasChanges || saving" @click="saveChanges">
+                <span v-if="!saving">Save Changes ({{ changedRows.length }})</span>
+                <span v-else>Menyimpan...</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="small text-muted mt-3">Hanya admin yang dapat mengakses halaman ini.</div>
+      </div>
+    </div>
+
+    <!-- Vue 3 (Global build) -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <!-- Supabase config (expects window.SUPABASE_CONFIG = { url, anonKey }) -->
+    <script src="js/config.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- App Script -->
+    <script type="module">
+      import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+      const { createApp, ref, computed, onMounted } = Vue;
+
+      // Init Supabase
+      const SUPA = window.SUPABASE_CONFIG || {};
+      const supabase = createClient(SUPA.url, SUPA.anonKey);
+
+      function redirectToDashboard() {
+        window.location.href = "index.html";
+      }
+
+      async function updateProfile(userId, newRole, isActive) {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ role: newRole, is_active: isActive })
+          .eq("id", userId);
+        if (error) throw error;
+      }
+
+      createApp({
+        setup() {
+          const loading = ref(true);
+          const saving = ref(false);
+          const users = ref([]);
+          const errorMsg = ref("");
+          const successMsg = ref("");
+          const originals = ref({});
+
+          const hasChanges = computed(() => changedRows.value.length > 0);
+          const changedRows = computed(() => {
+            const orig = originals.value || {};
+            return (users.value || []).filter((u) => {
+              const o = orig[u.id];
+              return o && (o.role !== u.role || o.is_active !== u.is_active);
+            });
+          });
+
+          const loadProfiles = async () => {
+            errorMsg.value = "";
+            const { data, error } = await supabase
+              .from("profiles")
+              .select("id, email, role, is_active")
+              .order("email", { ascending: true });
+            if (error) {
+              errorMsg.value = error.message;
+              return;
+            }
+            users.value = data || [];
+            // snapshot originals
+            const snap = {};
+            for (const u of users.value) snap[u.id] = { role: u.role, is_active: u.is_active };
+            originals.value = snap;
+          };
+
+          const guardAdmin = async () => {
+            // Require login
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            if (!session?.user) return redirectToDashboard();
+            // Check role from profiles
+            const { data, error } = await supabase
+              .from("profiles")
+              .select("role, is_active")
+              .eq("id", session.user.id)
+              .single();
+            if (error) {
+              errorMsg.value = "Gagal memuat profil.";
+              return redirectToDashboard();
+            }
+            if (data.role !== "admin" || data.is_active === false) return redirectToDashboard();
+          };
+
+          const saveChanges = async () => {
+            if (!hasChanges.value) return;
+            saving.value = true;
+            errorMsg.value = "";
+            successMsg.value = "";
+            try {
+              const list = changedRows.value.slice();
+              for (const u of list) {
+                await updateProfile(u.id, u.role, u.is_active);
+              }
+              successMsg.value = "Perubahan berhasil disimpan";
+              // refresh originals
+              const snap = {};
+              for (const u of users.value) snap[u.id] = { role: u.role, is_active: u.is_active };
+              originals.value = snap;
+            } catch (e) {
+              errorMsg.value = e.message || "Gagal menyimpan perubahan";
+            } finally {
+              saving.value = false;
+            }
+          };
+
+          onMounted(async () => {
+            try {
+              // redirect if not admin
+              await guardAdmin();
+              // load data
+              await loadProfiles();
+              // watch auth changes
+              supabase.auth.onAuthStateChange((event) => {
+                if (event === "SIGNED_OUT") redirectToDashboard();
+              });
+            } finally {
+              loading.value = false;
+            }
+          });
+
+          return {
+            loading,
+            saving,
+            users,
+            errorMsg,
+            successMsg,
+            changedRows,
+            hasChanges,
+            loadProfiles,
+            saveChanges,
+          };
+        },
+      }).mount("#app");
+    </script>
+  </body>
+</html>

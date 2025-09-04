@@ -45,6 +45,96 @@ create table if not exists public.score_log (
   created_at timestamptz not null default now()
 );
 
+/******************************************************************
+  PROFILES: role-based access (admin vs user)
+******************************************************************/
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  role text not null default 'user' check (role in ('user','admin')),
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Ensure required columns exist even if table already existed earlier
+alter table public.profiles add column if not exists email text;
+alter table public.profiles add column if not exists role text;
+-- Backfill and enforce defaults/constraint for role
+update public.profiles set role = 'user' where role is null;
+alter table public.profiles alter column role set default 'user';
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'profiles_role_check'
+  ) THEN
+    ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check CHECK (role in ('user','admin'));
+  END IF;
+END $$;
+
+alter table public.profiles add column if not exists is_active boolean;
+update public.profiles set is_active = true where is_active is null;
+alter table public.profiles alter column is_active set default true;
+alter table public.profiles alter column is_active set not null;
+
+alter table public.profiles add column if not exists created_at timestamptz not null default now();
+alter table public.profiles add column if not exists updated_at timestamptz not null default now();
+
+-- Keep updated_at fresh
+create or replace function public.set_profiles_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end $$;
+
+drop trigger if exists trg_profiles_updated_at on public.profiles;
+create trigger trg_profiles_updated_at
+before update on public.profiles
+for each row execute function public.set_profiles_updated_at();
+
+-- Auto-create profile row when a new auth user is created
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, email)
+  values (new.id, new.email)
+  on conflict (id) do nothing;
+  return new;
+end $$;
+
+drop trigger if exists trg_on_auth_user_created on auth.users;
+create trigger trg_on_auth_user_created
+after insert on auth.users
+for each row execute function public.handle_new_user();
+
+-- (Optional) keep email in sync if auth.users.email changes
+create or replace function public.sync_profile_email()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.profiles
+     set email = new.email,
+         updated_at = now()
+   where id = new.id;
+  return new;
+end $$;
+
+drop trigger if exists trg_sync_profile_email on auth.users;
+create trigger trg_sync_profile_email
+after update of email on auth.users
+for each row execute function public.sync_profile_email();
+
+-- Helpful index for ordering/filtering
+create index if not exists idx_profiles_email on public.profiles (email);
+
 -- Indeks penting
 create index if not exists idx_template_user_created on public.daily_tasks_template(user_id, created_at desc);
 create index if not exists idx_instance_user_date on public.daily_tasks_instance(user_id, date);
@@ -66,6 +156,7 @@ alter table public.users enable row level security;
 alter table public.daily_tasks_template enable row level security;
 alter table public.daily_tasks_instance enable row level security;
 alter table public.score_log enable row level security;
+alter table public.profiles enable row level security;
 
 -- USERS policies
 drop policy if exists users_select_own on public.users;
@@ -135,6 +226,70 @@ create policy sl_update_own on public.score_log
 drop policy if exists sl_delete_own on public.score_log;
 create policy sl_delete_own on public.score_log
   for delete using (user_id = auth.uid());
+
+-- Admin can SELECT all rows
+drop policy if exists "profiles admin read" on public.profiles;
+create policy "profiles admin read" on public.profiles
+for select
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid()
+      and p.role = 'admin'
+      and p.is_active = true
+  )
+);
+
+-- Admin can UPDATE all rows
+drop policy if exists "profiles admin update" on public.profiles;
+create policy "profiles admin update" on public.profiles
+for update
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid()
+      and p.role = 'admin'
+      and p.is_active = true
+  )
+)
+with check (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid()
+      and p.role = 'admin'
+      and p.is_active = true
+  )
+);
+
+-- Users can read their own profile
+drop policy if exists "profiles self read" on public.profiles;
+create policy "profiles self read" on public.profiles
+for select
+using (id = auth.uid());
+
+-- Users can update their own profile (if needed)
+drop policy if exists "profiles self update" on public.profiles;
+create policy "profiles self update" on public.profiles
+for update
+using (id = auth.uid())
+with check (id = auth.uid());
+
+-- Backfill: ensure every existing auth user has a profile row
+insert into public.profiles (id, email)
+select u.id, u.email
+from auth.users u
+left join public.profiles p on p.id = u.id
+where p.id is null;
+
+-- Promote your account to admin (replace with your values)
+-- select id, email from auth.users order by created_at desc;
+-- then:
+-- insert into public.profiles (id, email, role, is_active)
+-- values ('<YOUR-USER-ID>', '<you@example.com>', 'admin', true)
+-- on conflict (id) do update
+-- set email = excluded.email,
+--     role = excluded.role,
+--     is_active = excluded.is_active;
 
 -- Catatan:
 -- - Kolom users.id tidak auto default ke auth.uid(), klien harus mengirim id=auth.uid() saat upsert (sudah dilakukan di app.js)

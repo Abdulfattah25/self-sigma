@@ -57,7 +57,7 @@ Vue.component("dashboard", {
         <div class="col-md-6 mb-3">
           <div class="card stats-card dashboard-card card-accent card-accent--warning">
                         <div class="card-header py-3">
-                            <h5 class="mb-0">📋 Status Tugas</h5>
+                            <h5 class="mb-0">📋 Status Kegiatan</h5>
                         </div>
                         <div class="card-body">
                             <div class="row">
@@ -84,21 +84,7 @@ Vue.component("dashboard", {
             </div>
 
             <div class="row">
-        <div class="col-md-8 mb-4">
-          <div class="card dashboard-card dashboard-card--chart card-accent card-accent--primary">
-                        <div class="card-header py-3 d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">📈 Perubahan Skor</h5>
-                            <div class="btn-group" role="group">
-                                <button class="btn btn-sm" :class="chartRangeDays===7 ? 'btn-primary' : 'btn-outline-primary'" @click="changeRange(7)">7 Hari</button>
-                                <button class="btn btn-sm" :class="chartRangeDays===30 ? 'btn-primary' : 'btn-outline-primary'" @click="changeRange(30)">30 Hari</button>
-                            </div>
-                        </div>
-                        <div class="card-body" style="height: 260px;">
-                            <canvas id="weeklyChart" height="220"></canvas>
-                        </div>
-                    </div>
-                </div>
-        <div class="col-md-4">
+        <div class="col-md-4  mb-4">
           <div class="card dashboard-card dashboard-card--list card-accent card-accent--violet">
                         <div class="card-header py-3">
                             <h5 class="mb-0">📋 Tugas Belum Selesai</h5>
@@ -118,6 +104,20 @@ Vue.component("dashboard", {
                                 </div>
                             </div>
                             <small class="text-muted d-block mt-2">Target (template) hari ini: {{ templateTargetCount }}</small>
+                        </div>
+                    </div>
+                </div>
+        <div class="col-md-8">
+          <div class="card dashboard-card dashboard-card--chart card-accent card-accent--primary">
+                        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">📈 Perubahan Skor</h5>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-sm" :class="chartRangeDays===7 ? 'btn-primary' : 'btn-outline-primary'" @click="changeRange(7)">7 Hari</button>
+                                <button class="btn btn-sm" :class="chartRangeDays===30 ? 'btn-primary' : 'btn-outline-primary'" @click="changeRange(30)">30 Hari</button>
+                            </div>
+                        </div>
+                        <div class="card-body" style="height: 260px;">
+                            <canvas id="weeklyChart" height="220"></canvas>
                         </div>
                     </div>
                 </div>

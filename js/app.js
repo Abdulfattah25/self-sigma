@@ -32,6 +32,9 @@ new Vue({
 
       authLoading: false,
       authError: "",
+
+      // Admin flag
+      isAdmin: false,
     };
   },
   created() {
@@ -52,7 +55,8 @@ new Vue({
         if (session) {
           this.session = session;
           this.user = session.user;
-          // Sinkron selectedPlant dari profile/localStorage
+          // Determine admin role from profiles
+          await this.refreshAdminFlag();
           this.syncSelectedPlantFromProfile();
           await this.postLoginBootstrap();
         }
@@ -62,9 +66,10 @@ new Vue({
           const wasLoggedIn = !!this.user;
           this.session = session;
           this.user = session?.user || null;
+          if (this.user) await this.refreshAdminFlag();
+          else this.isAdmin = false;
 
           if (event === "SIGNED_IN" && this.user) {
-            // Update pilihan tanaman dari metadata saat login
             this.syncSelectedPlantFromProfile();
             await this.postLoginBootstrap();
             if (!wasLoggedIn) {
@@ -76,8 +81,8 @@ new Vue({
 
           if (event === "SIGNED_OUT") {
             this.currentView = "dashboard";
-            // Tetap gunakan pilihan terakhir dari localStorage jika ada
             this.selectedPlant = localStorage.getItem("pt_plant") || "bonsai";
+            this.isAdmin = false;
           }
         });
 
@@ -87,6 +92,27 @@ new Vue({
         console.error(e);
       } finally {
         this.loading = false;
+      }
+    },
+
+    async refreshAdminFlag() {
+      try {
+        if (!this.user) {
+          this.isAdmin = false;
+          return;
+        }
+        const { data, error } = await supabaseClient
+          .from("profiles")
+          .select("role, is_active")
+          .eq("id", this.user.id)
+          .single();
+        if (error) {
+          this.isAdmin = false;
+          return;
+        }
+        this.isAdmin = data?.role === "admin" && data?.is_active !== false;
+      } catch (_) {
+        this.isAdmin = false;
       }
     },
 
@@ -202,9 +228,14 @@ new Vue({
       }
       const existingReasons = new Set((existingLogs || []).map((l) => l.reason));
 
+      // Read user-configured overdue penalty from metadata; default to -2
+      const rawPenalty = this.user?.user_metadata?.score_penalty_overdue;
+      const parsedPenalty = parseFloat(rawPenalty);
+      const penaltyDelta = Number.isFinite(parsedPenalty) ? parsedPenalty : -2;
+
       const toLog = overdue
         .filter((i) => !existingReasons.has(`penalty:${i.id}`))
-        .map((i) => ({ user_id: this.user.id, date: i.date, score_delta: -3, reason: `penalty:${i.id}` }));
+        .map((i) => ({ user_id: this.user.id, date: i.date, score_delta: penaltyDelta, reason: `penalty:${i.id}` }));
       if (toLog.length === 0) return;
       const { error: insLogErr } = await supabaseClient.from("score_log").insert(toLog);
       if (insLogErr) console.warn("Insert penalties failed", insLogErr.message);
@@ -230,6 +261,12 @@ new Vue({
 
     // Navigasi
     setView(view) {
+      // Prevent non-admin from switching to admin view
+      if (view === "admin" && !this.isAdmin) {
+        this.showToast("Akses admin diperlukan", "danger");
+        this.currentView = "dashboard";
+        return;
+      }
       this.currentView = view;
     },
 
@@ -263,6 +300,7 @@ new Vue({
 
     async register() {
       if (this.authForm.password !== this.authForm.confirmPassword) {
+        this.showToast("Password tidak cocok", "danger");
         throw new Error("Password tidak cocok");
       }
       const { data, error } = await supabaseClient.auth.signUp({
@@ -273,9 +311,22 @@ new Vue({
         },
       });
       if (error) throw error;
-      if (data.user && !data.session) {
-        this.showToast("Verifikasi dikirim ke email Anda", "info");
+
+      if (data?.user && !data?.session) {
+        // Email confirmation enabled: ask user to verify their email
+        this.showToast(
+          "Verifikasi email telah dikirim. Silakan cek inbox/spam dan klik tautan verifikasi sebelum login.",
+          "info",
+          6000
+        );
+      } else if (data?.user && data?.session) {
+        // Auto-signed in (confirmation disabled)
+        this.showToast("Akun berhasil dibuat.", "success");
+      } else {
+        // Fallback
+        this.showToast("Pendaftaran berhasil. Silakan cek email Anda untuk verifikasi.", "info", 6000);
       }
+
       this.resetAuthForm();
     },
 
@@ -385,7 +436,7 @@ new Vue({
                    data-bs-toggle="modal"
                    data-bs-target="#authModal">Masuk</a>
               </li>
-              <li v-else class="nav-item">
+              <li v-else class="nav-item d-none d-md-flex">
                 <a class="nav-link f" href="#" @click.prevent="setView('profile')">👤 {{ formatUserName() }}</a>
               </li>
             </ul>
@@ -416,6 +467,11 @@ new Vue({
                 <i class="bi bi-graph-up-arrow me-2 text-warning"></i>
                 <span>Report</span>
               </a>
+              <a v-if="user && isAdmin" href="#" class="list-group-item list-group-item-action d-flex align-items-center"
+                 :class="{ active: currentView==='admin' }" @click.prevent="setView('admin')">
+                <i class="bi bi-shield-lock-fill me-2 text-danger"></i>
+                <span>Admin</span>
+              </a>
             </div>
           </div>
         </aside>
@@ -438,6 +494,10 @@ new Vue({
             <i class="bi bi-graph-up"></i>
             <span>Report</span>
           </a>
+          <a v-if="user && isAdmin" href="#" class="mobile-nav-item" :class="{ active: currentView==='admin' }" @click.prevent="setView('admin')">
+            <i class="bi bi-shield-lock"></i>
+            <span>Admin</span>
+          </a>
           <a v-if="user" href="#" class="mobile-nav-item" :class="{ active: currentView==='profile' }" @click.prevent="setView('profile')">
             <i class="bi bi-person-circle"></i>
             <span>Saya</span>
@@ -450,11 +510,11 @@ new Vue({
 
         <!-- Main content area (below header, beside sidebar) -->
         <main class="main-content" :class="{ 'with-sidebar': !!user }">
-          <div class="container-fluid">
+          <div class="container-fluid" :class="{ 'px-0': !user && currentView==='dashboard' }">
             <!-- Landing (Logged-out) -->
             <div v-if="!user && currentView==='dashboard'" class="landing-theme">
               <section class="hero-section position-relative overflow-hidden">
-                <div class="container py-0">
+                <div class="container">
                   <div class="row align-items-center g-4">
                     <div class="col-lg-6">
                       <div class="hero-badge text-uppercase fw-bold mb-3">
@@ -551,14 +611,14 @@ new Vue({
                 <div class="hero-blur hero-blur-2"></div>
               </section>
 
-              <section id="fitur" class="container my-5">
+              <section id="fitur" class="container-fluid px-5 my-5">
                 <div class="text-center mb-4">
                   <h2 class="fw-bold">Fitur yang Membantu Anda Konsisten</h2>
                   <p class="text-muted">Dirancang agar fokus, rapi, dan menyenangkan digunakan setiap hari.</p>
                 </div>
 
                 <div class="row g-3 g-md-4">
-                  <div class="col-6 col-lg-4">
+                  <div class="col-6 col-lg-3">
                     <div class="feature-card h-100">
                       <div class="icon-bubble text-primary bg-primary-subtle"><i class="bi bi-list-task"></i></div>
                       <div>
@@ -567,7 +627,7 @@ new Vue({
                       </div>
                     </div>
                   </div>
-                  <div class="col-6 col-lg-4">
+                  <div class="col-6 col-lg-3">
                     <div class="feature-card h-100">
                       <div class="icon-bubble text-success bg-success-subtle"><i class="bi bi-trophy-fill"></i></div>
                       <div>
@@ -576,7 +636,7 @@ new Vue({
                       </div>
                     </div>
                   </div>
-                  <div class="col-6 col-lg-4">
+                  <div class="col-6 col-lg-3">
                     <div class="feature-card h-100">
                       <div class="icon-bubble text-info bg-info-subtle"><i class="bi bi-alarm-fill"></i></div>
                       <div>
@@ -585,16 +645,7 @@ new Vue({
                       </div>
                     </div>
                   </div>
-                  <div class="col-6 col-lg-4">
-                    <div class="feature-card h-100">
-                      <div class="icon-bubble text-danger bg-danger-subtle"><i class="bi bi-shield-lock-fill"></i></div>
-                      <div>
-                      <h6 class="mt-3 mb-1">Privasi Aman</h6>
-                      <p class="text-muted small mb-0">Data Anda tersimpan aman dengan autentikasi modern.</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="col-6 col-lg-4">
+                  <div class="col-6 col-lg-3">
                     <div class="feature-card h-100">
                       <div class="icon-bubble text-secondary bg-secondary-subtle"><i class="bi bi-device-ssd-fill"></i></div>
                       <div>
@@ -605,7 +656,7 @@ new Vue({
                   </div>
                 </div>
 
-                <div class="text-center mt-4">
+                <div class="text-center mt-4 d-none d-md-flex justify-content-center">
                   <button
                     class="btn btn-gradient btn-lg px-4 shadow"
                     data-bs-toggle="modal"
@@ -616,7 +667,7 @@ new Vue({
               </section>
             </div>
 
-                        <!-- Pass selectedPlant ke Dashboard dan Report -->
+            <!-- Pass selectedPlant ke Dashboard dan Report -->
             <dashboard
               v-if="user && currentView==='dashboard'"
               :user="user"
@@ -632,6 +683,7 @@ new Vue({
               :supabase="supabaseClient"
               :plant="selectedPlant">
             </report>
+            <admin v-if="user && isAdmin && currentView==='admin'" :user="user" :supabase="supabaseClient"></admin>
             <profile v-if="user && currentView==='profile'" :user="user" :supabase="supabaseClient"></profile>
           </div>
         </main>
@@ -656,7 +708,6 @@ new Vue({
                     <ul class="list-unstyled mt-4 text-white-75 small">
                       <li class="mb-2"><i class="bi bi-check2-circle me-2"></i>Desain modern & ringan</li>
                       <li class="mb-2"><i class="bi bi-check2-circle me-2"></i>Sinkron otomatis</li>
-                      <li class="mb-2"><i class="bi bi-check2-circle me-2"></i>Privasi dan keamanan</li>
                     </ul>
                   </div>
                 </div>

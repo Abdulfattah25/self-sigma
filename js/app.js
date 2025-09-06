@@ -25,6 +25,7 @@ new Vue({
         password: "",
         confirmPassword: "",
         fullName: "",
+        licenseCode: "",
       },
       // UI helpers for auth
       showPassword: false,
@@ -400,6 +401,27 @@ new Vue({
         this.showToast("Password tidak cocok", "danger");
         throw new Error("Password tidak cocok");
       }
+
+      // Validasi kode lisensi
+      const raw = (this.authForm.licenseCode || "").trim();
+      const code = raw.toUpperCase();
+      if (!/^[A-Z0-9]{6}$/.test(code)) {
+        this.showToast("Kode lisensi harus 6 karakter alfanumerik.", "danger");
+        throw new Error("Kode lisensi tidak valid");
+      }
+
+      // Cek validasi lisensi via RPC
+      const { data: isValid, error: vErr } = await supabaseClient.rpc("validate_license", { p_code: code });
+      if (vErr) {
+        this.showToast("Gagal memvalidasi lisensi: " + vErr.message, "danger");
+        throw vErr;
+      }
+      if (!isValid) {
+        this.showToast("Lisensi tidak valid atau sudah digunakan.", "danger");
+        throw new Error("Lisensi tidak valid atau sudah digunakan");
+      }
+
+      // Lanjutkan sign up
       const { data, error } = await supabaseClient.auth.signUp({
         email: this.authForm.email,
         password: this.authForm.password,
@@ -409,18 +431,29 @@ new Vue({
       });
       if (error) throw error;
 
+      // Tandai lisensi sebagai used setelah akun berhasil dibuat
+      const { error: useErr, data: usedOk } = await supabaseClient.rpc("use_license", {
+        p_code: code,
+        p_email: this.authForm.email,
+      });
+      if (useErr) {
+        // Akun sudah dibuat, tapi lisensi gagal ditandai. Informasikan admin.
+        console.warn("use_license error:", useErr);
+        this.showToast("Akun dibuat, namun aktivasi lisensi gagal. Hubungi admin.", "warning", 7000);
+      } else if (!usedOk) {
+        // Race condition: lisensi keburu dipakai pihak lain. Informasikan admin.
+        this.showToast("Akun dibuat, namun lisensi sudah tidak tersedia. Hubungi admin.", "warning", 7000);
+      }
+
       if (data?.user && !data?.session) {
-        // Email confirmation enabled: ask user to verify their email
         this.showToast(
           "Verifikasi email telah dikirim. Silakan cek inbox/spam dan klik tautan verifikasi sebelum login.",
           "info",
           6000
         );
       } else if (data?.user && data?.session) {
-        // Auto-signed in (confirmation disabled)
         this.showToast("Akun berhasil dibuat.", "success");
       } else {
-        // Fallback
         this.showToast("Pendaftaran berhasil. Silakan cek email Anda untuk verifikasi.", "info", 6000);
       }
 
@@ -439,8 +472,9 @@ new Vue({
       this.showToast("Logout berhasil", "success");
     },
 
+    // Ganti isi resetAuthForm() menjadi:
     resetAuthForm() {
-      this.authForm = { email: "", password: "", confirmPassword: "", fullName: "" };
+      this.authForm = { email: "", password: "", confirmPassword: "", fullName: "", licenseCode: "" };
       this.showPassword = false;
       this.showConfirmPassword = false;
     },
@@ -843,6 +877,18 @@ new Vue({
                         <button type="button" class="toggle-password" @click="showConfirmPassword = !showConfirmPassword" :aria-label="showConfirmPassword ? 'Sembunyikan konfirmasi' : 'Tampilkan konfirmasi'">
                           <i :class="showConfirmPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
                         </button>
+                      </div>
+
+                      <div v-if="authMode==='register'" class="mb-3 field">
+                        <i class="bi bi-key-fill icon"></i>
+                        <input
+                          type="text"
+                          class="form-control form-control-modern"
+                          v-model="authForm.licenseCode"
+                          placeholder="Kode Lisensi (6 karakter)"
+                          required
+                          pattern="[A-Za-z0-9]{6}"
+                          maxlength="6">
                       </div>
 
                       <button type="submit" class="btn btn-gradient w-100 py-2 mb-2" :disabled="authLoading">

@@ -333,3 +333,125 @@ from auth.users u
 left join public.profiles p on p.id = u.id
 where p.id is null;
 
+-- ============================================================
+-- Licenses: table, RLS, dan fungsi RPC untuk validasi/assign
+-- ============================================================
+
+-- Enum status lisensi (idempoten)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'license_status') THEN
+    CREATE TYPE public.license_status AS ENUM ('valid','used','revoked','expired');
+  END IF;
+END $$;
+
+-- Tabel licenses
+create table if not exists public.licenses (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  status public.license_status not null default 'valid',
+  assigned_email text,
+  created_at timestamptz not null default now(),
+  used_at timestamptz
+);
+
+-- Index tambahan
+create index if not exists idx_licenses_status on public.licenses(status);
+create index if not exists idx_licenses_created on public.licenses(created_at desc);
+
+-- RLS dan kebijakan (hanya admin)
+alter table public.licenses enable row level security;
+
+drop policy if exists "licenses admin read" on public.licenses;
+create policy "licenses admin read" on public.licenses
+  for select
+  using ( public.is_current_user_admin() );
+
+drop policy if exists "licenses admin write" on public.licenses;
+create policy "licenses admin write" on public.licenses
+  for all
+  using ( public.is_current_user_admin() )
+  with check ( public.is_current_user_admin() );
+
+-- RPC: Validasi lisensi (boolean) - aman untuk anon (SECURITY DEFINER)
+create or replace function public.validate_license(p_code text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  c int;
+begin
+  select count(*) into c
+  from public.licenses
+  where code = upper(p_code) and status = 'valid';
+  return c > 0;
+end
+$$;
+
+grant execute on function public.validate_license(text) to public;
+
+-- RPC: Tandai lisensi sebagai used + catat email (boolean keberhasilan)
+create or replace function public.use_license(p_code text, p_email text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated_count int;
+begin
+  update public.licenses
+     set status = 'used',
+         assigned_email = p_email,
+         used_at = now()
+   where code = upper(p_code)
+     and status = 'valid';
+  GET DIAGNOSTICS updated_count = ROW_COUNT;
+  return updated_count = 1;
+end
+$$;
+
+grant execute on function public.use_license(text, text) to public;
+
+-- RPC: Generate lisensi baru (hanya admin, SECURITY DEFINER)
+-- Kode 6-karakter alfanumerik uppercase berbasis HEX (0-9, A-F)
+create or replace function public.admin_generate_license()
+returns public.licenses
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_code text;
+  rec public.licenses;
+begin
+  -- Pastikan hanya admin dapat mengeksekusi
+  if not public.is_current_user_admin() then
+    raise exception 'Only admins can generate licenses';
+  end if;
+
+  -- Coba generate unik (loop jika bentrok)
+  loop
+    -- 6 karakter dari HEX uppercase
+    new_code := upper(substr(encode(gen_random_bytes(4), 'hex'), 1, 6));
+
+    begin
+      insert into public.licenses(code, status)
+      values (new_code, 'valid')
+      returning * into rec;
+      return rec;
+    exception
+      when unique_violation then
+        -- Ulangi jika bentrok
+        continue;
+    end;
+  end loop;
+
+  -- Tidak akan sampai sini
+  return rec;
+end
+$$;
+
+grant execute on function public.admin_generate_license() to authenticated;

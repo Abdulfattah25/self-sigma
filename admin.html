@@ -72,6 +72,85 @@
           </div>
         </div>
 
+        <!-- Card: Manajemen Lisensi -->
+        <div class="card mt-4">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="mb-0">Manajemen Lisensi</h5>
+              <div class="d-flex gap-2">
+                <select class="form-select form-select-sm" v-model="licenseFilter" style="width: 180px">
+                  <option value="all">Semua</option>
+                  <option value="valid">Valid</option>
+                  <option value="used">Used</option>
+                  <option value="revoked">Revoked</option>
+                  <option value="expired">Expired</option>
+                </select>
+                <button class="btn btn-success btn-sm" :disabled="genLoading" @click="generateLicense">
+                  <span v-if="!genLoading">Generate Lisensi</span>
+                  <span v-else>Memproses...</span>
+                </button>
+              </div>
+            </div>
+
+            <div v-if="licenseError" class="alert alert-danger">{{ licenseError }}</div>
+            <div v-if="licenseSuccess" class="alert alert-success">{{ licenseSuccess }}</div>
+
+            <div class="table-responsive" style="max-height: 50vh; overflow: auto">
+              <table class="table table-striped align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th scope="col" style="width: 140px">License Code</th>
+                    <th scope="col" style="width: 110px">Status</th>
+                    <th scope="col">Assigned Email</th>
+                    <th scope="col" style="width: 180px">Created At</th>
+                    <th scope="col" style="width: 180px">Used At</th>
+                    <th scope="col" style="width: 110px">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="licenseLoading">
+                    <td colspan="6" class="text-center">
+                      <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                      Memuat lisensi...
+                    </td>
+                  </tr>
+                  <tr v-for="lic in licenses" :key="lic.id">
+                    <td><code>{{ lic.code }}</code></td>
+                    <td>
+                      <span
+                        class="badge"
+                        :class="{
+                  'bg-success-subtle text-success': lic.status==='valid',
+                  'bg-secondary-subtle text-secondary': lic.status==='used',
+                  'bg-danger-subtle text-danger': lic.status==='revoked',
+                  'bg-warning-subtle text-warning': lic.status==='expired'
+                }"
+                      >
+                        {{ lic.status }}
+                      </span>
+                    </td>
+                    <td class="text-muted">{{ lic.assigned_email || '-' }}</td>
+                    <td class="text-muted">{{ new Date(lic.created_at).toLocaleString() }}</td>
+                    <td class="text-muted">{{ lic.used_at ? new Date(lic.used_at).toLocaleString() : '-' }}</td>
+                    <td>
+                      <button
+                        class="btn btn-outline-danger btn-sm"
+                        :disabled="lic.status !== 'valid'"
+                        @click="revokeLicense(lic)"
+                      >
+                        Revoke
+                      </button>
+                    </td>
+                  </tr>
+                  <tr v-if="!licenseLoading && licenses.length === 0">
+                    <td colspan="6" class="text-center text-muted">Tidak ada data lisensi.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <div class="small text-muted mt-3">Hanya admin yang dapat mengakses halaman ini.</div>
       </div>
     </div>
@@ -86,7 +165,7 @@
     <!-- App Script -->
     <script type="module">
       import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-      const { createApp, ref, computed, onMounted } = Vue;
+      const { createApp, ref, computed, onMounted, watch } = Vue;
 
       // Init Supabase
       const SUPA = window.SUPABASE_CONFIG || {};
@@ -105,109 +184,198 @@
       }
 
       createApp({
-        setup() {
-          const loading = ref(true);
-          const saving = ref(false);
-          const users = ref([]);
-          const errorMsg = ref("");
-          const successMsg = ref("");
-          const originals = ref({});
+    setup() {
+      const loading = ref(true);
+      const saving = ref(false);
+      const users = ref([]);
+      const errorMsg = ref("");
+      const successMsg = ref("");
+      const originals = ref({});
 
-          const hasChanges = computed(() => changedRows.value.length > 0);
-          const changedRows = computed(() => {
-            const orig = originals.value || {};
-            return (users.value || []).filter((u) => {
-              const o = orig[u.id];
-              return o && (o.role !== u.role || o.is_active !== u.is_active);
-            });
+      // STATE LISENSI
+      const licenseLoading = ref(false);
+      const genLoading = ref(false);
+      const licenseError = ref("");
+      const licenseSuccess = ref("");
+      const licenseFilter = ref("all");
+      const licenses = ref([]);
+
+      // FUNCTIONS LISENSI (tetap)
+      const loadLicenses = async () => {
+        licenseError.value = "";
+        licenseLoading.value = true;
+        try {
+          let q = supabase
+            .from("licenses")
+            .select("id, code, status, assigned_email, created_at, used_at")
+            .order("created_at", { ascending: false });
+
+          if (licenseFilter.value !== "all") q = q.eq("status", licenseFilter.value);
+
+          const { data, error } = await q;
+          if (error) throw error;
+          licenses.value = data || [];
+        } catch (e) {
+          licenseError.value = e.message || "Gagal memuat lisensi";
+          console.error("loadLicenses error:", e); // tambahkan log agar mudah debug
+        } finally {
+          licenseLoading.value = false;
+        }
+      };
+
+      const generateLicense = async () => {
+        licenseError.value = "";
+        licenseSuccess.value = "";
+        genLoading.value = true;
+        try {
+          const { data, error } = await supabase.rpc("admin_generate_license");
+          if (error) throw error;
+          if (data) {
+            licenses.value.unshift(data);
+            licenseSuccess.value = `Lisensi ${data.code} berhasil dibuat`;
+          }
+        } catch (e) {
+          licenseError.value = e.message || "Gagal membuat lisensi";
+        } finally {
+          genLoading.value = false;
+        }
+      };
+
+      const revokeLicense = async (lic) => {
+        licenseError.value = "";
+        licenseSuccess.value = "";
+        try {
+          if (lic.status !== "valid") {
+            licenseError.value = "Hanya lisensi dengan status 'valid' yang dapat di-revoke.";
+            return;
+          }
+          const { error } = await supabase
+            .from("licenses")
+            .update({ status: "revoked" })
+            .eq("id", lic.id)
+            .eq("status", "valid");
+          if (error) throw error;
+
+          const idx = licenses.value.findIndex((x) => x.id === lic.id);
+          if (idx !== -1) licenses.value[idx] = { ...licenses.value[idx], status: "revoked" };
+          licenseSuccess.value = `Lisensi ${lic.code} telah di-revoke`;
+        } catch (e) {
+          licenseError.value = e.message || "Gagal revoke lisensi";
+        }
+      };
+
+      watch(licenseFilter, () => loadLicenses());
+
+      // PERBAIKI URUTAN computed: changedRows lebih dulu, baru hasChanges
+      const changedRows = computed(() => {
+        const orig = originals.value || {};
+        return (users.value || []).filter((u) => {
+          const o = orig[u.id];
+          return o && (o.role !== u.role || o.is_active !== u.is_active);
+        });
+      });
+      const hasChanges = computed(() => changedRows.value.length > 0);
+
+      // FUNCTIONS PROFILES & GUARD (tetap)
+      const loadProfiles = async () => {
+        errorMsg.value = "";
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, email, role, is_active")
+          .order("email", { ascending: true });
+        if (error) {
+          errorMsg.value = error.message;
+          return;
+        }
+        users.value = data || [];
+        const snap = {};
+        for (const u of users.value) snap[u.id] = { role: u.role, is_active: u.is_active };
+        originals.value = snap;
+      };
+
+      const guardAdmin = async () => {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.user) return redirectToDashboard();
+
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("role, is_active")
+          .eq("id", session.user.id)
+          .single();
+
+        if (error) {
+          errorMsg.value = "Gagal memuat profil.";
+          return redirectToDashboard();
+        }
+        if (data.role !== "admin" || data.is_active === false) return redirectToDashboard();
+      };
+
+      const saveChanges = async () => {
+        if (!hasChanges.value) return;
+        saving.value = true;
+        errorMsg.value = "";
+        successMsg.value = "";
+        try {
+          const list = changedRows.value.slice();
+          for (const u of list) await updateProfile(u.id, u.role, u.is_active);
+          successMsg.value = "Perubahan berhasil disimpan";
+          const snap = {};
+          for (const u of users.value) snap[u.id] = { role: u.role, is_active: u.is_active };
+          originals.value = snap;
+        } catch (e) {
+          errorMsg.value = e.message || "Gagal menyimpan perubahan";
+        } finally {
+          saving.value = false;
+        }
+      };
+
+      // PERTAHANKAN HANYA SATU onMounted dan letakkan SETELAH definisi fungsi
+      let licensesChannel;
+      onMounted(async () => {
+        try {
+          await guardAdmin();
+          await loadProfiles();
+          await loadLicenses();
+
+          licensesChannel = supabase
+            .channel("licenses_changes")
+            .on("postgres_changes", { event: "*", schema: "public", table: "licenses" }, () => loadLicenses())
+            .subscribe();
+
+          supabase.auth.onAuthStateChange((event) => {
+            if (event === "SIGNED_OUT") redirectToDashboard();
           });
+        } finally {
+          loading.value = false;
+        }
+      });
 
-          const loadProfiles = async () => {
-            errorMsg.value = "";
-            const { data, error } = await supabase
-              .from("profiles")
-              .select("id, email, role, is_active")
-              .order("email", { ascending: true });
-            if (error) {
-              errorMsg.value = error.message;
-              return;
-            }
-            users.value = data || [];
-            // snapshot originals
-            const snap = {};
-            for (const u of users.value) snap[u.id] = { role: u.role, is_active: u.is_active };
-            originals.value = snap;
-          };
+      return {
+        loading,
+        saving,
+        users,
+        errorMsg,
+        successMsg,
+        changedRows,
+        hasChanges,
+        loadProfiles,
+        saveChanges,
 
-          const guardAdmin = async () => {
-            // Require login
-            const {
-              data: { session },
-            } = await supabase.auth.getSession();
-            if (!session?.user) return redirectToDashboard();
-            // Check role from profiles
-            const { data, error } = await supabase
-              .from("profiles")
-              .select("role, is_active")
-              .eq("id", session.user.id)
-              .single();
-            if (error) {
-              errorMsg.value = "Gagal memuat profil.";
-              return redirectToDashboard();
-            }
-            if (data.role !== "admin" || data.is_active === false) return redirectToDashboard();
-          };
-
-          const saveChanges = async () => {
-            if (!hasChanges.value) return;
-            saving.value = true;
-            errorMsg.value = "";
-            successMsg.value = "";
-            try {
-              const list = changedRows.value.slice();
-              for (const u of list) {
-                await updateProfile(u.id, u.role, u.is_active);
-              }
-              successMsg.value = "Perubahan berhasil disimpan";
-              // refresh originals
-              const snap = {};
-              for (const u of users.value) snap[u.id] = { role: u.role, is_active: u.is_active };
-              originals.value = snap;
-            } catch (e) {
-              errorMsg.value = e.message || "Gagal menyimpan perubahan";
-            } finally {
-              saving.value = false;
-            }
-          };
-
-          onMounted(async () => {
-            try {
-              // redirect if not admin
-              await guardAdmin();
-              // load data
-              await loadProfiles();
-              // watch auth changes
-              supabase.auth.onAuthStateChange((event) => {
-                if (event === "SIGNED_OUT") redirectToDashboard();
-              });
-            } finally {
-              loading.value = false;
-            }
-          });
-
-          return {
-            loading,
-            saving,
-            users,
-            errorMsg,
-            successMsg,
-            changedRows,
-            hasChanges,
-            loadProfiles,
-            saveChanges,
-          };
-        },
-      }).mount("#app");
+        // license states
+        licenseLoading,
+        genLoading,
+        licenseError,
+        licenseSuccess,
+        licenseFilter,
+        licenses,
+        loadLicenses,
+        generateLicense,
+        revokeLicense,
+      };
+    },
+  }).mount("#app");
     </script>
   </body>
 </html>

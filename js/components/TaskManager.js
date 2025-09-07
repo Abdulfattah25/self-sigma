@@ -164,7 +164,7 @@ Vue.component("task-manager", {
                         <div class="col-md-4 mb-3">
                           <label class="form-label">Jenis Task</label>
                           <select class="form-select" v-model="newTask.jenis_task">
-                            <option value="harian">Harian (materialisasi otomatis)</option>
+                            <option value="harian">Harian (kegiatan rutin)</option>
                             <option value="deadline">Deadline (berlaku sekali pada tanggal)</option>
                           </select>
                         </div>

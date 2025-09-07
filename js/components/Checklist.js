@@ -47,7 +47,7 @@ Vue.component("checklist", {
                     </div>
                     <div v-else-if="todayTasks.length === 0" class="text-center text-muted py-4">
                         <p>📝 Belum ada task untuk hari ini.</p>
-                        <p>Task dari template akan otomatis muncul, atau Anda bisa menambah task tambahan di atas.</p>
+                        <p>Task dari template akan otomatis muncul, atau Anda bisa menambah kegiatan di menu Task.</p>
                     </div>
           <div v-else class="task-list">
             <div class="row">

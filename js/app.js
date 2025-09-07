@@ -25,7 +25,7 @@ new Vue({
         password: "",
         confirmPassword: "",
         fullName: "",
-        licenseCode: "",
+        licenseCode: "", // new: license code for signup
       },
       // UI helpers for auth
       showPassword: false,
@@ -396,22 +396,23 @@ new Vue({
       this.resetAuthForm();
     },
 
+    // Ganti seluruh method register() dengan versi ini
     async register() {
       if (this.authForm.password !== this.authForm.confirmPassword) {
         this.showToast("Password tidak cocok", "danger");
         throw new Error("Password tidak cocok");
       }
 
-      // Validasi kode lisensi
-      const raw = (this.authForm.licenseCode || "").trim();
-      const code = raw.toUpperCase();
-      if (!/^[A-Z0-9]{6}$/.test(code)) {
+      // Validasi lisensi: tepat 6 karakter alfanumerik (izinkan 0)
+      const rawCode = (this.authForm.licenseCode || "").trim();
+      const upperCode = rawCode.toUpperCase();
+      if (!/^[A-Z0-9]{6}$/.test(upperCode)) {
         this.showToast("Kode lisensi harus 6 karakter alfanumerik.", "danger");
         throw new Error("Kode lisensi tidak valid");
       }
 
-      // Cek validasi lisensi via RPC
-      const { data: isValid, error: vErr } = await supabaseClient.rpc("validate_license", { p_code: code });
+      // Cek lisensi via RPC
+      const { data: isValid, error: vErr } = await supabaseClient.rpc("validate_license", { p_code: upperCode });
       if (vErr) {
         this.showToast("Gagal memvalidasi lisensi: " + vErr.message, "danger");
         throw vErr;
@@ -421,43 +422,102 @@ new Vue({
         throw new Error("Lisensi tidak valid atau sudah digunakan");
       }
 
-      // Lanjutkan sign up
-      const { data, error } = await supabaseClient.auth.signUp({
-        email: this.authForm.email,
-        password: this.authForm.password,
-        options: {
+      // Signup (tanpa emailRedirectTo untuk menghindari 500 saat URL belum di-whitelist)
+      let signup; // rename dari 'data' agar tidak bentrok/TDZ
+      try {
+        signup = await this.signUpWithRetry(this.authForm.email, this.authForm.password, {
           data: { full_name: this.authForm.fullName },
-        },
-      });
-      if (error) throw error;
-
-      // Tandai lisensi sebagai used setelah akun berhasil dibuat
-      const { error: useErr, data: usedOk } = await supabaseClient.rpc("use_license", {
-        p_code: code,
-        p_email: this.authForm.email,
-      });
-      if (useErr) {
-        // Akun sudah dibuat, tapi lisensi gagal ditandai. Informasikan admin.
-        console.warn("use_license error:", useErr);
-        this.showToast("Akun dibuat, namun aktivasi lisensi gagal. Hubungi admin.", "warning", 7000);
-      } else if (!usedOk) {
-        // Race condition: lisensi keburu dipakai pihak lain. Informasikan admin.
-        this.showToast("Akun dibuat, namun lisensi sudah tidak tersedia. Hubungi admin.", "warning", 7000);
+        });
+      } catch (error) {
+        // Tangani rate limit secara eksplisit (429)
+        if (Number(error?.status) === 429) {
+          this.showToast("Terlalu banyak percobaan. Coba lagi dalam beberapa menit.", "warning", 6000);
+        } else if (this.isGatewayTimeout(error)) {
+          this.showToast(
+            "Server auth lambat. Jika email verifikasi masuk, klik tautannya lalu login.",
+            "warning",
+            7000
+          );
+        }
+        throw error;
       }
 
-      if (data?.user && !data?.session) {
+      // Tandai lisensi digunakan
+      try {
+        const { data: usedOk, error: useErr } = await supabaseClient.rpc("use_license", {
+          p_code: upperCode,
+          p_email: this.authForm.email,
+        });
+        if (useErr) {
+          console.warn("use_license error:", useErr);
+          this.showToast("Akun dibuat, namun aktivasi lisensi gagal. Hubungi admin.", "warning", 6000);
+        } else if (!usedOk) {
+          this.showToast("Akun dibuat, tapi lisensi sudah terpakai. Hubungi admin.", "warning", 6000);
+        }
+      } catch (e) {
+        console.warn("Mark license used failed:", e);
+      }
+
+      if (signup?.user && !signup?.session) {
         this.showToast(
           "Verifikasi email telah dikirim. Silakan cek inbox/spam dan klik tautan verifikasi sebelum login.",
           "info",
           6000
         );
-      } else if (data?.user && data?.session) {
+      } else if (signup?.user && signup?.session) {
         this.showToast("Akun berhasil dibuat.", "success");
       } else {
         this.showToast("Pendaftaran berhasil. Silakan cek email Anda untuk verifikasi.", "info", 6000);
       }
 
       this.resetAuthForm();
+    },
+
+    // Ganti seluruh fungsi signUpWithRetry() dengan versi ini
+    async signUpWithRetry(email, password, options, timeoutMs = 12000) {
+      const withTimeout = (p, ms) =>
+        Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Signup timeout")), ms))]);
+
+      const attempt = async () => {
+        const { data, error } = await withTimeout(supabaseClient.auth.signUp({ email, password, options }), timeoutMs);
+        if (error) throw error;
+        return data;
+      };
+
+      try {
+        return await attempt();
+      } catch (err) {
+        // Jangan retry jika rate limited
+        if (Number(err?.status) === 429) throw err;
+        // Retry sekali jika timeout/504
+        if (this.isGatewayTimeout(err) || /timeout/i.test(String(err?.message || ""))) {
+          await this.sleep(1500);
+          return await attempt();
+        }
+        // Beri info spesifik jika redirect URL tidak valid (jika Anda menambahkan emailRedirectTo di masa depan)
+        if (/redirect.*valid|redirect.*allowed/i.test(String(err?.message || ""))) {
+          this.showToast(
+            "Redirect URL tidak valid di pengaturan Auth. Whitelist origin Anda di Supabase atau hilangkan emailRedirectTo.",
+            "warning",
+            7000
+          );
+        }
+        throw err;
+      }
+    },
+
+    isGatewayTimeout(err) {
+      try {
+        const s = err && (err.status || err.code);
+        const msg = (err && (err.message || err.error_description || err.error)) || "";
+        return s === 504 || /\b504\b|gateway|timed? out/i.test(String(msg));
+      } catch (_) {
+        return false;
+      }
+    },
+
+    sleep(ms) {
+      return new Promise((res) => setTimeout(res, ms));
     },
 
     async logout() {
@@ -863,6 +923,18 @@ new Vue({
                         <input type="email" class="form-control form-control-modern" v-model="authForm.email" placeholder="Email" required>
                       </div>
 
+                      <!-- License Code (register only) -->
+                      <div v-if="authMode==='register'" class="mb-3 field">
+                        <i class="bi bi-upc icon"></i>
+                        <input type="text"
+                        class="form-control form-control-modern"
+                        v-model="authForm.licenseCode"
+                        placeholder="Kode Lisensi"
+                        required
+                        pattern="[A-Za-z0-9]{6}"
+                        maxlength="6">
+                      </div>
+
                       <div class="mb-3 field">
                         <i class="bi bi-shield-lock icon"></i>
                         <input :type="showPassword ? 'text' : 'password'" class="form-control form-control-modern" v-model="authForm.password" placeholder="Password" required>
@@ -877,18 +949,6 @@ new Vue({
                         <button type="button" class="toggle-password" @click="showConfirmPassword = !showConfirmPassword" :aria-label="showConfirmPassword ? 'Sembunyikan konfirmasi' : 'Tampilkan konfirmasi'">
                           <i :class="showConfirmPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
                         </button>
-                      </div>
-
-                      <div v-if="authMode==='register'" class="mb-3 field">
-                        <i class="bi bi-key-fill icon"></i>
-                        <input
-                          type="text"
-                          class="form-control form-control-modern"
-                          v-model="authForm.licenseCode"
-                          placeholder="Kode Lisensi (6 karakter)"
-                          required
-                          pattern="[A-Za-z0-9]{6}"
-                          maxlength="6">
                       </div>
 
                       <button type="submit" class="btn btn-gradient w-100 py-2 mb-2" :disabled="authLoading">

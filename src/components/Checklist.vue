@@ -355,8 +355,16 @@ export default {
       }
     },
     async toggleTask(task) {
+      const newStatus = !task.is_completed;
+      // Optimistic local update so UI reflects change immediately
+      const prevStatus = task.is_completed;
+      const prevCheckedAt = task.checked_at;
       try {
-        const newStatus = !task.is_completed;
+        task.is_completed = newStatus;
+        task.checked_at = newStatus ? new Date().toISOString() : null;
+        this.updateCounts();
+
+        // Call data service (which also performs its own optimistic update)
         await this.dataService.toggleTask(task.id, this.user.id, newStatus, task.task_name);
 
         // Refresh score cache
@@ -375,6 +383,10 @@ export default {
           }
         } catch (_) {}
       } catch (error) {
+        // Rollback local optimistic update
+        task.is_completed = prevStatus;
+        task.checked_at = prevCheckedAt;
+        this.updateCounts();
         console.error('Error toggling task:', error);
         this.$root?.showToast?.('Gagal mengubah status task: ' + error.message, 'danger');
       }

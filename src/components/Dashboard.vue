@@ -75,7 +75,7 @@
           class="card stats-card dashboard-card card-accent card-accent--violet dashboard-card--list"
         >
           <div class="card-header py-3">
-            <h5 class="mb-0">📋 Tugas Belum Selesai</h5>
+            <h5 class="mb-0">📋 Agenda Harian</h5>
             <small class="text-muted">Tugas harian dari template</small>
           </div>
           <div class="card-body">
@@ -83,20 +83,25 @@
               🎉 Semua tugas hari ini sudah selesai!
             </div>
             <div v-else>
-              <div
-                v-for="task in sortedIncompleteTasks"
-                :key="task.id"
-                class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded"
-                :class="'priority-' + (task.priority || 'sedang')"
-              >
-                <div>
-                  <small class="fw-bold">{{ task.task_name }}</small
-                  ><br />
-                  <span class="badge" :class="getPriorityBadgeClass(task.priority)">{{
-                    task.priority || 'sedang'
-                  }}</span>
+                <div
+                  v-for="task in sortedIncompleteTasks"
+                  :key="task.id"
+                  class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded"
+                  :class="'priority-' + (task.priority || 'sedang')"
+                >
+                  <div class="text-start">
+                    <small class="fw-bold">{{ task.task_name }}</small><br />
+                    <small class="text-muted">{{ task.category || '-' }}</small>
+                  </div>
+                  <div class="text-end">
+                    <div>
+                      <span class="badge" :class="getPriorityBadgeClass(task.priority)">{{
+                        task.priority || 'sedang'
+                      }}</span>
+                    </div>
+                    <div class="small text-muted mt-1">{{ formatDateSimple(task.deadline_date) }}</div>
+                  </div>
                 </div>
-              </div>
             </div>
             <small class="text-muted d-block mt-2"
               >Target (template) hari ini: {{ templateTargetCount }}</small
@@ -106,7 +111,7 @@
       </div>
       <div class="col-md-4 mb-3">
         <div class="card dashboard-card dashboard-card--list card-accent card-accent--success">
-          <div class="card-header py-3">
+          <div class="card-header py-3 text-center">
             <h5 class="mb-0">📆 Agenda Mingguan</h5>
             <small class="text-muted">Tugas deadline minggu ini</small>
           </div>
@@ -139,7 +144,7 @@
       </div>
       <div class="col-md-4">
         <div class="card dashboard-card dashboard-card--list card-accent card-accent--warning">
-          <div class="card-header py-3">
+          <div class="card-header py-3 text-center">
             <h5 class="mb-0">🗓️ Agenda Bulanan</h5>
             <small class="text-muted">Tugas deadline bulan ini & bulan depan</small>
           </div>
@@ -326,6 +331,12 @@ export default {
           .eq('date', today);
         this.todayTasks = todayTasksData || [];
         this.incompleteTasks = this.todayTasks.filter((t) => !t.is_completed);
+
+        // If the user hasn't completed any task today, ensure today's score stays 0
+        const completedAny = (this.todayTasks || []).filter((t) => t.is_completed).length;
+        if (completedAny === 0) {
+          this.todayScore = 0;
+        }
 
         const templateTasks = this.todayTasks.filter((t) => !!t.task_id);
         this.templateTargetCount = templateTasks.length;

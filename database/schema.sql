@@ -416,7 +416,7 @@ $$;
 grant execute on function public.use_license(text, text) to public;
 
 -- RPC: Generate lisensi baru (hanya admin, SECURITY DEFINER)
--- Kode 6-karakter alfanumerik uppercase berbasis HEX (0-9, A-F)
+-- Kode 6-karakter alfanumerik uppercase berbasis UUID (lebih kompatibel)
 create or replace function public.admin_generate_license()
 returns public.licenses
 language plpgsql
@@ -426,6 +426,7 @@ as $$
 declare
   new_code text;
   rec public.licenses;
+  random_uuid text;
 begin
   -- Pastikan hanya admin dapat mengeksekusi
   if not public.is_current_user_admin() then
@@ -434,8 +435,9 @@ begin
 
   -- Coba generate unik (loop jika bentrok)
   loop
-    -- 6 karakter dari HEX uppercase
-    new_code := upper(substr(encode(gen_random_bytes(4), 'hex'), 1, 6));
+    -- Generate 6 karakter dari UUID (lebih kompatibel)
+    random_uuid := replace(gen_random_uuid()::text, '-', '');
+    new_code := upper(substr(random_uuid, 1, 6));
 
     begin
       insert into public.licenses(code, status)

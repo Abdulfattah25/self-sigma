@@ -1,38 +1,52 @@
 // Inisialisasi Supabase dari config
-const supabaseClient = supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey);
+const cfgUrl =
+  (window.supabase && window.supabase.__env && window.supabase.__env.url) ||
+  (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url);
+const cfgAnon =
+  (window.supabase && window.supabase.__env && window.supabase.__env.anon) ||
+  (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey);
+const __supabaseLib = window.supabase;
+const supabaseClient =
+  __supabaseLib && cfgUrl && cfgAnon
+    ? __supabaseLib.createClient(cfgUrl, cfgAnon)
+    : (() => {
+        console.error('Supabase init failed: missing library or config');
+        return null;
+      })();
 
 // Akses quotes harian dari data/quotes.js
 const DAILY_QUOTES = window.DAILY_QUOTES || [];
 
 new Vue({
-  el: "#app",
+  el: '#app',
   data() {
     return {
       user: null,
       session: null,
-      currentView: localStorage.getItem("currentView") || "dashboard",
+      supabaseClient: supabaseClient, // Add supabaseClient to Vue data
+      currentView: localStorage.getItem('currentView') || 'dashboard',
       loading: true,
-      dailyQuote: "",
+      dailyQuote: '',
 
       // Global: pilihan tanaman (dipakai Dashboard & Report)
-      // Default ke localStorage jika ada, jika tidak ke 'bonsai'
-      selectedPlant: localStorage.getItem("pt_plant") || "bonsai",
+      // Default ke localStorage jika ada, jika tidak ke 'forest'
+      selectedPlant: localStorage.getItem('pt_plant') || 'forest',
 
       // Auth forms
-      authMode: "login", // 'login' or 'register'
+      authMode: 'login', // 'login' or 'register'
       authForm: {
-        email: "",
-        password: "",
-        confirmPassword: "",
-        fullName: "",
-        licenseCode: "", // new: license code for signup
+        email: '',
+        password: '',
+        confirmPassword: '',
+        fullName: '',
+        licenseCode: '', // new: license code for signup
       },
       // UI helpers for auth
       showPassword: false,
       showConfirmPassword: false,
 
       authLoading: false,
-      authError: "",
+      authError: '',
 
       // Admin flag
       isAdmin: false,
@@ -43,27 +57,34 @@ new Vue({
   },
   watch: {
     currentView(val) {
-      localStorage.setItem("currentView", val);
+      localStorage.setItem('currentView', val);
     },
   },
   methods: {
     async initializeApp() {
       try {
-        // Early check: ensure Supabase config appears present. If anonKey is missing
-        // the requests will be sent without an apikey header and fail with 500.
-        if (!window.SUPABASE_CONFIG || !window.SUPABASE_CONFIG.url || !window.SUPABASE_CONFIG.anonKey) {
-          console.error("Supabase config missing or incomplete: check js/config.js (window.SUPABASE_CONFIG)");
-          // showToast is available as a method on this Vue instance
-          try {
-            this.showToast("Konfigurasi Supabase belum diatur. Periksa js/config.js (anonKey/url)", "danger", 8000);
-          } catch (_) {}
+        if (!window.supabase || !supabaseClient) {
+          this.showToast('Inisialisasi Supabase gagal.', 'danger', 8000);
+          this.loading = false;
+          return;
+        }
+        if (
+          !window.SUPABASE_CONFIG ||
+          !window.SUPABASE_CONFIG.url ||
+          !window.SUPABASE_CONFIG.anonKey
+        ) {
+          this.showToast(
+            'Konfigurasi Supabase belum diatur. Periksa js/config.js (anonKey/url)',
+            'danger',
+            8000,
+          );
           this.loading = false;
           return;
         }
         // Cek session aktif
         const {
           data: { session },
-        } = await supabaseClient.auth.getSession();
+        } = await this.supabaseClient.auth.getSession();
         if (session) {
           this.session = session;
           this.user = session.user;
@@ -73,9 +94,13 @@ new Vue({
           if (!active) {
             // sign out and inform user
             try {
-              await supabaseClient.auth.signOut();
+              await this.supabaseClient.auth.signOut();
             } catch (_) {}
-            this.showToast("Akun Anda dinonaktifkan: tidak dapat mengakses aplikasi.", "danger", 6000);
+            this.showToast(
+              'Akun Anda dinonaktifkan: tidak dapat mengakses aplikasi.',
+              'danger',
+              6000,
+            );
             this.user = null;
             this.session = null;
             this.isAdmin = false;
@@ -90,7 +115,7 @@ new Vue({
         }
 
         // Listener perubahan auth
-        supabaseClient.auth.onAuthStateChange(async (event, session) => {
+        this.supabaseClient.auth.onAuthStateChange(async (event, session) => {
           const wasLoggedIn = !!this.user;
           this.session = session;
           this.user = session?.user || null;
@@ -101,7 +126,11 @@ new Vue({
               try {
                 await supabaseClient.auth.signOut();
               } catch (_) {}
-              this.showToast("Akun Anda dinonaktifkan: tidak dapat mengakses aplikasi.", "danger", 6000);
+              this.showToast(
+                'Akun Anda dinonaktifkan: tidak dapat mengakses aplikasi.',
+                'danger',
+                6000,
+              );
               this.user = null;
               this.session = null;
               this.isAdmin = false;
@@ -111,25 +140,43 @@ new Vue({
             await this.refreshAdminFlag();
           } else this.isAdmin = false;
 
-          if (event === "SIGNED_IN" && this.user) {
+          if (event === 'SIGNED_IN' && this.user) {
             this.syncSelectedPlantFromProfile();
             await this.postLoginBootstrap();
             if (!wasLoggedIn) {
-              this.currentView = "dashboard";
+              this.currentView = 'dashboard';
               this.closeAuthModal();
-              this.showToast("Login berhasil", "success");
+              this.showToast('Login berhasil', 'success');
             }
           }
 
-          if (event === "SIGNED_OUT") {
-            this.currentView = "dashboard";
-            this.selectedPlant = localStorage.getItem("pt_plant") || "bonsai";
+          if (event === 'SIGNED_OUT') {
+            this.currentView = 'dashboard';
+            this.selectedPlant = localStorage.getItem('pt_plant') || 'forest';
             this.isAdmin = false;
+            // Reset to light theme on logout
+            this.applyTheme('light');
           }
         });
 
         // Set quote harian
         this.setDailyQuote();
+
+        // Initialize theme from user metadata or localStorage
+        this.initializeTheme();
+
+        // Listen for plant type changes from Profile component
+        window.addEventListener('plant-type-changed', (event) => {
+          console.log('Plant type changed:', event.detail.plantType);
+          this.selectedPlant = event.detail.plantType;
+          localStorage.setItem('pt_plant', this.selectedPlant);
+        });
+
+        // Listen for theme changes from Profile component
+        window.addEventListener('theme-changed', (event) => {
+          console.log('Theme changed:', event.detail.theme);
+          // Theme is already applied by Profile component, we just log it
+        });
       } catch (e) {
         console.error(e);
       } finally {
@@ -147,47 +194,51 @@ new Vue({
         // Prefer reading from profiles table. If it fails (RLS/policy), log and
         // fall back to user metadata if available.
         const { data, error } = await supabaseClient
-          .from("profiles")
-          .select("role, is_active")
-          .eq("id", this.user.id)
+          .from('profiles')
+          .select('role, is_active')
+          .eq('id', this.user.id)
           .single();
 
         if (error) {
           // Log the error to aid debugging (RLS/policy denials, network, etc.)
-          console.warn("refreshAdminFlag: profiles select failed:", error);
+          console.warn('refreshAdminFlag: profiles select failed:', error);
 
           // Detect common server-side issues and give actionable feedback
-          const msg = (error.message || "").toString();
-          if (error.code === "42P17" || /infinite recursion/i.test(msg)) {
+          const msg = (error.message || '').toString();
+          if (error.code === '42P17' || /infinite recursion/i.test(msg)) {
             console.error(
-              "Detected infinite recursion in RLS policy for 'profiles'. Review policies that reference 'profiles' or call functions that read 'profiles'."
+              "Detected infinite recursion in RLS policy for 'profiles'. Review policies that reference 'profiles' or call functions that read 'profiles'.",
             );
             try {
               this.showToast(
-                "Server policy error pada tabel profiles (infinite recursion). Periksa RLS policy di Supabase.",
-                "danger",
-                8000
+                'Server policy error pada tabel profiles (infinite recursion). Periksa RLS policy di Supabase.',
+                'danger',
+                8000,
               );
             } catch (_) {}
           } else if (/No API key found/i.test(msg) || /apikey/i.test(msg)) {
             console.error(
-              "Request reached Supabase but no API key was sent. Ensure window.SUPABASE_CONFIG.anonKey is set and valid."
+              'Request reached Supabase but no API key was sent. Ensure window.SUPABASE_CONFIG.anonKey is set and valid.',
             );
             try {
-              this.showToast("Supabase API key tidak ditemukan. Periksa konfigurasi anonKey.", "danger", 7000);
+              this.showToast(
+                'Supabase API key tidak ditemukan. Periksa konfigurasi anonKey.',
+                'danger',
+                7000,
+              );
             } catch (_) {}
           }
 
           // Fallback: check role in user metadata (if you stored role there)
           const metaRole = this.user?.user_metadata?.role;
-          this.isAdmin = metaRole === "admin";
+          this.isAdmin = metaRole === 'admin';
           return;
         }
 
-        this.isAdmin = data?.role === "admin" && data?.is_active !== false;
+        this.isAdmin = data?.role === 'admin' && data?.is_active !== false;
       } catch (e) {
-        console.warn("refreshAdminFlag error:", e);
-        this.isAdmin = this.user?.user_metadata?.role === "admin";
+        console.warn('refreshAdminFlag error:', e);
+        this.isAdmin = this.user?.user_metadata?.role === 'admin';
       }
     },
 
@@ -198,18 +249,18 @@ new Vue({
       try {
         if (!this.user) return true;
         const { data, error } = await supabaseClient
-          .from("profiles")
-          .select("is_active")
-          .eq("id", this.user.id)
+          .from('profiles')
+          .select('is_active')
+          .eq('id', this.user.id)
           .single();
         if (error) {
-          console.warn("ensureAccountActive: profiles select failed:", error);
+          console.warn('ensureAccountActive: profiles select failed:', error);
           // If we can't read the profile (unexpected), don't lock the user out.
           return true;
         }
         return data?.is_active !== false;
       } catch (e) {
-        console.warn("ensureAccountActive error:", e);
+        console.warn('ensureAccountActive error:', e);
         return true;
       }
     },
@@ -218,16 +269,55 @@ new Vue({
     syncSelectedPlantFromProfile() {
       try {
         const metaPlant = this.user?.user_metadata?.plant_type;
-        if (typeof metaPlant === "string" && metaPlant.trim()) {
+        if (typeof metaPlant === 'string' && metaPlant.trim()) {
           this.selectedPlant = metaPlant.trim();
-          localStorage.setItem("pt_plant", this.selectedPlant);
+          localStorage.setItem('pt_plant', this.selectedPlant);
         } else {
           // fallback ke localStorage bila metadata belum ada
-          this.selectedPlant = localStorage.getItem("pt_plant") || "bonsai";
+          this.selectedPlant = localStorage.getItem('pt_plant') || 'forest';
         }
       } catch (_) {
-        this.selectedPlant = localStorage.getItem("pt_plant") || "bonsai";
+        this.selectedPlant = localStorage.getItem('pt_plant') || 'forest';
       }
+    },
+
+    // Initialize theme from user metadata or localStorage
+    initializeTheme() {
+      try {
+        let theme = 'light'; // default theme
+
+        if (this.user && this.user.user_metadata) {
+          // Get theme from user metadata
+          theme = this.user.user_metadata.theme || 'light';
+        } else {
+          // Fallback to localStorage
+          theme = localStorage.getItem('app-theme') || 'light';
+        }
+
+        this.applyTheme(theme);
+      } catch (error) {
+        console.error('Error initializing theme:', error);
+        this.applyTheme('light');
+      }
+    },
+
+    // Apply theme to the entire application
+    applyTheme(theme) {
+      // Remove any existing theme classes
+      document.documentElement.removeAttribute('data-bs-theme');
+      document.body.className = document.body.className.replace(/theme-\w+/g, '');
+
+      // Apply the new theme
+      if (theme === 'dark') {
+        document.documentElement.setAttribute('data-bs-theme', 'dark');
+        document.body.classList.add('theme-dark');
+      } else {
+        document.documentElement.setAttribute('data-bs-theme', 'light');
+        document.body.classList.add('theme-light');
+      }
+
+      // Store theme preference
+      localStorage.setItem('app-theme', theme);
     },
 
     async postLoginBootstrap() {
@@ -244,17 +334,19 @@ new Vue({
 
         localStorage.setItem(key, today);
       } catch (e) {
-        console.error("Bootstrap error:", e);
+        console.error('Bootstrap error:', e);
       }
     },
 
     async ensureUserRow() {
       try {
-        const payload = [{ id: this.user.id, email: this.user.email, created_at: new Date().toISOString() }];
-        const { error } = await supabaseClient.from("users").upsert(payload, { onConflict: "id" });
-        if (error && error.code !== "23505") throw error;
+        const payload = [
+          { id: this.user.id, email: this.user.email, created_at: new Date().toISOString() },
+        ];
+        const { error } = await supabaseClient.from('users').upsert(payload, { onConflict: 'id' });
+        if (error && error.code !== '23505') throw error;
       } catch (e) {
-        console.warn("ensureUserRow skipped/failed:", e.message);
+        console.warn('ensureUserRow skipped/failed:', e.message);
       }
     },
 
@@ -262,23 +354,23 @@ new Vue({
       const today = this.getToday();
       // Ambil template
       const { data: templates, error: tErr } = await supabaseClient
-        .from("daily_tasks_template")
-        .select("id, task_name, priority, category")
-        .eq("user_id", this.user.id);
+        .from('daily_tasks_template')
+        .select('id, task_name, priority, category')
+        .eq('user_id', this.user.id);
       if (tErr) {
-        console.warn("Load templates failed", tErr.message);
+        console.warn('Load templates failed', tErr.message);
         return;
       }
       if (!templates || templates.length === 0) return;
 
       // Ambil instance yang sudah ada untuk hari ini
       const { data: instances, error: iErr } = await supabaseClient
-        .from("daily_tasks_instance")
-        .select("task_id")
-        .eq("user_id", this.user.id)
-        .eq("date", today);
+        .from('daily_tasks_instance')
+        .select('task_id')
+        .eq('user_id', this.user.id)
+        .eq('date', today);
       if (iErr) {
-        console.warn("Load instances failed", iErr.message);
+        console.warn('Load instances failed', iErr.message);
         return;
       }
 
@@ -289,40 +381,40 @@ new Vue({
           user_id: this.user.id,
           task_id: t.id,
           task_name: t.task_name,
-          priority: t.priority || "sedang",
+          priority: t.priority || 'sedang',
           category: t.category || null,
           date: today,
           is_completed: false,
         }));
       if (toInsert.length === 0) return;
-      const { error: insErr } = await supabaseClient.from("daily_tasks_instance").insert(toInsert);
-      if (insErr) console.warn("Insert instances failed", insErr.message);
+      const { error: insErr } = await supabaseClient.from('daily_tasks_instance').insert(toInsert);
+      if (insErr) console.warn('Insert instances failed', insErr.message);
     },
 
     async applyOverduePenalties() {
       const today = this.getToday();
       const startDate = this.getISODateNDaysAgo(30);
       const { data: overdue, error: oErr } = await supabaseClient
-        .from("daily_tasks_instance")
-        .select("id, task_name, date")
-        .eq("user_id", this.user.id)
-        .lt("date", today)
-        .gte("date", startDate)
-        .eq("is_completed", false);
+        .from('daily_tasks_instance')
+        .select('id, task_name, date')
+        .eq('user_id', this.user.id)
+        .lt('date', today)
+        .gte('date', startDate)
+        .eq('is_completed', false);
       if (oErr) {
-        console.warn("Load overdue failed", oErr.message);
+        console.warn('Load overdue failed', oErr.message);
         return;
       }
       if (!overdue || overdue.length === 0) return;
 
       const reasons = overdue.map((i) => `penalty:${i.id}`);
       const { data: existingLogs, error: lErr } = await supabaseClient
-        .from("score_log")
-        .select("reason")
-        .eq("user_id", this.user.id)
-        .in("reason", reasons);
+        .from('score_log')
+        .select('reason')
+        .eq('user_id', this.user.id)
+        .in('reason', reasons);
       if (lErr) {
-        console.warn("Load score_log failed", lErr.message);
+        console.warn('Load score_log failed', lErr.message);
       }
       const existingReasons = new Set((existingLogs || []).map((l) => l.reason));
 
@@ -333,18 +425,29 @@ new Vue({
 
       const toLog = overdue
         .filter((i) => !existingReasons.has(`penalty:${i.id}`))
-        .map((i) => ({ user_id: this.user.id, date: i.date, score_delta: penaltyDelta, reason: `penalty:${i.id}` }));
+        .map((i) => ({
+          user_id: this.user.id,
+          date: i.date,
+          score_delta: penaltyDelta,
+          reason: `penalty:${i.id}`,
+        }));
       if (toLog.length === 0) return;
-      const { error: insLogErr } = await supabaseClient.from("score_log").insert(toLog);
-      if (insLogErr) console.warn("Insert penalties failed", insLogErr.message);
+      const { error: insLogErr } = await supabaseClient.from('score_log').insert(toLog);
+      if (insLogErr) console.warn('Insert penalties failed', insLogErr.message);
     },
 
     setDailyQuote() {
       if (!DAILY_QUOTES.length) return;
-      const parts = window.WITA && window.WITA.nowParts ? window.WITA.nowParts() : { year: new Date().getFullYear() };
+      const parts =
+        window.WITA && window.WITA.nowParts
+          ? window.WITA.nowParts()
+          : { year: new Date().getFullYear() };
       const y = parts.year;
       try {
-        const todayIso = window.WITA && window.WITA.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
+        const todayIso =
+          window.WITA && window.WITA.today
+            ? window.WITA.today()
+            : new Date().toISOString().slice(0, 10);
         const startIso = `${y}-01-01`;
         const dayOfYear = Math.floor((Date.parse(todayIso) - Date.parse(startIso)) / 86400000);
         this.dailyQuote = DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length];
@@ -360,9 +463,9 @@ new Vue({
     // Navigasi
     setView(view) {
       // Prevent non-admin from switching to admin view
-      if (view === "admin" && !this.isAdmin) {
-        this.showToast("Akses admin diperlukan", "danger");
-        this.currentView = "dashboard";
+      if (view === 'admin' && !this.isAdmin) {
+        this.showToast('Akses admin diperlukan', 'danger');
+        this.currentView = 'dashboard';
         return;
       }
       this.currentView = view;
@@ -370,17 +473,17 @@ new Vue({
 
     // Auth
     async handleAuth() {
-      this.authError = "";
+      this.authError = '';
       this.authLoading = true;
       try {
-        if (this.authMode === "register") {
+        if (this.authMode === 'register') {
           await this.register();
         } else {
           await this.login();
         }
       } catch (err) {
         this.authError = err.message;
-        this.showToast(err.message, "danger");
+        this.showToast(err.message, 'danger');
       } finally {
         this.authLoading = false;
       }
@@ -399,27 +502,29 @@ new Vue({
     // Ganti seluruh method register() dengan versi ini
     async register() {
       if (this.authForm.password !== this.authForm.confirmPassword) {
-        this.showToast("Password tidak cocok", "danger");
-        throw new Error("Password tidak cocok");
+        this.showToast('Password tidak cocok', 'danger');
+        throw new Error('Password tidak cocok');
       }
 
       // Validasi lisensi: tepat 6 karakter alfanumerik (izinkan 0)
-      const rawCode = (this.authForm.licenseCode || "").trim();
+      const rawCode = (this.authForm.licenseCode || '').trim();
       const upperCode = rawCode.toUpperCase();
       if (!/^[A-Z0-9]{6}$/.test(upperCode)) {
-        this.showToast("Kode lisensi harus 6 karakter alfanumerik.", "danger");
-        throw new Error("Kode lisensi tidak valid");
+        this.showToast('Kode lisensi harus 6 karakter alfanumerik.', 'danger');
+        throw new Error('Kode lisensi tidak valid');
       }
 
       // Cek lisensi via RPC
-      const { data: isValid, error: vErr } = await supabaseClient.rpc("validate_license", { p_code: upperCode });
+      const { data: isValid, error: vErr } = await supabaseClient.rpc('validate_license', {
+        p_code: upperCode,
+      });
       if (vErr) {
-        this.showToast("Gagal memvalidasi lisensi: " + vErr.message, "danger");
+        this.showToast('Gagal memvalidasi lisensi: ' + vErr.message, 'danger');
         throw vErr;
       }
       if (!isValid) {
-        this.showToast("Lisensi tidak valid atau sudah digunakan.", "danger");
-        throw new Error("Lisensi tidak valid atau sudah digunakan");
+        this.showToast('Lisensi tidak valid atau sudah digunakan.', 'danger');
+        throw new Error('Lisensi tidak valid atau sudah digunakan');
       }
 
       // Signup (tanpa emailRedirectTo untuk menghindari 500 saat URL belum di-whitelist)
@@ -431,12 +536,16 @@ new Vue({
       } catch (error) {
         // Tangani rate limit secara eksplisit (429)
         if (Number(error?.status) === 429) {
-          this.showToast("Terlalu banyak percobaan. Coba lagi dalam beberapa menit.", "warning", 6000);
+          this.showToast(
+            'Terlalu banyak percobaan. Coba lagi dalam beberapa menit.',
+            'warning',
+            6000,
+          );
         } else if (this.isGatewayTimeout(error)) {
           this.showToast(
-            "Server auth lambat. Jika email verifikasi masuk, klik tautannya lalu login.",
-            "warning",
-            7000
+            'Server auth lambat. Jika email verifikasi masuk, klik tautannya lalu login.',
+            'warning',
+            7000,
           );
         }
         throw error;
@@ -444,30 +553,42 @@ new Vue({
 
       // Tandai lisensi digunakan
       try {
-        const { data: usedOk, error: useErr } = await supabaseClient.rpc("use_license", {
+        const { data: usedOk, error: useErr } = await supabaseClient.rpc('use_license', {
           p_code: upperCode,
           p_email: this.authForm.email,
         });
         if (useErr) {
-          console.warn("use_license error:", useErr);
-          this.showToast("Akun dibuat, namun aktivasi lisensi gagal. Hubungi admin.", "warning", 6000);
+          console.warn('use_license error:', useErr);
+          this.showToast(
+            'Akun dibuat, namun aktivasi lisensi gagal. Hubungi admin.',
+            'warning',
+            6000,
+          );
         } else if (!usedOk) {
-          this.showToast("Akun dibuat, tapi lisensi sudah terpakai. Hubungi admin.", "warning", 6000);
+          this.showToast(
+            'Akun dibuat, tapi lisensi sudah terpakai. Hubungi admin.',
+            'warning',
+            6000,
+          );
         }
       } catch (e) {
-        console.warn("Mark license used failed:", e);
+        console.warn('Mark license used failed:', e);
       }
 
       if (signup?.user && !signup?.session) {
         this.showToast(
-          "Verifikasi email telah dikirim. Silakan cek inbox/spam dan klik tautan verifikasi sebelum login.",
-          "info",
-          6000
+          'Verifikasi email telah dikirim. Silakan cek inbox/spam dan klik tautan verifikasi sebelum login.',
+          'info',
+          6000,
         );
       } else if (signup?.user && signup?.session) {
-        this.showToast("Akun berhasil dibuat.", "success");
+        this.showToast('Akun berhasil dibuat.', 'success');
       } else {
-        this.showToast("Pendaftaran berhasil. Silakan cek email Anda untuk verifikasi.", "info", 6000);
+        this.showToast(
+          'Pendaftaran berhasil. Silakan cek email Anda untuk verifikasi.',
+          'info',
+          6000,
+        );
       }
 
       this.resetAuthForm();
@@ -476,10 +597,16 @@ new Vue({
     // Ganti seluruh fungsi signUpWithRetry() dengan versi ini
     async signUpWithRetry(email, password, options, timeoutMs = 12000) {
       const withTimeout = (p, ms) =>
-        Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Signup timeout")), ms))]);
+        Promise.race([
+          p,
+          new Promise((_, rej) => setTimeout(() => rej(new Error('Signup timeout')), ms)),
+        ]);
 
       const attempt = async () => {
-        const { data, error } = await withTimeout(supabaseClient.auth.signUp({ email, password, options }), timeoutMs);
+        const { data, error } = await withTimeout(
+          supabaseClient.auth.signUp({ email, password, options }),
+          timeoutMs,
+        );
         if (error) throw error;
         return data;
       };
@@ -490,16 +617,16 @@ new Vue({
         // Jangan retry jika rate limited
         if (Number(err?.status) === 429) throw err;
         // Retry sekali jika timeout/504
-        if (this.isGatewayTimeout(err) || /timeout/i.test(String(err?.message || ""))) {
+        if (this.isGatewayTimeout(err) || /timeout/i.test(String(err?.message || ''))) {
           await this.sleep(1500);
           return await attempt();
         }
         // Beri info spesifik jika redirect URL tidak valid (jika Anda menambahkan emailRedirectTo di masa depan)
-        if (/redirect.*valid|redirect.*allowed/i.test(String(err?.message || ""))) {
+        if (/redirect.*valid|redirect.*allowed/i.test(String(err?.message || ''))) {
           this.showToast(
-            "Redirect URL tidak valid di pengaturan Auth. Whitelist origin Anda di Supabase atau hilangkan emailRedirectTo.",
-            "warning",
-            7000
+            'Redirect URL tidak valid di pengaturan Auth. Whitelist origin Anda di Supabase atau hilangkan emailRedirectTo.',
+            'warning',
+            7000,
           );
         }
         throw err;
@@ -509,7 +636,7 @@ new Vue({
     isGatewayTimeout(err) {
       try {
         const s = err && (err.status || err.code);
-        const msg = (err && (err.message || err.error_description || err.error)) || "";
+        const msg = (err && (err.message || err.error_description || err.error)) || '';
         return s === 504 || /\b504\b|gateway|timed? out/i.test(String(msg));
       } catch (_) {
         return false;
@@ -523,33 +650,47 @@ new Vue({
     async logout() {
       const { error } = await supabaseClient.auth.signOut();
       if (error) {
-        this.showToast("Gagal logout: " + error.message, "danger");
+        this.showToast('Gagal logout: ' + error.message, 'danger');
         return;
       }
+
+      // Clear all cached data
+      if (window.dataService) {
+        window.dataService.clearAllCache();
+      }
+
       this.user = null;
       this.session = null;
-      this.currentView = "dashboard";
-      this.showToast("Logout berhasil", "success");
+      this.currentView = 'dashboard';
+      this.showToast('Logout berhasil', 'success');
     },
 
     // Ganti isi resetAuthForm() menjadi:
     resetAuthForm() {
-      this.authForm = { email: "", password: "", confirmPassword: "", fullName: "", licenseCode: "" };
+      this.authForm = {
+        email: '',
+        password: '',
+        confirmPassword: '',
+        fullName: '',
+        licenseCode: '',
+      };
       this.showPassword = false;
       this.showConfirmPassword = false;
     },
     switchAuthMode() {
-      this.authMode = this.authMode === "login" ? "register" : "login";
-      this.authError = "";
+      this.authMode = this.authMode === 'login' ? 'register' : 'login';
+      this.authError = '';
       this.resetAuthForm();
     },
     formatUserName() {
-      return this.user?.user_metadata?.full_name || this.user?.email?.split("@")[0] || "User";
+      return this.user?.user_metadata?.full_name || this.user?.email?.split('@')[0] || 'User';
     },
 
     // Utilities tanggal
     getToday() {
-      return window.WITA && window.WITA.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
+      return window.WITA && window.WITA.today
+        ? window.WITA.today()
+        : new Date().toISOString().slice(0, 10);
     },
     getISODateNDaysAgo(n) {
       if (window.WITA && window.WITA.isoDateNDaysAgo) return window.WITA.isoDateNDaysAgo(n);
@@ -559,38 +700,35 @@ new Vue({
     },
 
     // Toast helper (Bootstrap 5)
-    showToast(message, variant = "primary", delay = 3000) {
+    showToast(message, variant = 'primary', delay = 3000) {
       try {
-        const container = document.getElementById("toastContainer");
+        const container = document.getElementById('toastContainer');
         if (!container) return;
-        const toastEl = document.createElement("div");
+        const toastEl = document.createElement('div');
         toastEl.className = `toast align-items-center text-bg-${variant} border-0`;
-        toastEl.setAttribute("role", "alert");
-        toastEl.setAttribute("aria-live", "assertive");
-        toastEl.setAttribute("aria-atomic", "true");
+        toastEl.setAttribute('role', 'alert');
+        toastEl.setAttribute('aria-live', 'assertive');
+        toastEl.setAttribute('aria-atomic', 'true');
         toastEl.innerHTML = `
-          <div class="d-flex">
-            <div class="toast-body">${message}</div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+          <div class=\"d-flex\">
+            <div class=\"toast-body\">${message}</div>
+            <button type=\"button\" class=\"btn-close btn-close-white me-2 m-auto\" data-bs-dismiss=\"toast\" aria-label=\"Close\"></button>
           </div>`;
         container.appendChild(toastEl);
-        const t = new bootstrap.Toast(toastEl, { delay });
-        toastEl.addEventListener("hidden.bs.toast", () => toastEl.remove());
+        const t = new window.bootstrap.Toast(toastEl, { delay });
+        toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
         t.show();
-      } catch (_) {
-        /* noop */
-      }
+      } catch (_) {}
     },
     // Helper untuk menutup modal auth (Bootstrap 5)
     closeAuthModal() {
       try {
-        const modalEl = document.getElementById("authModal");
+        const modalEl = document.getElementById('authModal');
         if (!modalEl) return;
-        const instance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        const instance =
+          window.bootstrap.Modal.getInstance(modalEl) || new window.bootstrap.Modal(modalEl);
         instance.hide();
-      } catch (_) {
-        /* noop */
-      }
+      } catch (_) {}
     },
   },
   template: `
@@ -858,7 +996,7 @@ new Vue({
               </section>
             </div>
 
-            <!-- Pass selectedPlant ke Dashboard dan Report -->
+            <!-- Pass selectedPlant ke Dashboard and Report -->
             <dashboard
               v-if="user && currentView==='dashboard'"
               :user="user"

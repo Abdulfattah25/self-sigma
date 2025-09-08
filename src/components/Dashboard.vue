@@ -83,25 +83,28 @@
               🎉 Semua tugas hari ini sudah selesai!
             </div>
             <div v-else>
-                <div
-                  v-for="task in sortedIncompleteTasks"
-                  :key="task.id"
-                  class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded"
-                  :class="'priority-' + (task.priority || 'sedang')"
-                >
-                  <div class="text-start">
-                    <small class="fw-bold">{{ task.task_name }}</small><br />
-                    <small class="text-muted">{{ task.category || '-' }}</small>
+              <div
+                v-for="task in sortedIncompleteTasks"
+                :key="task.id"
+                class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded"
+                :class="'priority-' + (task.priority || 'sedang')"
+              >
+                <div class="text-start">
+                  <small class="fw-bold">{{ task.task_name }}</small
+                  ><br />
+                  <small class="text-muted">{{ task.category || '-' }}</small>
+                </div>
+                <div class="text-end">
+                  <div>
+                    <span class="badge" :class="getPriorityBadgeClass(task.priority)">{{
+                      task.priority || 'sedang'
+                    }}</span>
                   </div>
-                  <div class="text-end">
-                    <div>
-                      <span class="badge" :class="getPriorityBadgeClass(task.priority)">{{
-                        task.priority || 'sedang'
-                      }}</span>
-                    </div>
-                    <div class="small text-muted mt-1">{{ formatDateSimple(task.deadline_date) }}</div>
+                  <div class="small text-muted mt-1">
+                    {{ formatDateSimple(task.deadline_date) }}
                   </div>
                 </div>
+              </div>
             </div>
             <small class="text-muted d-block mt-2"
               >Target (template) hari ini: {{ templateTargetCount }}</small

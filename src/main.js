@@ -14,21 +14,15 @@ window.bootstrap = bootstrap;
 import stateManager from '../js/utils/stateManager.js';
 import DataService from '../js/utils/dataService.js';
 
-// Libs via NPM (expose globals for legacy code that uses window.*)
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-const SUPABASE_URL =
-  import.meta.env.VITE_SUPABASE_URL || (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url);
-const SUPABASE_ANON =
-  import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey);
-window.supabase = {
-  createClient: createSupabaseClient,
-  __env: { url: SUPABASE_URL, anon: SUPABASE_ANON },
-};
+// Supabase singleton helper
+import { getSupabase } from './lib/supabaseClient.js';
 
-// Initialize DataService when supabase is ready
-if (SUPABASE_URL && SUPABASE_ANON) {
-  const supabaseClient = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON);
+// Initialize a single Supabase client and reuse it everywhere
+const supabaseClient = getSupabase();
+// Provide a tiny shim for legacy code expecting window.supabase.createClient
+window.supabase = window.supabase || { createClient: () => supabaseClient, __env: {} };
+if (supabaseClient) {
+  window.supabaseClient = supabaseClient;
   window.dataService = new DataService(supabaseClient, stateManager);
   window.stateManager = stateManager;
 }

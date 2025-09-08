@@ -1,18 +1,11 @@
 // Inisialisasi Supabase dari config
-const cfgUrl =
-  (window.supabase && window.supabase.__env && window.supabase.__env.url) ||
-  (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url);
-const cfgAnon =
-  (window.supabase && window.supabase.__env && window.supabase.__env.anon) ||
-  (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey);
-const __supabaseLib = window.supabase;
+// Reuse global singleton created in src/main.js
 const supabaseClient =
-  __supabaseLib && cfgUrl && cfgAnon
-    ? __supabaseLib.createClient(cfgUrl, cfgAnon)
-    : (() => {
-        console.error('Supabase init failed: missing library or config');
-        return null;
-      })();
+  window.supabaseClient ||
+  (window.supabase && window.supabase.createClient && window.supabase.createClient());
+if (!supabaseClient) {
+  console.error('Supabase init failed: missing client');
+}
 
 // Akses quotes harian dari data/quotes.js
 const DAILY_QUOTES = window.DAILY_QUOTES || [];
@@ -174,8 +167,10 @@ new Vue({
 
         // Listen for theme changes from Profile component
         window.addEventListener('theme-changed', (event) => {
-          console.log('Theme changed:', event.detail.theme);
-          // Theme is already applied by Profile component, we just log it
+          const theme = event.detail?.theme || 'light';
+          console.log('Theme changed:', theme);
+          // Apply at root as well to keep a single source of truth
+          this.applyTheme(theme);
         });
       } catch (e) {
         console.error(e);

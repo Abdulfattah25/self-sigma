@@ -6,13 +6,17 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'bootstrap'; // JS for modal/toast attached to window via import side-effects
 
+// Custom CSS imports
+import './asset/css/style.css';
+import './asset/css/forest.css';
+
 // Make bootstrap accessible as window.bootstrap for legacy code
 import * as bootstrap from 'bootstrap';
 window.bootstrap = bootstrap;
 
 // Import State Manager and Data Service
-import stateManager from '../js/utils/stateManager.js';
-import DataService from '../js/utils/dataService.js';
+import stateManager from './utils/stateManager.js';
+import DataService from './utils/dataService.js';
 
 // Supabase singleton helper
 import { getSupabase } from './lib/supabaseClient.js';
@@ -33,11 +37,10 @@ window.Chart = Chart;
 import html2pdf from 'html2pdf.js';
 window.html2pdf = html2pdf;
 
-// Global config/data
-import '../js/config.js';
-import '../data/quotes.js';
-import '../js/utils/dateWita.js';
-import '../js/utils/sceneFor.js';
+// Global data
+import './data/quotes.js';
+import './utils/dateWita.js';
+import './utils/sceneFor.js';
 
 // Load legacy global-registered components
 (async () => {
@@ -51,16 +54,18 @@ import '../js/utils/sceneFor.js';
     { default: Report },
     { default: Profile },
     { default: Admin },
+    { default: CacheDebugger },
   ] = await Promise.all([
-    import('./components/PlantTile.vue'),
-    import('./components/ForestGrid.vue'),
-    import('./components/ForestPanel.vue'),
-    import('./components/Dashboard.vue'),
-    import('./components/Checklist.vue'),
-    import('./components/TaskManager.vue'),
-    import('./components/Report.vue'),
-    import('./components/Profile.vue'),
-    import('./components/Admin.vue'),
+    import('./components/pages/PlantTile.vue'),
+    import('./components/pages/ForestGrid.vue'),
+    import('./components/pages/ForestPanel.vue'),
+    import('./components/pages/Dashboard.vue'),
+    import('./components/pages/Checklist.vue'),
+    import('./components/pages/TaskManager.vue'),
+    import('./components/pages/Report.vue'),
+    import('./components/pages/Profile.vue'),
+    import('./components/pages/Admin.vue'),
+    import('./components/pages/CacheDebugger.vue'),
   ]);
   window.Vue.component('plant-tile', PlantTile);
   window.Vue.component('forest-grid', ForestGrid);
@@ -71,7 +76,13 @@ import '../js/utils/sceneFor.js';
   window.Vue.component('report', Report);
   window.Vue.component('profile', Profile);
   window.Vue.component('admin', Admin);
+  window.Vue.component('cache-debugger', CacheDebugger);
 
-  // Start root app
-  await import('../js/app.js');
+  // Initialize Vue app with App.vue as root component
+  const { default: App } = await import('./App.vue');
+
+  new window.Vue({
+    el: '#app',
+    render: (h) => h(App),
+  });
 })();

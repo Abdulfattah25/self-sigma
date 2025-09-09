@@ -1,9 +1,9 @@
-// Simple UTC+8 (WITA) date helpers. Expose via window.WITA
+// Simple UTC+7 (WIB/WITA) date helpers. Expose via window.WITA
 (function (global) {
-  const OFFSET_MS = 8 * 60 * 60 * 1000; // UTC+8
+  const OFFSET_MS = 7 * 60 * 60 * 1000; // UTC+7 (WIB - Waktu Indonesia Barat)
 
   function pad(n) {
-    return n < 10 ? "0" + n : String(n);
+    return n < 10 ? '0' + n : String(n);
   }
 
   // Return YYYY-MM-DD adjusted to WITA based on current moment
@@ -21,7 +21,7 @@
 
   // Advance an ISO date string by delta days (works on calendar days)
   function advanceIso(iso, delta) {
-    const [y, m, d] = iso.split("-").map((v) => parseInt(v, 10));
+    const [y, m, d] = iso.split('-').map((v) => parseInt(v, 10));
     const dt = new Date(Date.UTC(y, m - 1, d));
     dt.setUTCDate(dt.getUTCDate() + delta);
     return dt.toISOString().slice(0, 10);
@@ -43,7 +43,7 @@
   // Current year/month/day according to WITA
   function nowParts() {
     const iso = today();
-    const [y, m, d] = iso.split("-").map((v) => parseInt(v, 10));
+    const [y, m, d] = iso.split('-').map((v) => parseInt(v, 10));
     return { year: y, month: m, day: d };
   }
 

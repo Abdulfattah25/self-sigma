@@ -10,7 +10,6 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
-  publicDir: 'assets',
   build: {
     rollupOptions: {
       output: {

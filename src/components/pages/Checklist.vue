@@ -160,10 +160,7 @@ export default {
     return {
       todayTasks: [],
       loading: false,
-      today:
-        window.WITA && window.WITA.today
-          ? window.WITA.today()
-          : new Date().toISOString().slice(0, 10),
+      today: this.getTodayWIB(),
       completedCount: 0,
       totalCount: 0,
       newAdHocTask: '',
@@ -189,8 +186,9 @@ export default {
       const priorityOrder = { tinggi: 3, sedang: 2, rendah: 1 };
       const filtered = this.todayTasks.filter((t) => {
         // Filter deadline tasks: hanya tampil jika deadline = hari ini
-        if (t.jenis_task === 'deadline' && t.deadline_date && t.deadline_date !== this.today) {
-          return false;
+        if (t.jenis_task === 'deadline') {
+          // Untuk task deadline, hanya tampilkan jika deadline_date === today
+          return t.deadline_date === this.today;
         }
 
         const pr = t.priority || 'sedang';
@@ -296,6 +294,18 @@ export default {
       window.removeEventListener('template-updated', this._onTemplateUpdated);
   },
   methods: {
+    getTodayWIB() {
+      // Prioritas: gunakan window.WITA.today() jika tersedia
+      if (window.WITA && typeof window.WITA.today === 'function') {
+        return window.WITA.today();
+      }
+
+      // Fallback: hitung manual menggunakan zona waktu WIB (UTC+7)
+      const now = new Date();
+      const wibTime = new Date(now.getTime() + 7 * 60 * 60 * 1000); // UTC+7
+      return wibTime.toISOString().slice(0, 10);
+    },
+
     async initializeTodayTasks() {
       try {
         this.loading = true;
@@ -429,12 +439,14 @@ export default {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
+        timeZone: 'Asia/Jakarta', // WIB (UTC+7)
       });
     },
     formatTime(dateString) {
       return new Date(dateString).toLocaleTimeString('id-ID', {
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: 'Asia/Jakarta', // WIB (UTC+7)
       });
     },
     getMotivationalMessage() {

@@ -18,7 +18,7 @@ export default {
   name: 'ForestGrid',
   props: {
     trees: { type: Array, default: () => [] },
-    plant: { type: String, default: 'bonsai' },
+    plant: { type: String, default: 'forest' },
   },
   computed: {
     safeTrees() {

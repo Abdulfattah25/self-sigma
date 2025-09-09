@@ -21,6 +21,12 @@ export function getSupabase() {
   return client;
 }
 
+// Named export for backward compatibility
+export const supabase = getSupabase();
+
+// Default export
+export default getSupabase;
+
 export function signOutSafely(supabase) {
   return (async () => {
     try {

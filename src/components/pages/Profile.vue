@@ -57,7 +57,7 @@
             </div>
           </div>
           <div class="row mt-3">
-            <div class="col-12 col-md-4">
+            <div class="col-3 col-md-2">
               <button
                 class="btn btn-outline-secondary w-100"
                 @click="logout"
@@ -150,7 +150,7 @@
                 <div v-if="activeSection === 'name'" class="setting-panel">
                   <h6 class="fw-semibold mb-3">📝 Ubah Nama Lengkap</h6>
                   <div class="row">
-                    <div class="col-md-3 mb-3">
+                    <div class="col-6 col-md-3 mb-3">
                       <label class="form-label">Nama Lengkap Baru</label>
                       <input
                         type="text"
@@ -159,7 +159,7 @@
                         placeholder="Masukkan nama lengkap"
                       />
                     </div>
-                    <div class="col-md-2 mb-3 d-flex align-items-end">
+                    <div class="col-4 col-md-2 mb-3 d-flex align-items-end">
                       <button class="btn btn-primary w-100" @click="updateName" :disabled="saving">
                         {{ saving ? 'Menyimpan...' : '💾 Simpan' }}
                       </button>
@@ -208,24 +208,18 @@
                 <div v-if="activeSection === 'theme'" class="setting-panel">
                   <h6 class="fw-semibold mb-3">🎨 Pengaturan Tema</h6>
                   <div class="row">
-                    <div class="col-md-3 mb-3">
+                    <div class="col-6 col-md-3 mb-3">
                       <label class="form-label">Tema Aplikasi</label>
                       <select class="form-select" v-model="selectedTheme">
                         <option value="light">☀️ Tema Terang</option>
                         <option value="dark">🌙 Tema Gelap</option>
                       </select>
                     </div>
-                    <div class="col-md-2 mb-3 d-flex align-items-end">
+                    <div class="col-4 col-md-2 mb-3 d-flex align-items-end">
                       <button class="btn btn-primary w-100" @click="changeTheme" :disabled="saving">
                         {{ saving ? 'Menyimpan...' : '💾 Simpan' }}
                       </button>
                     </div>
-                  </div>
-                  <div class="alert alert-info mb-0">
-                    <small
-                      ><i class="fas fa-info-circle me-1"></i>Pilih tema lalu klik Simpan untuk
-                      menerapkan dan menyimpan perubahan</small
-                    >
                   </div>
                 </div>
 
@@ -233,43 +227,35 @@
                 <div v-if="activeSection === 'plant'" class="setting-panel">
                   <h6 class="fw-semibold mb-3">🌱 Pengaturan Tanaman</h6>
                   <div class="row">
-                    <div class="col-md-3 mb-3">
+                    <div class="col-6 col-md-3 mb-3">
                       <label class="form-label">Jenis Tanaman</label>
                       <select class="form-select" v-model="selectedPlant">
                         <option value="forest">🌳 Pohon Besar (Forest)</option>
                         <option value="garden">🌼 Bunga (Garden)</option>
                       </select>
+                      <div class="col-7 col-md-6 col-md-2">
+                        <button
+                          class="btn btn-primary w-100 mt-3"
+                          @click="updatePlantSetting"
+                          :disabled="saving"
+                        >
+                          {{ saving ? 'Menyimpan...' : '💾 Simpan' }}
+                        </button>
+                      </div>
                     </div>
-                    <div class="col-md-2 mb-3 d-flex align-items-end">
-                      <button
-                        class="btn btn-primary w-100"
-                        @click="updatePlantSetting"
-                        :disabled="saving"
-                      >
-                        {{ saving ? 'Menyimpan...' : '💾 Simpan' }}
-                      </button>
-                    </div>
-                    <div class="col-md-9 mb-3">
+                    <div class="col-6 col-md-9 mb-3">
                       <label class="form-label">Preview Tanaman</label>
-                      <div class="plant-preview p-3 border rounded bg-light text-center">
+                      <div class="plant-preview p-1 border rounded bg-light text-center">
                         <img
                           :src="getPlantPreviewImage()"
                           :alt="selectedPlant"
                           class="plant-preview-img"
-                          style="max-width: 80px; max-height: 80px; object-fit: contain"
+                          style="max-width: 100%; max-height: 120px; object-fit: contain"
                         />
-                        <div class="mt-2 small text-muted">
-                          {{ selectedPlant === 'forest' ? 'Pohon Besar' : 'Bunga' }}
-                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div class="alert alert-info mb-0">
-                    <small
-                      ><i class="fas fa-info-circle me-1"></i>Pilih tanaman lalu klik Simpan untuk
-                      menerapkan dan menyimpan perubahan (akan langsung terlihat di halaman
-                      utama)</small
-                    >
+
+                    <div class="col-md-2 mb-3 d-flex align-items-start"></div>
                   </div>
                 </div>
 
@@ -277,7 +263,7 @@
                 <div v-if="activeSection === 'score'" class="setting-panel">
                   <h6 class="fw-semibold mb-3">⚡ Pengaturan Skor</h6>
                   <div class="row">
-                    <div class="col-md-3 mb-3">
+                    <div class="col-6 col-md-3 mb-3">
                       <label class="form-label">Task Selesai</label>
                       <input
                         type="number"
@@ -292,7 +278,7 @@
                         >+{{ scoreReward || 1 }} poin per task selesai</small
                       >
                     </div>
-                    <div class="col-md-3 mb-3">
+                    <div class="col-6 col-md-3 mb-3">
                       <label class="form-label">Task Tidak Dikerjakan</label>
                       <input
                         type="number"
@@ -307,7 +293,7 @@
                         >-{{ scorePenalty || 2 }} poin per task tidak selesai</small
                       >
                     </div>
-                    <div class="col-6 mb-3">
+                    <div class="col-12 col-md-6 mb-3">
                       <div class="alert alert-info">
                         <strong>Preview Sistem Skor:</strong>
                         <ul class="mb-0 mt-2">
@@ -320,7 +306,7 @@
                         </ul>
                       </div>
                     </div>
-                    <div class="col-12">
+                    <div class="col-6">
                       <button class="btn btn-info" @click="updateScoreSettings" :disabled="saving">
                         {{ saving ? 'Menyimpan...' : '⚡ Simpan Pengaturan Skor' }}
                       </button>
@@ -424,7 +410,8 @@ export default {
       deleteConfirmation: '',
       deleting: false,
       loggingOut: false,
-      activeSection: null, // Track which settings section is active
+      activeSection: null,
+      themeChangeTimeout: null,
     };
   },
   computed: {
@@ -500,37 +487,33 @@ export default {
     },
     // Pastikan ada sesi auth sebelum memanggil updateUser (hindari AuthSessionMissingError)
     async ensureAuthSession() {
-      // Cek sesi saat ini
-      const { data, error } = await this.supabase.auth.getSession();
-      if (error) throw error;
-      if (data?.session) return data.session;
-
-      // Coba refresh (jika ada refresh_token yang dipersisten)
-      try {
-        const { data: refreshed, error: rErr } = await this.supabase.auth.refreshSession();
-        if (rErr) throw rErr;
-        if (refreshed?.session) return refreshed.session;
-      } catch (_) {
-        // ignore, akan lempar error di bawah
+      // Simple session check tanpa complex refresh logic
+      const { data } = await this.supabase.auth.getSession();
+      if (!data?.session) {
+        throw new Error('Sesi auth hilang. Silakan login ulang.');
       }
-
-      // Jika tetap tidak ada sesi
-      const err = new Error('Sesi auth hilang. Silakan login ulang untuk menyimpan pengaturan.');
-      err.code = 'AUTH_SESSION_MISSING';
-      throw err;
+      return data.session;
     },
-    // Wrapper: hindari "loading lama" dengan timeout dan validasi sesi
-    async updateUserWithTimeout(payload, timeoutMs = 8000) {
-      // Validasi / pulihkan sesi dulu
-      await this.ensureAuthSession();
+    // Simplified update user method
+    async updateUserWithTimeout(payload, timeoutMs = 5000) {
+      try {
+        await this.ensureAuthSession();
 
-      const p = this.supabase.auth.updateUser(payload);
-      const timeout = new Promise((_, rej) =>
-        setTimeout(() => rej(new Error('Permintaan timeout')), timeoutMs),
-      );
-      // updateUser mengembalikan { data, error }
-      const result = await Promise.race([p, timeout]);
-      return result;
+        // Use Promise.race for timeout
+        const updatePromise = this.supabase.auth.updateUser(payload);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Request timeout')), timeoutMs),
+        );
+
+        const result = await Promise.race([updatePromise, timeoutPromise]);
+        return result;
+      } catch (error) {
+        // Simplified error handling
+        if (error.message.includes('timeout')) {
+          throw new Error('Koneksi lambat, coba lagi');
+        }
+        throw error;
+      }
     },
     async updateProfile() {
       try {
@@ -545,35 +528,32 @@ export default {
           },
         });
         if (error) throw error;
-        this.$root?.showToast?.('Profil berhasil diperbarui', 'success');
+        this.showToast('Profil berhasil diperbarui', 'success');
       } catch (error) {
         console.error('Error updating profile:', error);
-        this.$root?.showToast?.('Gagal memperbarui profil: ' + error.message, 'danger');
+        this.showToast('Gagal memperbarui profil: ' + error.message, 'danger');
       } finally {
         this.saving = false;
       }
     },
-    async updateName() {
-      try {
-        this.saving = true;
-        const { error } = await this.updateUserWithTimeout({
-          data: {
-            full_name: this.tempFullName,
-          },
-        });
-        if (error) throw error;
+ async updateName() {
+    try {
+      this.saving = true;
+      const { error } = await this.updateUserWithTimeout({
+        data: { full_name: this.tempFullName },
+      });
+      if (error) throw error;
 
-        // Update the display name
-        this.fullName = this.tempFullName;
-        this.$root?.showToast?.('Nama berhasil diperbarui!', 'success');
-        this.activeSection = null; // Close the section
-      } catch (error) {
-        console.error('Error updating name:', error);
-        this.$root?.showToast?.('Gagal memperbarui nama: ' + error.message, 'danger');
-      } finally {
-        this.saving = false;
-      }
-    },
+      this.fullName = this.tempFullName;
+      this.showToast('Nama berhasil diperbarui!', 'success'); // ✅ Fixed
+      this.activeSection = null;
+    } catch (error) {
+      console.error('Error updating name:', error);
+      this.showToast('Gagal memperbarui nama: ' + error.message, 'danger'); // ✅ Fixed
+    } finally {
+      this.saving = false;
+    }
+  },
     toggleSection(section) {
       // Toggle the section - close if already open, open if closed
       this.activeSection = this.activeSection === section ? null : section;
@@ -588,85 +568,95 @@ export default {
       }
     },
     async changeTheme() {
-      const prevTheme = localStorage.getItem('app-theme') || 'light';
       try {
-        this.saving = true;
-
-        // Optimistic UI update (langsung terapkan tema)
+        // Immediate UI update tanpa waiting
         this.applyTheme(this.selectedTheme);
 
-        // Emit + broadcast untuk sinkronisasi global
-        this.$emit('theme-changed', this.selectedTheme);
+        // Broadcast immediate untuk responsiveness
         window.dispatchEvent(
-          new CustomEvent('theme-changed', { detail: { theme: this.selectedTheme } }),
+          new CustomEvent('theme-changed', {
+            detail: { theme: this.selectedTheme },
+          }),
         );
 
-        // Simpan ke metadata (dengan timeout supaya tidak "menggantung")
-        const { error } = await this.updateUserWithTimeout({
-          data: { theme: this.selectedTheme },
-        });
-        if (error) throw error;
+        // Background save tanpa blocking UI
+        this.saveThemeInBackground();
 
-        this.$root?.showToast?.('Tema berhasil diubah!', 'success');
-        this.activeSection = null; // Close section after success
+        // Immediate feedback
+        this.showToast('Tema berhasil diubah!', 'success');
+        this.activeSection = null;
       } catch (error) {
-        console.error('Error changing theme:', error);
-        // Revert jika gagal
-        this.applyTheme(prevTheme);
-        window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme: prevTheme } }));
-        this.$root?.showToast?.('Gagal mengubah tema: ' + error.message, 'danger');
-      } finally {
-        this.saving = false;
+        console.error('Error applying theme:', error);
       }
     },
-    async updatePlantSetting() {
-      const prevPlant = localStorage.getItem('pt_plant') || this.selectedPlant;
-      try {
-        this.saving = true;
 
-        // Optimistic update: simpan ke localStorage dan broadcast supaya Dashboard/Report langsung berubah
+    // TAMBAH method baru ini:
+    saveThemeInBackground() {
+      // Clear previous timeout
+      if (this.themeChangeTimeout) {
+        clearTimeout(this.themeChangeTimeout);
+      }
+
+      // Background save tanpa loading state
+      this.themeChangeTimeout = setTimeout(async () => {
         try {
-          localStorage.setItem('pt_plant', this.selectedPlant);
-        } catch (_) {}
-        this.$emit('plant-changed', this.selectedPlant);
+          await this.supabase.auth.updateUser({
+            data: { theme: this.selectedTheme },
+          });
+          console.log('Theme saved to server successfully');
+        } catch (error) {
+          console.warn('Failed to save theme to server:', error);
+          // Tidak perlu toast error karena tema sudah berubah di UI
+        }
+      }, 1000); // Longer delay, background operation
+    },
+    async updatePlantSetting() {
+      try {
+        // Immediate UI updates
+        localStorage.setItem('pt_plant', this.selectedPlant);
         window.dispatchEvent(
           new CustomEvent('plant-type-changed', {
             detail: { plantType: this.selectedPlant },
           }),
         );
 
-        // Simpan ke metadata (dengan timeout)
-        const { error } = await this.updateUserWithTimeout({
-          data: { plant_type: this.selectedPlant },
-        });
-        if (error) throw error;
+        // Immediate feedback
+        this.showToast('Pengaturan tanaman berhasil diubah!', 'success');
+        this.activeSection = null;
 
-        this.$root?.showToast?.('Pengaturan tanaman berhasil diubah!', 'success');
-        this.activeSection = null; // Close section after success
+        // Background save
+        this.savePlantInBackground();
       } catch (error) {
         console.error('Error updating plant setting:', error);
-        // Revert jika gagal
-        try {
-          localStorage.setItem('pt_plant', prevPlant);
-        } catch (_) {}
-        window.dispatchEvent(
-          new CustomEvent('plant-type-changed', {
-            detail: { plantType: prevPlant },
-          }),
-        );
-        this.$root?.showToast?.('Gagal mengubah pengaturan tanaman: ' + error.message, 'danger');
-      } finally {
-        this.saving = false;
+        this.showToast('Gagal mengubah pengaturan tanaman', 'danger');
       }
+    },
+
+    // TAMBAH method baru:
+    savePlantInBackground() {
+      if (this.plantChangeTimeout) {
+        clearTimeout(this.plantChangeTimeout);
+      }
+
+      this.plantChangeTimeout = setTimeout(async () => {
+        try {
+          await this.supabase.auth.updateUser({
+            data: { plant_type: this.selectedPlant },
+          });
+          console.log('Plant setting saved to server successfully');
+        } catch (error) {
+          console.warn('Failed to save plant setting to server:', error);
+        }
+      }, 1000);
     },
     getPlantPreviewImage() {
       // Get a preview image based on selected plant type
       if (this.selectedPlant === 'forest') {
-        return '/assets/forest/plant-4-perfect.png'; // Best forest plant
+        return '/src/asset/forest/plant-4-perfect.png'; // Best forest plant
       } else if (this.selectedPlant === 'garden') {
-        return '/assets/garden/5.png'; // Garden plant
+        return '/src/asset/garden/5.png'; // Garden plant
       }
-      return '/assets/forest/plant-4-perfect.png'; // Default fallback
+      return '/src/asset/forest/plant-4-perfect.png'; // Default fallback
     },
     async updateScoreSettings() {
       try {
@@ -679,11 +669,11 @@ export default {
         });
         if (error) throw error;
 
-        this.$root?.showToast?.('Pengaturan skor berhasil diperbarui!', 'success');
+        this.showToast('Pengaturan skor berhasil diperbarui!', 'success');
         this.activeSection = null;
       } catch (error) {
         console.error('Error updating score settings:', error);
-        this.$root?.showToast?.('Gagal memperbarui pengaturan skor: ' + error.message, 'danger');
+        this.showToast('Gagal memperbarui pengaturan skor: ' + error.message, 'danger');
       } finally {
         this.saving = false;
       }
@@ -711,7 +701,7 @@ export default {
 
         this.newPassword = '';
         this.confirmPassword = '';
-        this.$root?.showToast?.('Password berhasil diubah!', 'success');
+        this.showToast('Password berhasil diubah!', 'success');
         this.activeSection = null; // Close section after success
       } catch (error) {
         console.error('Error changing password:', error);
@@ -738,27 +728,17 @@ export default {
         window.location.reload();
       } catch (error) {
         console.error('Error deleting account:', error);
-        this.$root?.showToast?.('Gagal menghapus akun: ' + error.message, 'danger');
+        this.showToast('Gagal menghapus akun: ' + error.message, 'danger');
       } finally {
         this.deleting = false;
         this.showDeleteModal = false;
       }
     },
     applyTheme(theme) {
-      // Remove any existing theme classes
-      document.documentElement.removeAttribute('data-bs-theme');
-      document.body.className = document.body.className.replace(/theme-\w+/g, '');
-
-      // Apply the new theme
-      if (theme === 'dark') {
-        document.documentElement.setAttribute('data-bs-theme', 'dark');
-        document.body.classList.add('theme-dark');
-      } else {
-        document.documentElement.setAttribute('data-bs-theme', 'light');
-        document.body.classList.add('theme-light');
-      }
-
-      // Store theme preference
+      // Single DOM operation
+      document.documentElement.setAttribute('data-bs-theme', theme);
+      document.body.className =
+        document.body.className.replace(/theme-\w+/g, '') + ` theme-${theme}`;
       localStorage.setItem('app-theme', theme);
     },
     formatDate(dateString) {
@@ -771,43 +751,51 @@ export default {
     async logout() {
       try {
         this.loggingOut = true;
-        // Check current session first to avoid AuthSessionMissingError
-        const { data: sessData } = await this.supabase.auth.getSession();
-        const hasSession = !!sessData?.session;
 
+        // Fast logout - don't wait for session validation
         try {
-          if (hasSession) {
-            // Normal global sign out (revoke refresh token server-side)
-            const { error } = await this.supabase.auth.signOut();
-            if (error) throw error;
-          } else {
-            // No active session in this client: clear local state only
-            await this.supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-          }
-        } catch (e) {
-          // If session is missing or already revoked, clear local and proceed
-          await this.supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+          await this.supabase.auth.signOut({ scope: 'global' });
+        } catch (error) {
+          // If global signout fails, do local signout
+          await this.supabase.auth.signOut({ scope: 'local' });
         }
 
-        // Extra hardening: remove any persisted Supabase auth tokens to avoid ghost sessions
-        try {
-          const keys = Object.keys(localStorage);
-          for (const k of keys) {
-            if (k.startsWith('sb-') && k.endsWith('-auth-token')) {
-              localStorage.removeItem(k);
-            }
-          }
-        } catch (_) {}
+        // Clear auth tokens efficiently
+        const authKeys = Object.keys(localStorage).filter(
+          (key) => key.startsWith('sb-') && key.includes('-auth-token'),
+        );
+        authKeys.forEach((key) => localStorage.removeItem(key));
 
-        // Redirect to home
+        // Immediate redirect without waiting
         window.location.href = '/';
       } catch (error) {
-        console.error('Error logging out:', error);
-        this.$root?.showToast?.('Gagal logout: ' + error.message, 'danger');
-      } finally {
-        this.loggingOut = false;
+        console.error('Logout error:', error);
+        // Force redirect even if logout fails
+        window.location.href = '/';
       }
     },
+    showToast(message, variant = 'primary', delay = 3000) {
+    try {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+
+      const toastEl = document.createElement('div');
+      toastEl.className = `toast align-items-center text-bg-${variant} border-0`;
+      toastEl.setAttribute('role', 'alert');
+      toastEl.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body">${message}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>`;
+      
+      container.appendChild(toastEl);
+      const toast = new window.bootstrap.Toast(toastEl, { delay });
+      toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+      toast.show();
+    } catch (error) {
+      console.error('Toast error:', error);
+    }
+  },
   },
   watch: {
     showDeleteModal(show) {
@@ -819,6 +807,15 @@ export default {
         }
       }
     },
+  },
+  beforeUnmount() {
+    // Clear timeouts
+    if (this.themeChangeTimeout) {
+      clearTimeout(this.themeChangeTimeout);
+    }
+
+    // Cleanup modal
+    this.cleanupModal();
   },
 };
 </script>

@@ -33,7 +33,7 @@ export default {
     todayPercent: { type: Number, default: 0 },
     trees: { type: Array, default: () => [] },
     showTodayTile: { type: Boolean, default: true },
-    plant: { type: String, default: 'bonsai' },
+    plant: { type: String, default: 'forest' },
   },
   computed: {
     progressLabel() {
@@ -81,7 +81,7 @@ export default {
     },
     resolveTileSrc(percent) {
       const stage = this.percentToStage(percent);
-      if (this.plant === 'monstera') return `assets/garden/${stage + 1}.png`;
+      if (this.plant === 'garden') return `/src/asset/garden/${stage + 1}.png`;
       const forestFiles = [
         'plant-0-dead.png',
         'plant-1-wilted.png',
@@ -89,7 +89,7 @@ export default {
         'plant-3-better.png',
         'plant-4-perfect.png',
       ];
-      return `assets/forest/${forestFiles[stage]}`;
+      return `/src/asset/forest/${forestFiles[stage]}`;
     },
   },
 };

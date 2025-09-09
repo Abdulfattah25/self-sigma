@@ -24,14 +24,14 @@ export default {
     captionBelow: { type: Boolean, default: false },
     showPercentOverlay: { type: Boolean, default: true },
     showDateOverlay: { type: Boolean, default: true },
-    plant: { type: String, default: 'bonsai' },
+    plant: { type: String, default: 'forest' },
   },
   computed: {
     src() {
       const percent = Math.max(0, Math.min(100, Number(this.tree?.percent) || 0));
       const stage = Math.min(4, Math.floor(percent / 25));
-      if (this.plant === 'monstera') {
-        return `assets/garden/${stage + 1}.png`;
+      if (this.plant === 'garden') {
+        return `/src/asset/garden/${stage + 1}.png`;
       }
       const forestFiles = [
         'plant-0-dead.png',
@@ -40,7 +40,7 @@ export default {
         'plant-3-better.png',
         'plant-4-perfect.png',
       ];
-      return `assets/forest/${forestFiles[stage]}`;
+      return `/src/asset/forest/${forestFiles[stage]}`;
     },
     dateLabel() {
       try {

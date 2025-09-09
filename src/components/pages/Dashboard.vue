@@ -61,6 +61,7 @@
     <div class="row mb-4">
       <div class="col-12">
         <forest-panel
+          :key="`forest-${plant}`"
           :title="' Taman Produktivitas '"
           :today-percent="todayPercent"
           :trees="forestTrees"
@@ -149,7 +150,7 @@
         <div class="card dashboard-card dashboard-card--list card-accent card-accent--warning">
           <div class="card-header py-3 text-center">
             <h5 class="mb-0">🗓️ Agenda Bulanan</h5>
-            <small class="text-muted">Tugas deadline bulan ini & bulan depan</small>
+            <small class="text-muted">Tugas deadline bulan ini & bulan selanjutnya</small>
           </div>
           <div class="card-body">
             <div v-if="monthlyAgenda.length === 0" class="text-muted">Tidak ada deadline.</div>

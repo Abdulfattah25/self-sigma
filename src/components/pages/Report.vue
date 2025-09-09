@@ -398,7 +398,7 @@ export default {
           const img = document.createElement('img');
           img.className = v.className || '';
           const poster = v.getAttribute('poster') || '';
-          img.src = poster || 'assets/forest/plant-3-better.png';
+          img.src = poster || '/src/asset/forest/plant-3-better.png';
           img.alt = v.getAttribute('alt') || '';
           img.style.cssText = v.style.cssText;
           img.width = v.width || undefined;

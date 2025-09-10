@@ -352,10 +352,7 @@ body::-webkit-scrollbar-corner {
   transition: width 0.4s ease;
 }
 
-.card-header {
-  background: #fff;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
+
 
 /* Task Priority Indicators */
 .priority-high {

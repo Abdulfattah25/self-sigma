@@ -26,8 +26,8 @@
       <div class="col-6 col-md-3 mb-3">
         <div class="card dashboard-card card-accent card-accent--warning text-center">
           <div class="card-body py-3">
-            <div class="h4 text-warning">{{ adminStats.totalTasks }}</div>
-            <small class="text-muted">Total Tasks</small>
+            <div class="h4 text-warning">{{ adminStats.usedLicenses }}</div>
+            <small class="text-muted">Lisensi Digunakan</small>
           </div>
         </div>
       </div>
@@ -35,7 +35,7 @@
         <div class="card dashboard-card card-accent card-accent--violet text-center">
           <div class="card-body py-3">
             <div class="h4 text-info">{{ adminStats.totalLicenses }}</div>
-            <small class="text-muted">Licenses</small>
+            <small class="text-muted">Total Lisensi</small>
           </div>
         </div>
       </div>
@@ -45,7 +45,7 @@
     <div class="row">
       <div class="col-12 mb-4">
         <div class="card dashboard-card card-accent card-accent--primary">
-          <div class="card-header bg-whiter d-flex justify-content-between align-items-center">
+          <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">👥 Manajemen Pengguna</h5>
             <button class="btn btn-sm btn-outline-primary" @click="loadUsers">🔄 Refresh</button>
           </div>
@@ -90,7 +90,7 @@
                         <button
                           class="btn btn-outline-warning"
                           @click="editUser(user)"
-                          title="Edit Role"
+                          title="Edit Data User"
                         >
                           ✏️
                         </button>
@@ -117,7 +117,7 @@
       <!-- License Generator & Management -->
       <div class="col-12 col-md-4 mb-4">
         <div class="card dashboard-card card-accent card-accent--success">
-          <div class="card-header bg-whiter">
+          <div class="card-header">
             <h5 class="mb-0">🎫 Generator Lisensi</h5>
           </div>
           <div class="card-body">
@@ -142,7 +142,7 @@
       <div class="col-12 col-md-8">
         <!-- License List -->
         <div class="card dashboard-card card-accent card-accent--warning">
-          <div class="card-header bg-whiter d-flex justify-content-between align-items-center">
+          <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">📜 Daftar Lisensi</h5>
             <button class="btn btn-sm btn-outline-warning" @click="loadRecentLicenses">
               🔄 Refresh
@@ -155,7 +155,7 @@
             </div>
             <div v-else class="table-responsive">
               <table class="table table-sm table-hover license-table">
-                <thead class="table-light">
+                <thead class="table">
                   <tr>
                     <th style="min-width: 120px">Kode Lisensi</th>
                     <th style="min-width: 80px">Status</th>
@@ -207,6 +207,14 @@
                         >
                           🚫
                         </button>
+                        <button
+                          class="btn btn-outline-danger btn-sm"
+                          @click="confirmDeleteLicense(license)"
+                          title="Hapus Lisensi"
+                          v-if="license.status === 'revoked'"
+                        >
+                          🗑️
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -223,7 +231,7 @@
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">✏️ Edit User</h5>
+            <h5 class="modal-title">✏️ Edit Data User</h5>
             <button type="button" class="btn-close" @click="showEditModal = false"></button>
           </div>
           <div class="modal-body">
@@ -237,6 +245,16 @@
                 <option value="user">User</option>
                 <option value="admin">Admin</option>
               </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Status</label>
+              <select class="form-select" v-model="editingUserStatus">
+                <option :value="true">✅ Aktif</option>
+                <option :value="false">❌ Nonaktif</option>
+              </select>
+              <div class="form-text">
+                Status menentukan apakah user dapat mengakses sistem atau tidak.
+              </div>
             </div>
           </div>
           <div class="modal-footer">
@@ -282,6 +300,47 @@
         </div>
       </div>
     </div>
+
+    <!-- Delete License Confirmation Modal -->
+    <div class="modal fade" id="deleteLicenseModal" tabindex="-1" v-show="showDeleteLicenseModal">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">⚠️ Konfirmasi Hapus Lisensi</h5>
+            <button
+              type="button"
+              class="btn-close"
+              @click="showDeleteLicenseModal = false"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <p>
+              Apakah Anda yakin ingin menghapus lisensi
+              <strong
+                ><code>{{ deletingLicense?.code }}</code></strong
+              >?
+            </p>
+            <p class="text-danger">
+              Tindakan ini tidak dapat dibatalkan dan akan menghapus lisensi secara permanen dari
+              database.
+            </p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="showDeleteLicenseModal = false">
+              Batal
+            </button>
+            <button
+              type="button"
+              class="btn btn-danger"
+              @click="deleteLicense"
+              :disabled="deletingLicenseLoading"
+            >
+              {{ deletingLicenseLoading ? 'Menghapus...' : 'Hapus Lisensi' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -295,7 +354,7 @@ export default {
       adminStats: {
         totalUsers: 0,
         activeUsers: 0,
-        totalTasks: 0,
+        usedLicenses: 0,
         totalLicenses: 0,
       },
       recentLicenses: [],
@@ -303,12 +362,16 @@ export default {
       generating: false,
       updating: false,
       deleting: false,
+      deletingLicenseLoading: false,
       licenseCount: 1,
       showEditModal: false,
       showDeleteModal: false,
+      showDeleteLicenseModal: false,
       editingUser: null,
       editingUserRole: 'user',
+      editingUserStatus: true,
       deletingUser: null,
+      deletingLicense: null,
     };
   },
   async mounted() {
@@ -324,8 +387,11 @@ export default {
         if (window.bootstrap) {
           const editModalEl = document.getElementById('editUserModal');
           const deleteModalEl = document.getElementById('deleteUserModal');
+          const deleteLicenseModalEl = document.getElementById('deleteLicenseModal');
           if (editModalEl) this.editModal = new window.bootstrap.Modal(editModalEl);
           if (deleteModalEl) this.deleteModal = new window.bootstrap.Modal(deleteModalEl);
+          if (deleteLicenseModalEl)
+            this.deleteLicenseModal = new window.bootstrap.Modal(deleteLicenseModalEl);
         }
       });
     },
@@ -338,6 +404,11 @@ export default {
       if (this.deleteModal) {
         try {
           this.deleteModal.dispose();
+        } catch (e) {}
+      }
+      if (this.deleteLicenseModal) {
+        try {
+          this.deleteLicenseModal.dispose();
         } catch (e) {}
       }
     },
@@ -367,13 +438,12 @@ export default {
         const { data: users } = await this.supabase
           .from('profiles')
           .select('id, created_at, is_active');
-        const { data: tasks } = await this.supabase.from('daily_tasks_instance').select('id');
-        const { data: licenses } = await this.supabase.from('licenses').select('id');
+        const { data: licenses } = await this.supabase.from('licenses').select('id, status');
 
         this.adminStats = {
           totalUsers: (users || []).length,
           activeUsers: (users || []).filter((u) => u.is_active).length,
-          totalTasks: (tasks || []).length,
+          usedLicenses: (licenses || []).filter((l) => l.status === 'used').length,
           totalLicenses: (licenses || []).length,
         };
       } catch (error) {
@@ -424,6 +494,7 @@ export default {
     editUser(user) {
       this.editingUser = user;
       this.editingUserRole = user.role || 'user';
+      this.editingUserStatus = user.is_active !== false; // Default to true if undefined
       this.showEditModal = true;
     },
     async updateUserRole() {
@@ -431,18 +502,22 @@ export default {
         this.updating = true;
         const { error } = await this.supabase
           .from('profiles')
-          .update({ role: this.editingUserRole })
+          .update({
+            role: this.editingUserRole,
+            is_active: this.editingUserStatus,
+          })
           .eq('id', this.editingUser.id);
 
         if (error) throw error;
 
         await this.loadUsers();
+        await this.loadAdminStats(); // Refresh stats since active users count might change
         this.showEditModal = false;
 
-        this.$root?.showToast?.('Role user berhasil diupdate', 'success');
+        this.$root?.showToast?.('Data user berhasil diupdate', 'success');
       } catch (error) {
-        console.error('Error updating user role:', error);
-        this.$root?.showToast?.('Gagal update role user: ' + error.message, 'danger');
+        console.error('Error updating user:', error);
+        this.$root?.showToast?.('Gagal update data user: ' + error.message, 'danger');
       } finally {
         this.updating = false;
       }
@@ -514,6 +589,34 @@ export default {
         this.$root?.showToast?.('Gagal revoke lisensi: ' + error.message, 'danger');
       }
     },
+    confirmDeleteLicense(license) {
+      this.deletingLicense = license;
+      this.showDeleteLicenseModal = true;
+    },
+    async deleteLicense() {
+      try {
+        this.deletingLicenseLoading = true;
+
+        const { error } = await this.supabase
+          .from('licenses')
+          .delete()
+          .eq('id', this.deletingLicense.id);
+
+        if (error) throw error;
+
+        await this.loadRecentLicenses();
+        await this.loadAdminStats(); // Refresh stats since total licenses count will change
+        this.showDeleteLicenseModal = false;
+        this.deletingLicense = null;
+
+        this.$root?.showToast?.('Lisensi berhasil dihapus', 'success');
+      } catch (error) {
+        console.error('Error deleting license:', error);
+        this.$root?.showToast?.('Gagal menghapus lisensi: ' + error.message, 'danger');
+      } finally {
+        this.deletingLicenseLoading = false;
+      }
+    },
     getLicenseStatusClass(status) {
       const classes = {
         valid: 'bg-success',
@@ -568,6 +671,15 @@ export default {
         }
       }
     },
+    showDeleteLicenseModal(show) {
+      if (this.deleteLicenseModal) {
+        if (show) {
+          this.deleteLicenseModal.show();
+        } else {
+          this.deleteLicenseModal.hide();
+        }
+      }
+    },
   },
 };
 </script>
@@ -619,9 +731,13 @@ export default {
 }
 
 .dashboard-card .card-header {
+  font-weight: 600;
+}
+
+/* Remove any background override that might conflict with dark theme */
+[data-bs-theme='light'] .dashboard-card .card-header {
   background: linear-gradient(135deg, #f8f9fa, #e9ecef);
   border-bottom: 1px solid rgba(0, 0, 0, 0.125);
-  font-weight: 600;
 }
 
 /* Button improvements */
@@ -638,16 +754,49 @@ export default {
 
 /* License code styling */
 code {
-  background-color: #f8f9fa;
-  color: #e83e8c;
   padding: 0.2rem 0.4rem;
   border-radius: 0.25rem;
   font-size: 0.85em;
+}
+
+/* Light theme code styling */
+[data-bs-theme='light'] code {
+  background-color: #f8f9fa;
+  color: #e83e8c;
+}
+
+/* Dark theme code styling */
+[data-bs-theme='dark'] code {
+  background-color: #374151;
+  color: #fbbf24;
 }
 
 /* Empty state styling */
 .display-6 {
   font-size: 3rem;
   opacity: 0.3;
+}
+
+/* Dark theme improvements */
+[data-bs-theme='dark'] .table-responsive {
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+[data-bs-theme='dark'] .dashboard-card {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Ensure all card headers follow dark theme */
+[data-bs-theme='dark'] .admin-page .card-header {
+  background-color: #0b1224 !important;
+  background-image: linear-gradient(180deg, #0f172a 0%, #0b1224 100%) !important;
+  border-bottom-color: rgba(148, 163, 184, 0.18) !important;
+  color: #e5e7eb !important;
+}
+
+/* Ensure card accent headers also follow dark theme */
+[data-bs-theme='dark'] .admin-page .card-accent .card-header {
+  background-color: #0b1224 !important;
+  color: #e5e7eb !important;
 }
 </style>

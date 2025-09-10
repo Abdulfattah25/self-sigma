@@ -22,9 +22,6 @@
                 @click="$emit('show-auth')">
                 Mulai Sekarang
               </button>
-              <a href="#fitur" class="btn btn-outline-light btn-lg px-4 border-0 glass-btn text-white d-none d-md-inline-flex">
-                Jelajahi Fitur
-              </a>
             </div>
           </div>
 

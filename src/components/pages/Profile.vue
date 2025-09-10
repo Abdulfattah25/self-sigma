@@ -7,7 +7,7 @@
     <!-- Statistics Card -->
     <div class="col-12 mb-4">
       <div class="card dashboard-card card-accent card-accent--primary">
-        <div class="card-header bg-whiter">
+        <div class="card-header">
           <h5 class="mb-0">📊 Statistik Akun</h5>
         </div>
         <div class="card-body">
@@ -38,7 +38,7 @@
     <!-- User Information Card -->
     <div class="col-12 mb-4">
       <div class="card dashboard-card">
-        <div class="card-header bg-whiter">
+        <div class="card-header">
           <h5 class="mb-0">📋 Informasi Akun</h5>
         </div>
         <div class="card-body">
@@ -74,7 +74,7 @@
     <!-- Settings Dropdown -->
     <div class="col-12 mb-4">
       <div class="card dashboard-card">
-        <div class="card-header bg-whiter">
+        <div class="card-header">
           <h5 class="mb-0">⚙️ Pengaturan</h5>
         </div>
         <div class="card-body">
@@ -144,7 +144,7 @@
 
           <!-- Dynamic Content Area -->
           <div class="settings-content mt-4" v-if="activeSection">
-            <div class="card border-0 bg-light">
+            <div class="card border-0 settings-panel-card">
               <div class="card-body">
                 <!-- Change Name Section -->
                 <div v-if="activeSection === 'name'" class="setting-panel">
@@ -536,24 +536,24 @@ export default {
         this.saving = false;
       }
     },
- async updateName() {
-    try {
-      this.saving = true;
-      const { error } = await this.updateUserWithTimeout({
-        data: { full_name: this.tempFullName },
-      });
-      if (error) throw error;
+    async updateName() {
+      try {
+        this.saving = true;
+        const { error } = await this.updateUserWithTimeout({
+          data: { full_name: this.tempFullName },
+        });
+        if (error) throw error;
 
-      this.fullName = this.tempFullName;
-      this.showToast('Nama berhasil diperbarui!', 'success'); // ✅ Fixed
-      this.activeSection = null;
-    } catch (error) {
-      console.error('Error updating name:', error);
-      this.showToast('Gagal memperbarui nama: ' + error.message, 'danger'); // ✅ Fixed
-    } finally {
-      this.saving = false;
-    }
-  },
+        this.fullName = this.tempFullName;
+        this.showToast('Nama berhasil diperbarui!', 'success'); // ✅ Fixed
+        this.activeSection = null;
+      } catch (error) {
+        console.error('Error updating name:', error);
+        this.showToast('Gagal memperbarui nama: ' + error.message, 'danger'); // ✅ Fixed
+      } finally {
+        this.saving = false;
+      }
+    },
     toggleSection(section) {
       // Toggle the section - close if already open, open if closed
       this.activeSection = this.activeSection === section ? null : section;
@@ -775,27 +775,27 @@ export default {
       }
     },
     showToast(message, variant = 'primary', delay = 3000) {
-    try {
-      const container = document.getElementById('toastContainer');
-      if (!container) return;
+      try {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
 
-      const toastEl = document.createElement('div');
-      toastEl.className = `toast align-items-center text-bg-${variant} border-0`;
-      toastEl.setAttribute('role', 'alert');
-      toastEl.innerHTML = `
+        const toastEl = document.createElement('div');
+        toastEl.className = `toast align-items-center text-bg-${variant} border-0`;
+        toastEl.setAttribute('role', 'alert');
+        toastEl.innerHTML = `
         <div class="d-flex">
           <div class="toast-body">${message}</div>
           <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
         </div>`;
-      
-      container.appendChild(toastEl);
-      const toast = new window.bootstrap.Toast(toastEl, { delay });
-      toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
-      toast.show();
-    } catch (error) {
-      console.error('Toast error:', error);
-    }
-  },
+
+        container.appendChild(toastEl);
+        const toast = new window.bootstrap.Toast(toastEl, { delay });
+        toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+        toast.show();
+      } catch (error) {
+        console.error('Toast error:', error);
+      }
+    },
   },
   watch: {
     showDeleteModal(show) {
@@ -824,17 +824,28 @@ export default {
 /* Info Display Styling */
 .info-display {
   padding: 0.5rem 0.75rem;
-  background-color: #f8f9fa;
   border: 1px solid #e9ecef;
   border-radius: 0.375rem;
   color: #495057;
   font-weight: 500;
+  background-color: #f8f9fa;
+}
+
+/* Dark theme for info display */
+[data-bs-theme='dark'] .info-display {
+  background-color: #374151;
+  border-color: rgba(148, 163, 184, 0.2);
+  color: #e5e7eb;
 }
 
 .info-display:empty::before {
   content: 'Belum diisi';
   color: #6c757d;
   font-style: italic;
+}
+
+[data-bs-theme='dark'] .info-display:empty::before {
+  color: #9ca3af;
 }
 
 /* Setting Buttons */
@@ -878,6 +889,23 @@ export default {
   background-color: var(--bs-danger);
   border-color: var(--bs-danger);
   color: white;
+}
+
+/* Settings Panel Card */
+.settings-panel-card {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+}
+
+[data-bs-theme='dark'] .settings-panel-card {
+  background-color: #374151;
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+/* Plant Preview Dark Theme */
+[data-bs-theme='dark'] .plant-preview {
+  background-color: #374151 !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
 }
 
 /* Settings Content */
@@ -924,6 +952,30 @@ settings-content {
   margin-bottom: 0.5rem;
 }
 
+/* Dark theme form styling */
+[data-bs-theme='dark'] .profile-page .form-label {
+  color: #e5e7eb;
+}
+
+[data-bs-theme='dark'] .profile-page .form-control,
+[data-bs-theme='dark'] .profile-page .form-select {
+  background-color: #374151;
+  border-color: rgba(148, 163, 184, 0.2);
+  color: #e5e7eb;
+}
+
+[data-bs-theme='dark'] .profile-page .form-control:focus,
+[data-bs-theme='dark'] .profile-page .form-select:focus {
+  background-color: #374151;
+  border-color: #60a5fa;
+  color: #e5e7eb;
+  box-shadow: 0 0 0 0.2rem rgba(96, 165, 250, 0.25);
+}
+
+[data-bs-theme='dark'] .profile-page .form-control::placeholder {
+  color: #9ca3af;
+}
+
 /* Button Styling */
 .btn {
   transition: all 0.2s ease;
@@ -941,6 +993,56 @@ settings-content {
   border-width: 1px;
 }
 
+/* Dark theme alert styling */
+[data-bs-theme='dark'] .alert-info {
+  background-color: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+
+[data-bs-theme='dark'] .alert-danger {
+  background-color: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+[data-bs-theme='dark'] .text-success {
+  color: #86efac !important;
+}
+
+[data-bs-theme='dark'] .text-danger {
+  color: #fca5a5 !important;
+}
+
+[data-bs-theme='dark'] .text-muted {
+  color: #9ca3af !important;
+}
+
+/* Small text styling for dark theme */
+[data-bs-theme='dark'] small.text-muted {
+  color: #9ca3af !important;
+}
+
+[data-bs-theme='dark'] small.text-success {
+  color: #86efac !important;
+}
+
+[data-bs-theme='dark'] small.text-danger {
+  color: #fca5a5 !important;
+}
+
+/* Button styling for dark theme */
+[data-bs-theme='dark'] .btn-outline-secondary {
+  border-color: rgba(148, 163, 184, 0.5);
+  color: #e5e7eb;
+}
+
+[data-bs-theme='dark'] .btn-outline-secondary:hover {
+  background-color: #374151;
+  border-color: #60a5fa;
+  color: #e5e7eb;
+}
+
 /* Modal Styling */
 .modal-content {
   border-radius: 0.75rem;
@@ -951,6 +1053,27 @@ settings-content {
 .modal-header.border-danger {
   border-bottom-color: #dc3545;
   background-color: #fff5f5;
+}
+
+/* Dark theme modal styling */
+[data-bs-theme='dark'] .modal-content {
+  background-color: #1f2937;
+  color: #e5e7eb;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+[data-bs-theme='dark'] .modal-header {
+  border-bottom-color: rgba(148, 163, 184, 0.2);
+  background-color: #374151;
+}
+
+[data-bs-theme='dark'] .modal-header.border-danger {
+  background-color: rgba(239, 68, 68, 0.15);
+  border-bottom-color: rgba(239, 68, 68, 0.3);
+}
+
+[data-bs-theme='dark'] .modal-footer {
+  border-top-color: rgba(148, 163, 184, 0.2);
 }
 
 /* Page Animation */
@@ -979,6 +1102,27 @@ settings-content {
 
 .dashboard-card:hover {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* Dark theme card styling */
+[data-bs-theme='dark'] .dashboard-card {
+  background-color: #1f2937;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-bs-theme='dark'] .dashboard-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+[data-bs-theme='dark'] .dashboard-card .card-header {
+  background-color: #374151;
+  border-bottom-color: rgba(148, 163, 184, 0.2);
+  color: #e5e7eb;
+}
+
+[data-bs-theme='dark'] .dashboard-card .card-body {
+  background-color: #1f2937;
+  color: #e5e7eb;
 }
 
 /* Responsive Design */

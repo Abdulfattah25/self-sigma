@@ -57,7 +57,7 @@
             </div>
           </div>
           <div class="row mt-3">
-            <div class="col-3 col-md-2">
+            <div class="col-4 col-md-2">
               <button
                 class="btn btn-outline-secondary w-100"
                 @click="logout"
@@ -263,7 +263,7 @@
                 <div v-if="activeSection === 'score'" class="setting-panel">
                   <h6 class="fw-semibold mb-3">⚡ Pengaturan Skor</h6>
                   <div class="row">
-                    <div class="col-6 col-md-3 mb-3">
+                    <div class="col-5 col-md-3 mb-3">
                       <label class="form-label">Task Selesai</label>
                       <input
                         type="number"
@@ -278,7 +278,7 @@
                         >+{{ scoreReward || 1 }} poin per task selesai</small
                       >
                     </div>
-                    <div class="col-6 col-md-3 mb-3">
+                    <div class="col-7 col-md-3 mb-3">
                       <label class="form-label">Task Tidak Dikerjakan</label>
                       <input
                         type="number"
@@ -308,7 +308,7 @@
                     </div>
                     <div class="col-6">
                       <button class="btn btn-info" @click="updateScoreSettings" :disabled="saving">
-                        {{ saving ? 'Menyimpan...' : '⚡ Simpan Pengaturan Skor' }}
+                        {{ saving ? 'Menyimpan...' : '💾 Simpan' }}
                       </button>
                     </div>
                   </div>

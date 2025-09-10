@@ -195,7 +195,7 @@
         </div>
 
         <!-- Detailed Table -->
-        <div class="col-12 col-xl-5">
+        <div class="col-12 col-xl-5 mb-3">
           <div
             class="card dashboard-card card-accent card-accent--warning report-card border-0 shadow-sm h-100"
           >

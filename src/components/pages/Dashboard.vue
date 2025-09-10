@@ -12,7 +12,7 @@
     </div>
 
     <div class="row mb-2">
-      <div class="col-md-6 mb-3">
+      <div class="col-md-6 mb-4">
         <div class="card stats-card dashboard-card card-accent card-accent--primary">
           <div class="card-header py-3">
             <h5 class="mb-0">📊 Skor Produktivitas</h5>
@@ -36,7 +36,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-6 mb-3">
+      <div class="col-md-6 mb-4">
         <div class="card stats-card dashboard-card card-accent card-accent--warning">
           <div class="card-header py-3">
             <h5 class="mb-0">📋 Status Kegiatan</h5>
@@ -113,7 +113,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-4 mb-3">
+      <div class="col-md-4 mb-4">
         <div class="card dashboard-card dashboard-card--list card-accent card-accent--success">
           <div class="card-header py-3 text-center">
             <h5 class="mb-0">📆 Agenda Mingguan</h5>
@@ -146,7 +146,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-4 mb-4">
         <div class="card dashboard-card dashboard-card--list card-accent card-accent--warning">
           <div class="card-header py-3 text-center">
             <h5 class="mb-0">🗓️ Agenda Bulanan</h5>
@@ -181,7 +181,7 @@
       </div>
     </div>
 
-    <div class="col-12 mt-3">
+    <div class="col-12 mb-4">
       <div class="row g-3">
         <div class="col-md-12">
           <div class="card dashboard-card dashboard-card--chart card-accent card-accent--primary">

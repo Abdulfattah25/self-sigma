@@ -85,7 +85,6 @@ const handleLogin = async (credentials) => {
     const { error } = await supabase.auth.signInWithPassword(credentials);
     if (error) throw error;
     closeModal();
-    showToast('Login berhasil', 'success');
     emit('auth-success');
   } catch (err) {
     authError.value = err.message;

@@ -275,7 +275,7 @@
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div class="modal fade" id="deleteUserModal" tabindex="-1" v-show="showDeleteModal">
+    <div class="modal fade" id="deleteUserModal" tabindex="-1">
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
@@ -302,7 +302,7 @@
     </div>
 
     <!-- Delete License Confirmation Modal -->
-    <div class="modal fade" id="deleteLicenseModal" tabindex="-1" v-show="showDeleteLicenseModal">
+    <div class="modal fade" id="deleteLicenseModal" tabindex="-1">
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
@@ -525,35 +525,82 @@ export default {
     confirmDeleteUser(user) {
       this.deletingUser = user;
       this.showDeleteModal = true;
+      // If bootstrap modal instance already prepared, show it explicitly
+      if (this.deleteModal) {
+        try {
+          this.deleteModal.show();
+        } catch (e) {}
+      }
     },
     async deleteUser() {
       try {
         this.deleting = true;
-
-        // Delete user data first (using user_id from the profiles table)
-        await this.supabase
-          .from('daily_tasks_instance')
-          .delete()
-          .eq('user_id', this.deletingUser.id);
-        await this.supabase
-          .from('daily_tasks_template')
-          .delete()
-          .eq('user_id', this.deletingUser.id);
-        await this.supabase.from('score_log').delete().eq('user_id', this.deletingUser.id);
-
-        // Delete profile record (this will cascade to auth.users due to foreign key)
-        const { error } = await this.supabase
+        const targetId = this.deletingUser?.id;
+        const deletedEmail = this.deletingUser?.email || '';
+        if (!targetId) throw new Error('ID user tidak ditemukan');
+        // 1. Coba hapus profile langsung terlebih dahulu (biarkan FK ON DELETE CASCADE bekerja jika ada)
+        let { error: primaryDeleteError } = await this.supabase
           .from('profiles')
           .delete()
-          .eq('id', this.deletingUser.id);
+          .eq('id', targetId);
 
-        if (error) throw error;
+        // 2. Jika gagal karena constraint (misal 23503) atau RLS, kita coba hapus anak-anak manual lalu ulangi sekali
+        if (primaryDeleteError) {
+          const msg = primaryDeleteError.message || '';
+          const isFK = /23503|foreign key/i.test(msg);
+          const isRLS = /permission|rls|auth/i.test(msg);
+          if (isFK) {
+            const cleanupTables = [
+              ['daily_tasks_instance', 'user_id'],
+              ['daily_tasks_template', 'user_id'],
+              ['score_log', 'user_id'],
+            ];
+            for (const [table, col] of cleanupTables) {
+              try {
+                const { error: cErr } = await this.supabase.from(table).delete().eq(col, targetId);
+                if (cErr) console.warn('Gagal hapus terkait', table, cErr.message);
+              } catch (e) {
+                console.warn('Cleanup exception', table, e);
+              }
+            }
+            // Ulangi delete profile sekali lagi
+            const retry = await this.supabase.from('profiles').delete().eq('id', targetId);
+            primaryDeleteError = retry.error;
+          }
+          if (primaryDeleteError && isRLS) {
+            throw new Error('RLS menolak penghapusan. Perlu policy atau RPC khusus admin.');
+          }
+          if (primaryDeleteError && !isFK) {
+            throw primaryDeleteError; // Error lain langsung lempar
+          }
+        }
 
-        await this.loadUsers();
+        // 3. Verifikasi benar-benar hilang
+        const { data: verifyRows, error: verifyErr } = await this.supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', targetId);
+        if (verifyErr) {
+          console.warn('Verify delete warning:', verifyErr.message);
+        }
+        if (verifyRows && verifyRows.length > 0) {
+          // Record masih ada -> jangan ubah UI; fallback soft delete jika diinginkan
+          throw new Error('Penghapusan gagal (record masih ada). Cek policy atau constraint.');
+        }
+
+        // 4. Update UI & stats hanya setelah verifikasi sukses
+        this.users = this.users.filter((u) => u.id !== targetId);
         await this.loadAdminStats();
-        this.showDeleteModal = false;
 
-        this.$root?.showToast?.('User berhasil dihapus', 'success');
+        // 5. Tutup modal & notifikasi
+        this.showDeleteModal = false;
+        if (this.deleteModal) {
+          try {
+            this.deleteModal.hide();
+          } catch (e) {}
+        }
+        this.deletingUser = null;
+        this.$root?.showToast?.(`User ${deletedEmail} berhasil dihapus`, 'success');
       } catch (error) {
         console.error('Error deleting user:', error);
         this.$root?.showToast?.('Gagal menghapus user: ' + error.message, 'danger');

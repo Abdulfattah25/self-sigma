@@ -7,8 +7,8 @@
       </div>
     </div>
 
-    <div class="row my-3">
-      <div class="col-md-6 mb-2">
+    <div class="row mt-4">
+      <div class="col-md-6 mb-4">
         <div class="card checklist-card card-accent card-accent--success">
           <div class="card-body text-center">
             <h5 class="card-title">🎯 Progress Hari Ini</h5>
@@ -28,7 +28,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-6 mb-2">
+      <div class="col-md-6 mb-4">
         <div class="card checklist-card card-accent card-accent--warning">
           <div class="card-body text-center">
             <h5 class="card-title">⚡ Skor Hari Ini</h5>
@@ -52,7 +52,7 @@
             <span class="visually-hidden">Loading...</span>
           </div>
         </div>
-        <div v-else-if="todayTasks.length === 0" class="text-center text-muted py-4">
+        <div v-else-if="todayTasks.length === 0" class="text-center text-muted py-2">
           <p>📝 Belum ada task untuk hari ini.</p>
           <p>
             Task dari template akan otomatis muncul, atau Anda bisa menambah kegiatan di menu Task.
@@ -124,7 +124,7 @@
       </div>
     </div>
 
-    <div class="card checklist-card card-accent card-accent--primary mt-3 mb-3">
+    <div class="card checklist-card card-accent card-accent--primary my-4">
       <div class="card-body">
         <div class="row">
           <div class="col-md-7 col-lg-6 py-3">

@@ -313,6 +313,11 @@ create policy "profiles admin update" on public.profiles
   using ( public.is_current_user_admin() )
   with check ( public.is_current_user_admin() );
 
+-- Admin can delete profiles
+create policy "profiles admin delete" on public.profiles
+  for delete
+  using ( public.is_current_user_admin() );
+
 -- Users can read their own profile
 drop policy if exists "profiles self read" on public.profiles;
 create policy "profiles self read" on public.profiles

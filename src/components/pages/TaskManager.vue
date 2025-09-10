@@ -10,7 +10,7 @@
 
     <!-- Statistics Cards -->
     <div class="row my-3">
-      <div class="col-md-6 mb-2">
+      <div class="col-md-6 mb-4">
         <div class="card checklist-card card-accent card-accent--primary stats-card">
           <div class="card-body text-center position-relative">
             <div v-if="dailyHighPriority > 0" class="position-absolute top-0 end-0 mt-2 me-2">
@@ -57,7 +57,7 @@
     </div>
 
     <div class="row mb-3">
-      <div class="col-md-6 mb-3">
+      <div class="col-md-6 mb-4">
         <div class="card dashboard-card card-accent card-accent--primary h-100">
           <div class="card-header">
             <h5 class="mb-0">📝 Template Task Harian</h5>
@@ -135,7 +135,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-6 mb-3">
+      <div class="col-md-6 mb-2">
         <div class="card dashboard-card card-accent card-accent--info h-100">
           <div class="card-header">
             <h5 class="mb-0">🗓️ Template Task Deadline</h5>

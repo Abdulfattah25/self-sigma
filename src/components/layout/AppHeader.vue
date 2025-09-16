@@ -11,28 +11,6 @@
         <span class="navbar-toggler-icon"></span>
       </button>
 
-      <!-- Center Navigation (Desktop) -->
-      <ul class="navbar-nav d-none d-lg-flex mx-auto">
-        <li class="nav-item">
-          <router-link to="/dashboard" class="nav-link">
-            <i class="bi bi-grid-3x3-gap me-1"></i>
-            Dashboard
-          </router-link>
-        </li>
-        <li class="nav-item">
-          <router-link to="/tasks" class="nav-link">
-            <i class="bi bi-check-square me-1"></i>
-            Tasks
-          </router-link>
-        </li>
-        <li class="nav-item">
-          <router-link to="/forest" class="nav-link">
-            <i class="bi bi-tree me-1"></i>
-            Forest
-          </router-link>
-        </li>
-      </ul>
-
       <!-- Right: Notifications & User menu -->
       <div class="navbar-nav ms-auto">
         <!-- Notifications -->
@@ -53,42 +31,12 @@
           </a>
         </div>
 
-        <!-- User Menu -->
-        <div v-if="user" class="nav-item dropdown">
-          <a
-            class="nav-link dropdown-toggle d-flex align-items-center"
-            href="#"
-            id="userDropdown"
-            role="button"
-            data-bs-toggle="dropdown"
-          >
-            <div class="user-avatar me-2">
-              {{ (user?.user_metadata?.name || user?.email || 'U')[0].toUpperCase() }}
-            </div>
-            <span class="d-none d-md-inline">
-              {{ formatUserName }}
-            </span>
-          </a>
-          <ul class="dropdown-menu dropdown-menu-end">
-            <li>
-              <router-link to="/profile" class="dropdown-item">
-                <i class="bi bi-person me-2"></i>
-                Profil
-              </router-link>
-            </li>
-            <li><hr class="dropdown-divider" /></li>
-            <li>
-              <a href="#" class="dropdown-item text-danger" @click.prevent="$emit('logout')">
-                <i class="bi bi-box-arrow-right me-2"></i>
-                Keluar
-              </a>
-            </li>
-          </ul>
-        </div>
-
         <!-- Auth Button (when not logged in) -->
         <div v-else class="nav-item">
-          <router-link to="/signin" class="btn btn-outline-light btn-sm rounded-pill px-3">
+          <router-link
+            :to="{ path: '/', query: { auth: 'login' } }"
+            class="btn btn-outline-light btn-sm rounded-pill px-3"
+          >
             Masuk
           </router-link>
         </div>

@@ -25,33 +25,32 @@ export class LicenseService {
   }
 
   static async verifyLicense(licenseCode) {
-    const { data, error } = await supabase.rpc('verify_license', {
-      p_app_name: this.APP_NAME,
-      p_license_code: licenseCode.toUpperCase(),
+    const { data, error } = await supabase.rpc('validate_license', {
+      p_code: String(licenseCode || '').toUpperCase(),
     });
-
     if (error) throw new Error(error.message);
+    // validate_license returns boolean
     return !!data;
   }
 
-  static async redeemLicense(licenseCode) {
-    const { data, error } = await supabase.rpc('redeem_license', {
-      p_app_name: this.APP_NAME,
-      p_license_code: licenseCode.toUpperCase(),
-    });
-
-    if (error) {
-      const errorMessages = {
-        LICENSE_NOT_FOUND: 'Kode lisensi tidak ditemukan',
-        LICENSE_ALREADY_USED: 'Kode lisensi sudah digunakan',
-        LICENSE_EXPIRED: 'Kode lisensi sudah kadaluarsa',
-      };
-
-      const errorKey = Object.keys(errorMessages).find((key) => error.message.includes(key));
-      throw new Error(errorKey ? errorMessages[errorKey] : error.message);
+  static async redeemLicense(licenseCode, email) {
+    let targetEmail = email;
+    if (!targetEmail) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      targetEmail = user?.email || '';
     }
 
-    return data?.[0];
+    const { data, error } = await supabase.rpc('use_license', {
+      p_code: String(licenseCode || '').toUpperCase(),
+      p_email: targetEmail,
+    });
+
+    if (error) throw new Error(error.message);
+    // use_license returns boolean success
+    if (!data) throw new Error('Kode lisensi tidak valid atau sudah digunakan');
+    return true;
   }
 
   static async getUserLicenseInfo() {

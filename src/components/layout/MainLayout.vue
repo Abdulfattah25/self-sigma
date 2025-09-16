@@ -50,7 +50,7 @@ const toggleSidebar = () => {
 const handleLogout = async () => {
   try {
     await signOut();
-    router.push('/signin');
+    router.push({ path: '/', query: { auth: 'login' } });
   } catch (error) {
     console.error('Logout error:', error);
   }

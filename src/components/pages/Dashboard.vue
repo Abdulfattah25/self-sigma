@@ -222,7 +222,12 @@ export default {
   components: {
     ForestPanel,
   },
-  props: ['user', 'supabase', 'dailyQuote', 'plant'],
+  props: {
+    user: { type: Object, default: null },
+    supabase: { type: Object, default: null },
+    dailyQuote: { type: String, default: '' },
+    plant: { type: String, default: 'forest' },
+  },
   data() {
     return {
       todayScore: 0,
@@ -240,6 +245,7 @@ export default {
       forestTrees: [],
       forestDaysRange: 21,
       themeObserver: null,
+      _initialized: false,
     };
   },
   computed: {
@@ -256,12 +262,10 @@ export default {
     },
   },
   async mounted() {
-    await this.loadDashboardData();
-    await this.loadScoresRange(this.chartRangeDays);
-    await this.loadForestData(this.forestDaysRange);
-    await this.loadWeeklyAgenda();
-    await this.loadMonthlyAgenda();
-    this.renderChart();
+    // Initialize only when user + supabase are ready
+    if (this.user && this.supabase) {
+      await this.initDashboard();
+    }
 
     this._onDeadlineCompleted = (ev) => {
       try {
@@ -313,7 +317,18 @@ export default {
     } catch (_) {}
   },
   methods: {
+    async initDashboard() {
+      if (!this.user || !this.supabase || this._initialized) return;
+      await this.loadDashboardData();
+      await this.loadScoresRange(this.chartRangeDays);
+      await this.loadForestData(this.forestDaysRange);
+      await this.loadWeeklyAgenda();
+      await this.loadMonthlyAgenda();
+      this.renderChart();
+      this._initialized = true;
+    },
     async loadDashboardData() {
+      if (!this.user || !this.supabase) return;
       try {
         const today =
           window.WITA && window.WITA.today
@@ -364,6 +379,7 @@ export default {
     },
 
     async loadForestData(days) {
+      if (!this.user || !this.supabase) return;
       try {
         const endStr =
           window.WITA && window.WITA.today
@@ -424,6 +440,7 @@ export default {
     },
 
     async loadScoresRange(days) {
+      if (!this.user || !this.supabase) return;
       try {
         const endStr =
           window.WITA && window.WITA.today
@@ -539,6 +556,7 @@ export default {
     },
 
     async loadWeeklyAgenda() {
+      if (!this.user || !this.supabase) return;
       try {
         const today =
           window.WITA && window.WITA.today
@@ -598,6 +616,7 @@ export default {
     },
 
     async loadMonthlyAgenda() {
+      if (!this.user || !this.supabase) return;
       try {
         const today =
           window.WITA && window.WITA.today
@@ -667,6 +686,15 @@ export default {
     getPriorityBadgeClass(priority) {
       const classes = { tinggi: 'bg-danger', sedang: 'bg-warning text-dark', rendah: 'bg-success' };
       return classes[priority] || 'bg-secondary';
+    },
+  },
+  watch: {
+    // Initialize when both props become available
+    user(newVal) {
+      if (newVal && this.supabase) this.initDashboard();
+    },
+    supabase(newVal) {
+      if (newVal && this.user) this.initDashboard();
     },
   },
 };

@@ -4,17 +4,17 @@ import { LicenseService } from '@/services/licenseService.js';
 export const requireAuth = async (to, from, next) => {
   try {
     const user = await AuthService.getCurrentUser();
-    if (!user) return next('/signin');
+    if (!user) return next('/');
 
     const hasAccess = await LicenseService.checkUserAccess();
     if (!hasAccess) {
       await AuthService.signOut();
-      return next('/signup');
+      return next({ path: '/', query: { auth: 'signup' } });
     }
 
     next();
   } catch {
-    next('/signin');
+    next('/');
   }
 };
 

@@ -4,24 +4,13 @@ import { requireAuth, requireGuest } from './guards.js';
 const routes = [
   {
     path: '/',
-    redirect: '/dashboard',
+    name: 'Landing',
+    component: () => import('@/components/landing/LandingWrapper.vue'),
   },
   {
     path: '/test-license',
     name: 'TestLicense',
     component: () => import('@/components/TestLicense.vue'),
-  },
-  {
-    path: '/signup',
-    name: 'SignUp',
-    component: () => import('@/components/auth/SignUp.vue'),
-    beforeEnter: requireGuest,
-  },
-  {
-    path: '/signin',
-    name: 'SignIn',
-    component: () => import('@/components/auth/SignIn.vue'),
-    beforeEnter: requireGuest,
   },
   {
     path: '/',

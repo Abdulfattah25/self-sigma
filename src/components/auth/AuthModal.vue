@@ -81,44 +81,139 @@
                     </div>
                   </div>
 
-                  <button type="submit" class="btn btn-primary w-100 mb-3" :disabled="authLoading">
+                  <button type="submit" class="btn btn-primary w-100 mb-2" :disabled="authLoading">
                     <span v-if="authLoading">Masuk...</span>
                     <span v-else>Masuk</span>
                   </button>
-                </form>
 
-                <div class="text-center">
-                  <p class="small text-muted mb-2">
+                  <p class="text-center small text-muted mb-0">
                     Belum punya akun?
-                    <a href="#" @click.prevent="switchAuthMode" class="text-primary">
+                    <a href="#" @click.prevent="switchAuthMode('register')" class="text-primary">
                       Daftar di sini
                     </a>
                   </p>
-                  <p class="small text-muted">
-                    Atau gunakan
-                    <router-link to="/signin" class="text-primary" @click="$emit('close-modal')">
-                      halaman login lengkap
-                    </router-link>
-                  </p>
-                </div>
+                </form>
               </div>
 
               <!-- Signup Form -->
               <div v-else class="auth-form">
                 <h4 class="text-center mb-3">Daftar Akun Baru</h4>
-                <p class="text-center text-muted small mb-4">
-                  Gunakan halaman signup untuk registrasi dengan kode lisensi
-                </p>
-                <div class="text-center">
-                  <router-link to="/signup" class="btn btn-primary" @click="$emit('close-modal')">
-                    Buka Halaman Signup
-                  </router-link>
-                </div>
-                <div class="text-center mt-3">
-                  <a href="#" @click.prevent="switchAuthMode" class="small text-muted">
-                    Sudah punya akun? Masuk di sini
-                  </a>
-                </div>
+
+                <div v-if="authError" class="alert alert-danger">{{ authError }}</div>
+
+                <form @submit.prevent="handleRegister">
+                  <!-- License Code -->
+                  <div class="mb-3">
+                    <label class="form-label">Kode Lisensi</label>
+                    <input
+                      v-model="registerForm.licenseCode"
+                      type="text"
+                      class="form-control"
+                      placeholder="Masukkan kode lisensi dari admin"
+                      :disabled="authLoading || verifyingLicense"
+                      @input="onLicenseInput"
+                      @blur="verifyLicense"
+                      maxlength="12"
+                      required
+                    />
+                    <div v-if="licenseStatus === 'valid'" class="small text-success mt-1">
+                      <i class="bi bi-check-circle-fill me-1"></i> Kode lisensi valid
+                    </div>
+                    <div v-if="licenseStatus === 'invalid'" class="small text-danger mt-1">
+                      <i class="bi bi-x-circle-fill me-1"></i>
+                      {{ licenseError || 'Kode lisensi tidak valid' }}
+                    </div>
+                    <div v-if="verifyingLicense" class="small text-primary mt-1">
+                      <i class="bi bi-arrow-repeat spin me-1"></i> Memverifikasi kode lisensi...
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">Nama Lengkap</label>
+                    <input
+                      v-model="registerForm.name"
+                      type="text"
+                      class="form-control"
+                      placeholder="Nama lengkap Anda"
+                      :disabled="authLoading"
+                      required
+                    />
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input
+                      v-model="registerForm.email"
+                      type="email"
+                      class="form-control"
+                      placeholder="email@domain.com"
+                      :disabled="authLoading"
+                      required
+                    />
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <div class="position-relative">
+                      <input
+                        v-model="registerForm.password"
+                        :type="showPassword ? 'text' : 'password'"
+                        class="form-control"
+                        placeholder="Minimal 6 karakter"
+                        :disabled="authLoading"
+                        required
+                      />
+                      <button
+                        type="button"
+                        class="btn btn-link position-absolute end-0 top-0 pe-3"
+                        @click="showPassword = !showPassword"
+                        style="border: none; background: none; color: #6c757d"
+                      >
+                        <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">Konfirmasi Password</label>
+                    <div class="position-relative">
+                      <input
+                        v-model="registerForm.confirmPassword"
+                        :type="showConfirmPassword ? 'text' : 'password'"
+                        class="form-control"
+                        placeholder="Ulangi password"
+                        :disabled="authLoading"
+                        required
+                      />
+                      <button
+                        type="button"
+                        class="btn btn-link position-absolute end-0 top-0 pe-3"
+                        @click="showConfirmPassword = !showConfirmPassword"
+                        style="border: none; background: none; color: #6c757d"
+                      >
+                        <i :class="showConfirmPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    class="btn btn-primary w-100 mb-2"
+                    :disabled="submitDisabled"
+                  >
+                    <span v-if="authLoading">
+                      <i class="bi bi-arrow-repeat spin me-2"></i> Mendaftarkan akun...
+                    </span>
+                    <span v-else> <i class="bi bi-person-plus me-2"></i> Daftar Sekarang </span>
+                  </button>
+
+                  <p class="text-center small text-muted mb-0">
+                    Sudah punya akun?
+                    <a href="#" @click.prevent="switchAuthMode('login')" class="text-primary">
+                      Masuk di sini
+                    </a>
+                  </p>
+                </form>
               </div>
             </div>
           </div>
@@ -129,180 +224,141 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { getSupabase } from '@/lib/supabaseClient';
+import { ref, computed } from 'vue';
+import { useAuth } from '@/composables/useAuth.js';
+import { LicenseService } from '@/services/licenseService.js';
+import { validateSignUpForm, formatLicenseCode } from '@/utils/validation.js';
 
-const supabase = getSupabase();
-const authMode = ref('login');
-const authLoading = ref(false);
-const authError = ref('');
-const showPassword = ref(false);
-
-// Form data
-const loginForm = ref({
-  email: '',
-  password: '',
+const props = defineProps({
+  initialMode: { type: String, default: 'login' },
 });
 
 const emit = defineEmits(['auth-success', 'close-modal']);
+
+// State
+const authMode = ref(props.initialMode === 'register' ? 'register' : 'login');
+const authLoading = ref(false);
+const authError = ref('');
+const showPassword = ref(false);
+const showConfirmPassword = ref(false);
+
+// Forms
+const loginForm = ref({ email: '', password: '' });
+const registerForm = ref({
+  licenseCode: '',
+  name: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+});
+
+// License verification state
+const verifyingLicense = ref(false);
+const licenseStatus = ref(''); // 'valid' | 'invalid' | ''
+const licenseError = ref('');
+
+const { signIn, signUp } = useAuth();
+
+const submitDisabled = computed(() => {
+  return (
+    authLoading.value ||
+    verifyingLicense.value ||
+    licenseStatus.value !== 'valid' ||
+    !registerForm.value.name ||
+    !registerForm.value.email ||
+    !registerForm.value.password ||
+    registerForm.value.password !== registerForm.value.confirmPassword
+  );
+});
 
 const handleLogin = async () => {
   authError.value = '';
   authLoading.value = true;
   try {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: loginForm.value.email,
-      password: loginForm.value.password,
-    });
-    if (error) throw error;
+    await signIn(loginForm.value.email, loginForm.value.password);
     closeModal();
     emit('auth-success');
   } catch (err) {
-    authError.value = err.message;
-    console.error('Login error:', err);
+    authError.value = err.message || 'Gagal login';
   } finally {
     authLoading.value = false;
   }
 };
 
-const handleRegister = async (userData) => {
+const onLicenseInput = (e) => {
+  registerForm.value.licenseCode = formatLicenseCode(e.target.value || '');
+  if (licenseStatus.value) {
+    licenseStatus.value = '';
+    licenseError.value = '';
+  }
+};
+
+const verifyLicense = async () => {
+  const code = registerForm.value.licenseCode;
+  if (!code || code.length < 6) {
+    licenseStatus.value = '';
+    return;
+  }
+  verifyingLicense.value = true;
+  licenseError.value = '';
+  try {
+    const ok = await LicenseService.verifyLicense(code);
+    licenseStatus.value = ok ? 'valid' : 'invalid';
+    if (!ok) {
+      licenseError.value = 'Kode lisensi tidak valid';
+      showToast(licenseError.value, 'danger');
+    }
+  } catch (e) {
+    licenseStatus.value = 'invalid';
+    licenseError.value = e.message || 'Gagal memverifikasi kode lisensi';
+    showToast(licenseError.value, 'danger');
+  } finally {
+    verifyingLicense.value = false;
+  }
+};
+
+const handleRegister = async () => {
   authError.value = '';
+  const { isValid, errors } = validateSignUpForm(registerForm.value);
+  if (!isValid) {
+    // tampilkan error ringkas
+    authError.value = Object.values(errors)[0];
+    return;
+  }
+  if (registerForm.value.password !== registerForm.value.confirmPassword) {
+    authError.value = 'Konfirmasi password tidak sesuai';
+    return;
+  }
+  if (licenseStatus.value !== 'valid') {
+    authError.value = 'Kode lisensi belum diverifikasi atau tidak valid';
+    showToast(authError.value, 'danger');
+    return;
+  }
+
   authLoading.value = true;
   try {
-    // Validasi password
-    if (userData.password !== userData.confirmPassword) {
-      showToast('Password tidak cocok', 'danger');
-      throw new Error('Password tidak cocok');
-    }
-
-    // Validasi lisensi: tepat 6 karakter alfanumerik
-    const rawCode = (userData.licenseCode || '').trim();
-    const upperCode = rawCode.toUpperCase();
-    if (!/^[A-Z0-9]{6}$/.test(upperCode)) {
-      showToast('Kode lisensi harus 6 karakter alfanumerik.', 'danger');
-      throw new Error('Kode lisensi tidak valid');
-    }
-
-    // Cek lisensi via RPC
-    const { data: isValid, error: vErr } = await supabase.rpc('validate_license', {
-      p_code: upperCode,
-    });
-    if (vErr) {
-      showToast('Gagal memvalidasi lisensi: ' + vErr.message, 'danger');
-      throw vErr;
-    }
-    if (!isValid) {
-      showToast('Lisensi tidak valid atau sudah digunakan.', 'danger');
-      throw new Error('Lisensi tidak valid atau sudah digunakan');
-    }
-
-    // Signup
-    let signup;
-    try {
-      signup = await signUpWithRetry(userData.email, userData.password, {
-        data: { full_name: userData.fullName },
-      });
-    } catch (error) {
-      if (Number(error?.status) === 429) {
-        showToast('Terlalu banyak percobaan. Coba lagi dalam beberapa menit.', 'warning', 6000);
-      } else if (isGatewayTimeout(error)) {
-        showToast(
-          'Server auth lambat. Jika email verifikasi masuk, klik tautannya lalu login.',
-          'warning',
-          7000,
-        );
-      }
-      throw error;
-    }
-
-    // Tandai lisensi digunakan
-    try {
-      const { data: usedOk, error: useErr } = await supabase.rpc('use_license', {
-        p_code: upperCode,
-        p_email: userData.email,
-      });
-      if (useErr) {
-        console.warn('use_license error:', useErr);
-        showToast('Akun dibuat, namun aktivasi lisensi gagal. Hubungi admin.', 'warning', 6000);
-      } else if (!usedOk) {
-        showToast('Akun dibuat, tapi lisensi sudah terpakai. Hubungi admin.', 'warning', 6000);
-      }
-    } catch (e) {
-      console.warn('Mark license used failed:', e);
-    }
-
-    if (signup?.user && !signup?.session) {
-      showToast(
-        'Verifikasi email telah dikirim. Silakan cek inbox/spam dan klik tautan verifikasi sebelum login.',
-        'info',
-        6000,
-      );
-    } else if (signup?.user && signup?.session) {
-      showToast('Akun berhasil dibuat.', 'success');
+    const result = await signUp(
+      registerForm.value.email,
+      registerForm.value.password,
+      registerForm.value.licenseCode,
+      registerForm.value.name,
+    );
+    if (result?.needsConfirmation) {
+      showToast('Verifikasi email telah dikirim. Silakan cek inbox/spam.', 'info', 6000);
     } else {
-      showToast('Pendaftaran berhasil. Silakan cek email Anda untuk verifikasi.', 'info', 6000);
+      showToast('Akun berhasil dibuat.', 'success');
     }
-
     emit('auth-success');
   } catch (err) {
-    authError.value = err.message;
-    showToast(err.message, 'danger');
+    authError.value = err.message || 'Gagal mendaftarkan akun';
+    showToast(authError.value, 'danger');
   } finally {
     authLoading.value = false;
   }
 };
 
-const signUpWithRetry = async (email, password, options, timeoutMs = 12000) => {
-  const withTimeout = (p, ms) =>
-    Promise.race([
-      p,
-      new Promise((_, rej) => setTimeout(() => rej(new Error('Signup timeout')), ms)),
-    ]);
-
-  const attempt = async () => {
-    const { data, error } = await withTimeout(
-      supabase.auth.signUp({ email, password, options }),
-      timeoutMs,
-    );
-    if (error) throw error;
-    return data;
-  };
-
-  try {
-    return await attempt();
-  } catch (err) {
-    if (Number(err?.status) === 429) throw err;
-    if (isGatewayTimeout(err) || /timeout/i.test(String(err?.message || ''))) {
-      await sleep(1500);
-      return await attempt();
-    }
-    if (/redirect.*valid|redirect.*allowed/i.test(String(err?.message || ''))) {
-      showToast(
-        'Redirect URL tidak valid di pengaturan Auth. Whitelist origin Anda di Supabase atau hilangkan emailRedirectTo.',
-        'warning',
-        7000,
-      );
-    }
-    throw err;
-  }
-};
-
-const isGatewayTimeout = (err) => {
-  try {
-    const s = err && (err.status || err.code);
-    const msg = (err && (err.message || err.error_description || err.error)) || '';
-    return s === 504 || /\b504\b|gateway|timed? out/i.test(String(msg));
-  } catch (_) {
-    return false;
-  }
-};
-
-const sleep = (ms) => {
-  return new Promise((res) => setTimeout(res, ms));
-};
-
-const switchAuthMode = () => {
-  authMode.value = authMode.value === 'login' ? 'register' : 'login';
+const switchAuthMode = (mode) => {
+  authMode.value = mode === 'register' ? 'register' : 'login';
   authError.value = '';
 };
 

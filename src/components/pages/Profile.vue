@@ -45,7 +45,7 @@
           <div class="row">
             <div class="col-md-4 mb-3">
               <label class="form-label fw-semibold">Email</label>
-              <div class="info-display">{{ user.email }}</div>
+              <div class="info-display">{{ user?.email || 'Belum diisi' }}</div>
             </div>
             <div class="col-md-4 mb-3">
               <label class="form-label fw-semibold">Nama Lengkap</label>
@@ -53,7 +53,7 @@
             </div>
             <div class="col-md-4 mb-3">
               <label class="form-label fw-semibold">Bergabung Sejak</label>
-              <div class="info-display">{{ formatDate(user.created_at) }}</div>
+              <div class="info-display">{{ formatDate(user?.created_at) }}</div>
             </div>
           </div>
           <div class="row mt-3">
@@ -386,7 +386,10 @@
 <script>
 export default {
   name: 'Profile',
-  props: ['user', 'supabase'],
+  props: {
+    user: { type: Object, default: null },
+    supabase: { type: Object, default: null },
+  },
   data() {
     return {
       fullName: '',
@@ -420,8 +423,11 @@ export default {
     },
   },
   async mounted() {
-    await this.loadUserSettings();
-    await this.loadUserStats();
+    // Initialize only when props are ready
+    if (this.user && this.supabase) {
+      await this.loadUserSettings();
+      await this.loadUserStats();
+    }
     this.setupModal();
 
     // Apply current theme on load
@@ -447,6 +453,7 @@ export default {
       }
     },
     async loadUserSettings() {
+      if (!this.user) return;
       try {
         const metadata = this.user.user_metadata || {};
         this.fullName = metadata.full_name || '';
@@ -460,6 +467,7 @@ export default {
       }
     },
     async loadUserStats() {
+      if (!this.user || !this.supabase) return;
       try {
         const { data: tasks } = await this.supabase
           .from('daily_tasks_instance')
@@ -742,7 +750,10 @@ export default {
       localStorage.setItem('app-theme', theme);
     },
     formatDate(dateString) {
-      return new Date(dateString).toLocaleDateString('id-ID', {
+      if (!dateString) return '-';
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) return '-';
+      return d.toLocaleDateString('id-ID', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -760,18 +771,22 @@ export default {
           await this.supabase.auth.signOut({ scope: 'local' });
         }
 
-        // Clear auth tokens efficiently
-        const authKeys = Object.keys(localStorage).filter(
-          (key) => key.startsWith('sb-') && key.includes('-auth-token'),
-        );
-        authKeys.forEach((key) => localStorage.removeItem(key));
+        // Clear all Supabase keys (local + session) to ensure complete logout
+        const clearStorage = (storage) => {
+          try {
+            const keys = Object.keys(storage).filter((k) => k.startsWith('sb-'));
+            keys.forEach((k) => storage.removeItem(k));
+          } catch (_) {}
+        };
+        clearStorage(localStorage);
+        clearStorage(sessionStorage);
 
-        // Immediate redirect without waiting
-        window.location.href = '/';
+        // Immediate redirect to landing + open login modal
+        window.location.href = '/?auth=login';
       } catch (error) {
         console.error('Logout error:', error);
         // Force redirect even if logout fails
-        window.location.href = '/';
+        window.location.href = '/?auth=login';
       }
     },
     showToast(message, variant = 'primary', delay = 3000) {
@@ -798,6 +813,16 @@ export default {
     },
   },
   watch: {
+    // Initialize when user prop becomes available
+    user: {
+      immediate: false,
+      async handler(newVal, oldVal) {
+        if (newVal && !oldVal) {
+          await this.loadUserSettings();
+          await this.loadUserStats();
+        }
+      },
+    },
     showDeleteModal(show) {
       if (this.deleteModal) {
         if (show) {

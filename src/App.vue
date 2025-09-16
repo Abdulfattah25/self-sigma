@@ -28,8 +28,8 @@ const { user, checkAuth } = useAuth();
 
 const loading = ref(true);
 
-// Auth pages yang tidak memerlukan redirect
-const authPages = ['/signin', '/signup', '/test-license'];
+// Halaman publik/guest yang tidak memerlukan redirect
+const publicPages = ['/', '/test-license'];
 
 const initializeApp = async () => {
   try {
@@ -40,28 +40,28 @@ const initializeApp = async () => {
       const hasAccess = await LicenseService.checkUserAccess();
 
       if (!hasAccess) {
-        // User tidak punya akses, redirect ke signup
-        if (!authPages.includes(route.path)) {
-          router.push('/signup');
+        // User tidak punya akses, redirect ke landing + buka signup via query
+        if (!publicPages.includes(route.path)) {
+          router.push({ path: '/', query: { auth: 'signup' } });
         }
         return;
       }
 
-      // User punya akses, redirect ke dashboard jika di auth pages
-      if (authPages.includes(route.path) && route.path !== '/test-license') {
+      // User punya akses, redirect ke dashboard jika di halaman publik
+      if (publicPages.includes(route.path) && route.path !== '/test-license') {
         router.push('/dashboard');
       }
     } else {
-      // User tidak authenticated, redirect ke signin
-      if (!authPages.includes(route.path)) {
-        router.push('/signin');
+      // User tidak authenticated, biarkan di halaman publik, selain itu arahkan ke landing
+      if (!publicPages.includes(route.path)) {
+        router.push('/');
       }
     }
   } catch (error) {
     console.error('Auth initialization error:', error);
     // Fallback ke signin jika terjadi error
-    if (!authPages.includes(route.path)) {
-      router.push('/signin');
+    if (!publicPages.includes(route.path)) {
+      router.push('/');
     }
   } finally {
     loading.value = false;
@@ -72,11 +72,11 @@ const initializeApp = async () => {
 watch(
   () => route.path,
   async (newPath) => {
-    if (!loading.value && user.value && !authPages.includes(newPath)) {
+    if (!loading.value && user.value && !publicPages.includes(newPath)) {
       // Cek akses setiap kali navigasi ke halaman protected
       const hasAccess = await LicenseService.checkUserAccess();
       if (!hasAccess) {
-        router.push('/signup');
+        router.push({ path: '/', query: { auth: 'signup' } });
       }
     }
   },

@@ -4,6 +4,35 @@ create extension if not exists pgcrypto;
 -- Drop table users lama yang konflik dengan productivity_users
 DROP TABLE IF EXISTS public.users CASCADE;
 
+-- Core user profile table used by this app
+-- Ensure productivity_users exists (referenced by other tables & triggers below)
+CREATE TABLE IF NOT EXISTS public.productivity_users (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  name TEXT,
+  total_score INTEGER NOT NULL DEFAULT 0,
+  current_streak INTEGER NOT NULL DEFAULT 0,
+  longest_streak INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  settings JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Generic helper to keep updated_at current
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_productivity_users_updated_at ON public.productivity_users;
+CREATE TRIGGER trg_productivity_users_updated_at
+BEFORE UPDATE ON public.productivity_users
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
 -- 1) daily_tasks_template (template harian)
 create table if not exists public.daily_tasks_template (
   id uuid primary key default gen_random_uuid(),
@@ -107,7 +136,7 @@ CREATE TABLE IF NOT EXISTS public.admin_app_users (
 );
 
 /******************************************************************
-  AUTO-CREATE USER PROFILES SAAT SIGNUP
+ y AUTO-CREATE USER PROFILES SAAT SIGNUP
 ******************************************************************/
 CREATE OR REPLACE FUNCTION public.create_productivity_user()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -231,29 +260,29 @@ create unique index if not exists ux_instance_user_date_taskname_adhoc
   on public.daily_tasks_instance(user_id, date, task_name)
   where task_id is null;
 
--- RLS: aktifkan dan kebijakan per tabel
-alter table public.users enable row level security;
+-- RLS untuk tabel inti: gunakan productivity_users (bukan public.users yang sudah di-drop)
+alter table public.productivity_users enable row level security;
 alter table public.daily_tasks_template enable row level security;
 alter table public.daily_tasks_instance enable row level security;
 alter table public.score_log enable row level security;
 alter table public.profiles enable row level security;
 
--- USERS policies
-drop policy if exists users_select_own on public.users;
-create policy users_select_own on public.users
+-- PRODUCTIVITY_USERS policies (self-access)
+drop policy if exists pu_select_own on public.productivity_users;
+create policy pu_select_own on public.productivity_users
   for select using (id = auth.uid());
 
-drop policy if exists users_insert_self on public.users;
-create policy users_insert_self on public.users
+drop policy if exists pu_insert_self on public.productivity_users;
+create policy pu_insert_self on public.productivity_users
   for insert with check (id = auth.uid());
 
-drop policy if exists users_update_self on public.users;
-create policy users_update_self on public.users
+drop policy if exists pu_update_self on public.productivity_users;
+create policy pu_update_self on public.productivity_users
   for update using (id = auth.uid()) with check (id = auth.uid());
 
--- (Opsional) hapus sendiri
-drop policy if exists users_delete_self on public.users;
-create policy users_delete_self on public.users
+-- (Optional) allow self delete
+drop policy if exists pu_delete_self on public.productivity_users;
+create policy pu_delete_self on public.productivity_users
   for delete using (id = auth.uid());
 
 -- DAILY_TASKS_TEMPLATE policies

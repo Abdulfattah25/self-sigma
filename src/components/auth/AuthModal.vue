@@ -41,22 +41,85 @@
             </div>
             <div class="modal-body pt-2">
               <!-- Login Form -->
-              <LoginForm
-                v-if="authMode === 'login'"
-                :auth-error="authError"
-                :auth-loading="authLoading"
-                @login="handleLogin"
-                @switch-mode="switchAuthMode"
-              />
+              <div v-if="authMode === 'login'" class="auth-form">
+                <h4 class="text-center mb-3">Masuk ke Akun</h4>
+
+                <div v-if="authError" class="alert alert-danger">{{ authError }}</div>
+
+                <form @submit.prevent="handleLogin">
+                  <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input
+                      v-model="loginForm.email"
+                      type="email"
+                      class="form-control"
+                      placeholder="email@domain.com"
+                      :disabled="authLoading"
+                      required
+                    />
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <div class="position-relative">
+                      <input
+                        v-model="loginForm.password"
+                        :type="showPassword ? 'text' : 'password'"
+                        class="form-control"
+                        placeholder="Password"
+                        :disabled="authLoading"
+                        required
+                      />
+                      <button
+                        type="button"
+                        class="btn btn-link position-absolute end-0 top-0 pe-3"
+                        @click="showPassword = !showPassword"
+                        style="border: none; background: none; color: #6c757d"
+                      >
+                        <i :class="showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <button type="submit" class="btn btn-primary w-100 mb-3" :disabled="authLoading">
+                    <span v-if="authLoading">Masuk...</span>
+                    <span v-else>Masuk</span>
+                  </button>
+                </form>
+
+                <div class="text-center">
+                  <p class="small text-muted mb-2">
+                    Belum punya akun?
+                    <a href="#" @click.prevent="switchAuthMode" class="text-primary">
+                      Daftar di sini
+                    </a>
+                  </p>
+                  <p class="small text-muted">
+                    Atau gunakan
+                    <router-link to="/signin" class="text-primary" @click="$emit('close-modal')">
+                      halaman login lengkap
+                    </router-link>
+                  </p>
+                </div>
+              </div>
 
               <!-- Signup Form -->
-              <SignupForm
-                v-else
-                :auth-error="authError"
-                :auth-loading="authLoading"
-                @register="handleRegister"
-                @switch-mode="switchAuthMode"
-              />
+              <div v-else class="auth-form">
+                <h4 class="text-center mb-3">Daftar Akun Baru</h4>
+                <p class="text-center text-muted small mb-4">
+                  Gunakan halaman signup untuk registrasi dengan kode lisensi
+                </p>
+                <div class="text-center">
+                  <router-link to="/signup" class="btn btn-primary" @click="$emit('close-modal')">
+                    Buka Halaman Signup
+                  </router-link>
+                </div>
+                <div class="text-center mt-3">
+                  <a href="#" @click.prevent="switchAuthMode" class="small text-muted">
+                    Sudah punya akun? Masuk di sini
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -68,27 +131,35 @@
 <script setup>
 import { ref } from 'vue';
 import { getSupabase } from '@/lib/supabaseClient';
-import LoginForm from './LoginForm.vue';
-import SignupForm from './SignupForm.vue';
 
 const supabase = getSupabase();
 const authMode = ref('login');
 const authLoading = ref(false);
 const authError = ref('');
+const showPassword = ref(false);
+
+// Form data
+const loginForm = ref({
+  email: '',
+  password: '',
+});
 
 const emit = defineEmits(['auth-success', 'close-modal']);
 
-const handleLogin = async (credentials) => {
+const handleLogin = async () => {
   authError.value = '';
   authLoading.value = true;
   try {
-    const { error } = await supabase.auth.signInWithPassword(credentials);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: loginForm.value.email,
+      password: loginForm.value.password,
+    });
     if (error) throw error;
     closeModal();
     emit('auth-success');
   } catch (err) {
     authError.value = err.message;
-    showToast(err.message, 'danger');
+    console.error('Login error:', err);
   } finally {
     authLoading.value = false;
   }

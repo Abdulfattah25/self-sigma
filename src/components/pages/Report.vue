@@ -237,8 +237,13 @@
 </template>
 
 <script>
+import ForestPanel from './ForestPanel.vue';
+
 export default {
   name: 'Report',
+  components: {
+    ForestPanel,
+  },
   props: ['user', 'supabase', 'plant'],
   data() {
     return {

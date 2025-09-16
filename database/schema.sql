@@ -1,17 +1,13 @@
 -- Extensions (untuk gen_random_uuid)
 create extension if not exists pgcrypto;
 
--- 1) users
-create table if not exists public.users (
-  id uuid primary key,
-  email text not null,
-  created_at timestamptz not null default now()
-);
+-- Drop table users lama yang konflik dengan productivity_users
+DROP TABLE IF EXISTS public.users CASCADE;
 
--- 2) daily_tasks_template (template harian)
+-- 1) daily_tasks_template (template harian)
 create table if not exists public.daily_tasks_template (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.users(id) on delete cascade,
+  user_id uuid not null references public.productivity_users(id) on delete cascade,
   task_name text not null,
   priority text not null default 'sedang' check (priority in ('tinggi','sedang','rendah')),
   category text,
@@ -20,10 +16,10 @@ create table if not exists public.daily_tasks_template (
   created_at timestamptz not null default now()
 );
 
--- 3) daily_tasks_instance (salinan per tanggal)
+-- 2) daily_tasks_instance (salinan per tanggal)
 create table if not exists public.daily_tasks_instance (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.users(id) on delete cascade,
+  user_id uuid not null references public.productivity_users(id) on delete cascade,
   task_id uuid references public.daily_tasks_template(id) on delete set null,
   task_name text not null,
   priority text not null default 'sedang' check (priority in ('tinggi','sedang','rendah')),
@@ -89,15 +85,45 @@ BEGIN
   END IF;
 END $$;
 
--- 4) score_log (pencatatan perubahan skor)
+-- 3) score_log (pencatatan perubahan skor)
 create table if not exists public.score_log (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.users(id) on delete cascade,
+  user_id uuid not null references public.productivity_users(id) on delete cascade,
   date date not null,
   score_delta integer not null,
   reason text not null,
   created_at timestamptz not null default now()
 );
+
+-- 4) Tabel integrasi dengan admin system
+CREATE TABLE IF NOT EXISTS public.admin_app_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  app_name TEXT NOT NULL DEFAULT 'productivity',
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  activated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, app_name)
+);
+
+/******************************************************************
+  AUTO-CREATE USER PROFILES SAAT SIGNUP
+******************************************************************/
+CREATE OR REPLACE FUNCTION public.create_productivity_user()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  INSERT INTO public.productivity_users (id, email, name)
+  VALUES (NEW.id, NEW.email, COALESCE(NEW.raw_user_meta_data->>'name', ''))
+  ON CONFLICT (id) DO UPDATE SET
+    email = NEW.email,
+    name = COALESCE(NEW.raw_user_meta_data->>'name', productivity_users.name);
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS create_productivity_user_trigger ON auth.users;
+CREATE TRIGGER create_productivity_user_trigger
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.create_productivity_user();
 
 /******************************************************************
   PROFILES: role-based access (admin vs user)
@@ -462,3 +488,9 @@ end
 $$;
 
 grant execute on function public.admin_generate_license() to authenticated;
+
+-- RLS untuk admin_app_users
+ALTER TABLE public.admin_app_users ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "admin_app_users_select_own" ON public.admin_app_users
+  FOR SELECT USING (user_id = auth.uid());

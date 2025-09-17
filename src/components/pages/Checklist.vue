@@ -183,7 +183,7 @@ export default {
       return Array.from(set);
     },
     sortedTasks() {
-      const priorityOrder = { high: 3, medium: 2, low: 1, tinggi:3, sedang:2, rendah:1 };
+      const priorityOrder = { high: 3, medium: 2, low: 1, tinggi: 3, sedang: 2, rendah: 1 };
       const filtered = this.todayTasks.filter((t) => {
         if (t.task_type === 'deadline') {
           return t.deadline_date === this.today;

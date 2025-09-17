@@ -600,7 +600,9 @@ export default {
         if (instErr) throw instErr;
 
         const completedSet = new Set(
-          (instances || []).filter((i) => i.is_completed).map((i) => `${i.template_id}::${i.task_date}`),
+          (instances || [])
+            .filter((i) => i.is_completed)
+            .map((i) => `${i.template_id}::${i.task_date}`),
         );
         const todayIso = today;
         this.weeklyAgenda = candidates.filter((t) => {
@@ -666,7 +668,9 @@ export default {
         if (instErr) throw instErr;
 
         const completedSet = new Set(
-          (instances || []).filter((i) => i.is_completed).map((i) => `${i.template_id}::${i.task_date}`),
+          (instances || [])
+            .filter((i) => i.is_completed)
+            .map((i) => `${i.template_id}::${i.task_date}`),
         );
         const todayIso = today;
         this.monthlyAgenda = monthData.filter((t) => {

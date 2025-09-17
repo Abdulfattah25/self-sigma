@@ -74,7 +74,7 @@ watch(
   async (newPath) => {
     // Skip watch jika sedang logout atau loading
     if (loading.value || !user.value) return;
-    
+
     if (!publicPages.includes(newPath)) {
       try {
         // Cek akses setiap kali navigasi ke halaman protected

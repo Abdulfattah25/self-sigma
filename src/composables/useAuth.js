@@ -35,11 +35,11 @@ export function useAuth() {
     try {
       await AuthService.signOut();
       user.value = null;
-      
+
       // Clear all potential auth storage
       localStorage.removeItem('supabase.auth.token');
       sessionStorage.clear();
-      
+
       // Force immediate redirect without waiting for reactive updates
       window.location.href = '/';
     } catch (error) {

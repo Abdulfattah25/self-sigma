@@ -265,11 +265,13 @@ class DataService {
    */
   async logScoreChange(userId, delta, reason) {
     try {
-      const today = window.WITA?.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
+      const today = window.WITA?.today
+        ? window.WITA.today()
+        : new Date().toISOString().slice(0, 10);
 
-      const { error } = await this.supabase.from('productivity_score_logs').insert([
-        { user_id: userId, log_date: today, score_delta: delta, reason },
-      ]);
+      const { error } = await this.supabase
+        .from('productivity_score_logs')
+        .insert([{ user_id: userId, log_date: today, score_delta: delta, reason }]);
 
       if (error) throw error;
     } catch (e) {
@@ -299,9 +301,9 @@ class DataService {
         .filter((t) => !existingIds.has(t.id))
         .filter((t) => {
           const kind = t.task_type || 'daily';
-            if (kind === 'daily') return true;
-            if (kind === 'deadline' && t.deadline_date) return t.deadline_date === today;
-            return false;
+          if (kind === 'daily') return true;
+          if (kind === 'deadline' && t.deadline_date) return t.deadline_date === today;
+          return false;
         })
         .map((t) => ({
           user_id: userId,

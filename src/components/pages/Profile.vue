@@ -384,11 +384,17 @@
 </template>
 
 <script>
+import { useAuth } from '@/composables/useAuth.js';
+
 export default {
   name: 'Profile',
   props: {
     user: { type: Object, default: null },
     supabase: { type: Object, default: null },
+  },
+  setup() {
+    const { signOut } = useAuth();
+    return { signOut };
   },
   data() {
     return {
@@ -470,16 +476,16 @@ export default {
       if (!this.user || !this.supabase) return;
       try {
         const { data: tasks } = await this.supabase
-          .from('daily_tasks_instance')
-          .select('date, is_completed')
+          .from('productivity_task_instances')
+          .select('task_date, is_completed')
           .eq('user_id', this.user.id);
 
         const { data: scores } = await this.supabase
-          .from('score_log')
+          .from('productivity_score_logs')
           .select('score_delta')
           .eq('user_id', this.user.id);
 
-        const uniqueDates = new Set((tasks || []).map((t) => t.date));
+        const uniqueDates = new Set((tasks || []).map((t) => t.task_date));
         const completed = (tasks || []).filter((t) => t.is_completed).length;
         const totalScore = (scores || []).reduce((sum, s) => sum + (s.score_delta || 0), 0);
 
@@ -762,31 +768,13 @@ export default {
     async logout() {
       try {
         this.loggingOut = true;
-
-        // Fast logout - don't wait for session validation
-        try {
-          await this.supabase.auth.signOut({ scope: 'global' });
-        } catch (error) {
-          // If global signout fails, do local signout
-          await this.supabase.auth.signOut({ scope: 'local' });
-        }
-
-        // Clear all Supabase keys (local + session) to ensure complete logout
-        const clearStorage = (storage) => {
-          try {
-            const keys = Object.keys(storage).filter((k) => k.startsWith('sb-'));
-            keys.forEach((k) => storage.removeItem(k));
-          } catch (_) {}
-        };
-        clearStorage(localStorage);
-        clearStorage(sessionStorage);
-
-        // Immediate redirect to landing + open login modal
-        window.location.href = '/?auth=login';
+        await this.signOut(); // Menggunakan useAuth composable yang sudah diperbaiki
       } catch (error) {
         console.error('Logout error:', error);
-        // Force redirect even if logout fails
-        window.location.href = '/?auth=login';
+        // signOut() sudah handle redirect, tapi jika gagal, force redirect
+        window.location.href = '/';
+      } finally {
+        this.loggingOut = false;
       }
     },
     showToast(message, variant = 'primary', delay = 3000) {

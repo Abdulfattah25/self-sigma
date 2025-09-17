@@ -31,8 +31,25 @@ export function useAuth() {
   };
 
   const signOut = async () => {
-    await AuthService.signOut();
-    user.value = null;
+    loading.value = true;
+    try {
+      await AuthService.signOut();
+      user.value = null;
+      
+      // Clear all potential auth storage
+      localStorage.removeItem('supabase.auth.token');
+      sessionStorage.clear();
+      
+      // Force immediate redirect without waiting for reactive updates
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force redirect even if signOut fails
+      user.value = null;
+      window.location.href = '/';
+    } finally {
+      loading.value = false;
+    }
   };
 
   const checkAuth = async () => {

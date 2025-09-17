@@ -336,23 +336,23 @@ export default {
             : new Date().toISOString().slice(0, 10);
 
         const { data: todayScoreData } = await this.supabase
-          .from('score_log')
+          .from('productivity_score_logs')
           .select('score_delta')
           .eq('user_id', this.user.id)
-          .eq('date', today);
+          .eq('log_date', today);
         this.todayScore = (todayScoreData || []).reduce((s, r) => s + (r.score_delta || 0), 0);
 
         const { data: totalScoreData } = await this.supabase
-          .from('score_log')
+          .from('productivity_score_logs')
           .select('score_delta')
           .eq('user_id', this.user.id);
         this.totalScore = (totalScoreData || []).reduce((s, r) => s + (r.score_delta || 0), 0);
 
         const { data: todayTasksData } = await this.supabase
-          .from('daily_tasks_instance')
+          .from('productivity_task_instances')
           .select('*')
           .eq('user_id', this.user.id)
-          .eq('date', today);
+          .eq('task_date', today);
         this.todayTasks = todayTasksData || [];
         this.incompleteTasks = this.todayTasks.filter((t) => !t.is_completed);
 
@@ -400,11 +400,11 @@ export default {
         const diffDays = Math.floor((Date.parse(endStr) - Date.parse(startStr)) / 86400000) + 1;
 
         const { data, error } = await this.supabase
-          .from('daily_tasks_instance')
-          .select('date, is_completed, task_id')
+          .from('productivity_task_instances')
+          .select('task_date, is_completed, template_id')
           .eq('user_id', this.user.id)
-          .gte('date', startStr)
-          .lte('date', endStr);
+          .gte('task_date', startStr)
+          .lte('task_date', endStr);
         if (error) throw error;
 
         const counters = new Map();
@@ -417,8 +417,8 @@ export default {
         }
 
         (data || []).forEach((row) => {
-          if (!row.task_id) return;
-          const key = row.date;
+          if (!row.template_id) return;
+          const key = row.task_date;
           if (!counters.has(key)) return;
           const c = counters.get(key) || { done: 0, total: 0 };
           c.total += 1;
@@ -452,11 +452,11 @@ export default {
             : endStr;
 
         const { data, error } = await this.supabase
-          .from('score_log')
-          .select('date, score_delta')
+          .from('productivity_score_logs')
+          .select('log_date, score_delta')
           .eq('user_id', this.user.id)
-          .gte('date', startStr)
-          .lte('date', endStr);
+          .gte('log_date', startStr)
+          .lte('log_date', endStr);
         if (error) throw error;
 
         const map = new Map();
@@ -466,7 +466,7 @@ export default {
           map.set(key, 0);
         }
         (data || []).forEach((r) => {
-          map.set(r.date, (map.get(r.date) || 0) + (r.score_delta || 0));
+          map.set(r.log_date, (map.get(r.log_date) || 0) + (r.score_delta || 0));
         });
 
         const dates = [];
@@ -572,10 +572,10 @@ export default {
         const endIso = end.toISOString().slice(0, 10);
 
         const { data: tmplData, error: tmplErr } = await this.supabase
-          .from('daily_tasks_template')
+          .from('productivity_task_templates')
           .select('*')
           .eq('user_id', this.user.id)
-          .eq('jenis_task', 'deadline')
+          .eq('task_type', 'deadline')
           .gte('deadline_date', startIso)
           .lte('deadline_date', endIso)
           .order('deadline_date', { ascending: true });
@@ -588,19 +588,19 @@ export default {
 
         const ids = candidates.map((t) => t.id).filter(Boolean);
         const { data: instances, error: instErr } = await this.supabase
-          .from('daily_tasks_instance')
-          .select('task_id, date, is_completed')
-          .in('task_id', ids)
+          .from('productivity_task_instances')
+          .select('template_id, task_date, is_completed')
+          .in('template_id', ids)
           .eq('user_id', this.user.id)
           .in(
-            'date',
+            'task_date',
             candidates.map((c) => c.deadline_date),
           )
-          .order('date', { ascending: true });
+          .order('task_date', { ascending: true });
         if (instErr) throw instErr;
 
         const completedSet = new Set(
-          (instances || []).filter((i) => i.is_completed).map((i) => `${i.task_id}::${i.date}`),
+          (instances || []).filter((i) => i.is_completed).map((i) => `${i.template_id}::${i.task_date}`),
         );
         const todayIso = today;
         this.weeklyAgenda = candidates.filter((t) => {
@@ -638,10 +638,10 @@ export default {
         const weekEndIso = weekEnd.toISOString().slice(0, 10);
 
         const { data: tmplData, error: tmplErr } = await this.supabase
-          .from('daily_tasks_template')
+          .from('productivity_task_templates')
           .select('*')
           .eq('user_id', this.user.id)
-          .eq('jenis_task', 'deadline')
+          .eq('task_type', 'deadline')
           .gte('deadline_date', monthStartIso)
           .lte('deadline_date', endNextMonthIso)
           .order('deadline_date', { ascending: true });
@@ -657,16 +657,16 @@ export default {
           new Set(monthData.map((t) => t.deadline_date).filter(Boolean)),
         );
         const { data: instances, error: instErr } = await this.supabase
-          .from('daily_tasks_instance')
-          .select('task_id, date, is_completed')
-          .in('task_id', ids)
+          .from('productivity_task_instances')
+          .select('template_id, task_date, is_completed')
+          .in('template_id', ids)
           .eq('user_id', this.user.id)
-          .in('date', uniqueDates)
-          .order('date', { ascending: true });
+          .in('task_date', uniqueDates)
+          .order('task_date', { ascending: true });
         if (instErr) throw instErr;
 
         const completedSet = new Set(
-          (instances || []).filter((i) => i.is_completed).map((i) => `${i.task_id}::${i.date}`),
+          (instances || []).filter((i) => i.is_completed).map((i) => `${i.template_id}::${i.task_date}`),
         );
         const todayIso = today;
         this.monthlyAgenda = monthData.filter((t) => {

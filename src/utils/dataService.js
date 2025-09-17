@@ -49,17 +49,17 @@ class DataService {
       cacheKey,
       async () => {
         const result = await this.supabase
-          .from('daily_tasks_instance')
+          .from('productivity_task_instances')
           .select('*')
           .eq('user_id', userId)
-          .eq('date', today)
+          .eq('task_date', today)
           .order('created_at', { ascending: true });
 
         // Filter deadline tasks: hanya tampil jika deadline = hari ini
         if (result.data) {
           result.data = result.data.filter((task) => {
             // Jika bukan deadline task, tampilkan
-            if (task.jenis_task !== 'deadline') return true;
+            if (task.task_type !== 'deadline') return true;
 
             // Jika deadline task, hanya tampil jika deadline_date = hari ini
             return task.deadline_date === today;
@@ -82,7 +82,7 @@ class DataService {
       cacheKey,
       async () => {
         return await this.supabase
-          .from('daily_tasks_template')
+          .from('productivity_task_templates')
           .select('*')
           .eq('user_id', userId)
           .order('created_at', { ascending: true });
@@ -101,15 +101,12 @@ class DataService {
       cacheKey,
       async () => {
         const result = await this.supabase
-          .from('score_log')
+          .from('productivity_score_logs')
           .select('score_delta')
           .eq('user_id', userId)
-          .eq('date', today);
+          .eq('log_date', today);
 
-        const totalScore = (result.data || []).reduce(
-          (sum, record) => sum + (record.score_delta || 0),
-          0,
-        );
+        const totalScore = (result.data || []).reduce((sum, r) => sum + (r.score_delta || 0), 0);
         return { data: totalScore };
       },
       forceRefresh,
@@ -141,21 +138,22 @@ class DataService {
       // Optimistic update - update cache immediately
       this.state.updateCacheItem('todayTasks', taskId, {
         is_completed: newStatus,
-        checked_at: newStatus ? now : null,
+        completed_at: newStatus ? now : null,
       });
 
       // Then update database
       const { error } = await this.supabase
-        .from('daily_tasks_instance')
-        .update({ is_completed: newStatus, checked_at: newStatus ? now : null })
+        .from('productivity_task_instances')
+        .update({ is_completed: newStatus, completed_at: newStatus ? now : null })
         .eq('id', taskId)
         .eq('user_id', userId);
 
       if (error) throw error;
 
       // Log score change
-      const rawReward = window.userScoreReward || 1;
-      const reward = Number.isFinite(parseFloat(rawReward)) ? parseFloat(rawReward) : 1;
+      const reward = Number.isFinite(parseFloat(window.userScoreReward))
+        ? parseFloat(window.userScoreReward)
+        : 1;
       const delta = newStatus ? reward : -reward;
 
       await this.logScoreChange(
@@ -172,7 +170,7 @@ class DataService {
       // Rollback optimistic update jika gagal
       this.state.updateCacheItem('todayTasks', taskId, {
         is_completed: !newStatus,
-        checked_at: !newStatus ? new Date().toISOString() : null,
+        completed_at: !newStatus ? new Date().toISOString() : null,
       });
       throw error;
     }
@@ -187,11 +185,12 @@ class DataService {
       const newTask = {
         id: tempId,
         user_id: userId,
-        task_id: null,
+        template_id: null,
         task_name: taskName.trim(),
-        priority: 'sedang',
+        priority: 'medium',
         category: null,
-        date: today,
+        task_date: today,
+        task_type: 'daily',
         is_completed: false,
         created_at: new Date().toISOString(),
       };
@@ -201,15 +200,16 @@ class DataService {
 
       // Insert to database
       const { data, error } = await this.supabase
-        .from('daily_tasks_instance')
+        .from('productivity_task_instances')
         .insert([
           {
             user_id: userId,
-            task_id: null,
+            template_id: null,
             task_name: taskName.trim(),
-            priority: 'sedang',
+            priority: 'medium',
             category: null,
-            date: today,
+            task_type: 'daily',
+            task_date: today,
             is_completed: false,
           },
         ])
@@ -235,15 +235,15 @@ class DataService {
   async deleteAdHocTask(taskId, userId) {
     try {
       // Get task data untuk rollback
-      const cachedTasks = this.state.getFromCache('todayTasks');
-      const taskToDelete = cachedTasks?.find((t) => t.id === taskId);
+      const cached = this.state.getFromCache('todayTasks');
+      const toRestore = cached?.find((t) => t.id === taskId);
 
       // Optimistic update
       this.state.removeCacheItem('todayTasks', taskId);
 
       // Delete from database
       const { error } = await this.supabase
-        .from('daily_tasks_instance')
+        .from('productivity_task_instances')
         .delete()
         .eq('id', taskId)
         .eq('user_id', userId);
@@ -253,8 +253,8 @@ class DataService {
       return { success: true };
     } catch (error) {
       // Rollback optimistic update
-      if (taskToDelete) {
-        this.state.addCacheItem('todayTasks', taskToDelete);
+      if (toRestore) {
+        this.state.addCacheItem('todayTasks', toRestore);
       }
       throw error;
     }
@@ -265,23 +265,15 @@ class DataService {
    */
   async logScoreChange(userId, delta, reason) {
     try {
-      const today =
-        window.WITA && window.WITA.today
-          ? window.WITA.today()
-          : new Date().toISOString().slice(0, 10);
+      const today = window.WITA?.today ? window.WITA.today() : new Date().toISOString().slice(0, 10);
 
-      const { error } = await this.supabase.from('score_log').insert([
-        {
-          user_id: userId,
-          date: today,
-          score_delta: delta,
-          reason,
-        },
+      const { error } = await this.supabase.from('productivity_score_logs').insert([
+        { user_id: userId, log_date: today, score_delta: delta, reason },
       ]);
 
       if (error) throw error;
-    } catch (error) {
-      console.error('Error logging score change:', error);
+    } catch (e) {
+      console.error('Error logging score change:', e);
     }
   }
 
@@ -295,36 +287,36 @@ class DataService {
 
       // Get existing tasks
       const { data: existing } = await this.supabase
-        .from('daily_tasks_instance')
-        .select('task_id')
+        .from('productivity_task_instances')
+        .select('template_id')
         .eq('user_id', userId)
-        .eq('date', today);
+        .eq('task_date', today);
 
-      const existingIds = new Set((existing || []).map((i) => i.task_id).filter(Boolean));
+      const existingIds = new Set((existing || []).map((i) => i.template_id).filter(Boolean));
 
       // Filter templates that need to be created
       const toInsert = (templates || [])
         .filter((t) => !existingIds.has(t.id))
         .filter((t) => {
-          const jenis = t.jenis_task || 'harian';
-          if (jenis === 'harian') return true;
-          if (jenis === 'deadline' && t.deadline_date) return t.deadline_date === today;
-          return false;
+          const kind = t.task_type || 'daily';
+            if (kind === 'daily') return true;
+            if (kind === 'deadline' && t.deadline_date) return t.deadline_date === today;
+            return false;
         })
         .map((t) => ({
           user_id: userId,
-          task_id: t.id,
+          template_id: t.id,
           task_name: t.task_name,
           priority: t.priority,
           category: t.category,
-          jenis_task: t.jenis_task || 'harian',
+          task_type: t.task_type || 'daily',
           deadline_date: t.deadline_date || null,
-          date: today,
+          task_date: today,
           is_completed: false,
         }));
 
       if (toInsert.length) {
-        const { error } = await this.supabase.from('daily_tasks_instance').insert(toInsert);
+        const { error } = await this.supabase.from('productivity_task_instances').insert(toInsert);
         if (error && error.code !== '23505') throw error;
       }
 
@@ -332,9 +324,9 @@ class DataService {
       await this.getTodayTasks(userId, today, true);
 
       return { success: true, created: toInsert.length };
-    } catch (error) {
-      console.error('Error syncing from templates:', error);
-      throw error;
+    } catch (e) {
+      console.error('Error syncing from templates:', e);
+      throw e;
     }
   }
 

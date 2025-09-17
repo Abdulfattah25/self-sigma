@@ -411,7 +411,7 @@ export default {
       try {
         this.loading = true;
         const { data, error } = await this.supabase
-          .from('daily_tasks_template')
+          .from('productivity_task_templates')
           .select('*')
           .eq('user_id', this.user.id)
           .order('created_at', { ascending: false });
@@ -433,24 +433,24 @@ export default {
           ? window.WITA.today()
           : new Date().toISOString().slice(0, 10);
       const { data: existing, error: eErr } = await this.supabase
-        .from('daily_tasks_instance')
+        .from('productivity_task_instances')
         .select('id')
         .eq('user_id', this.user.id)
-        .eq('date', today)
-        .eq('task_id', template.id)
+        .eq('task_date', today)
+        .eq('template_id', template.id)
         .limit(1);
       if (eErr) throw eErr;
       if (existing && existing.length > 0) return;
-      const { error: iErr } = await this.supabase.from('daily_tasks_instance').insert([
+      const { error: iErr } = await this.supabase.from('productivity_task_instances').insert([
         {
           user_id: this.user.id,
-          task_id: template.id,
+          template_id: template.id,
           task_name: template.task_name,
           priority: template.priority,
           category: template.category,
-          jenis_task: template.jenis_task || 'harian',
+          task_type: template.task_type || 'daily',
           deadline_date: template.deadline_date || null,
-          date: today,
+          task_date: today,
           is_completed: false,
         },
       ]);
@@ -527,7 +527,7 @@ export default {
         this.loading = true;
         if (this.editingId) {
           const { data, error } = await this.supabase
-            .from('daily_tasks_template')
+            .from('productivity_task_templates')
             .update({
               task_name: name,
               priority: this.newTask.priority,
@@ -550,17 +550,17 @@ export default {
                   ? window.WITA.today()
                   : new Date().toISOString().slice(0, 10);
               await this.supabase
-                .from('daily_tasks_instance')
+                .from('productivity_task_instances')
                 .update({
                   task_name: updated.task_name,
-                  priority: updated.priority || 'sedang',
+                  priority: updated.priority || 'medium',
                   category: updated.category || null,
-                  jenis_task: updated.jenis_task || 'harian',
+                  task_type: updated.task_type || 'daily',
                   deadline_date: updated.deadline_date || null,
                 })
                 .eq('user_id', this.user.id)
-                .eq('task_id', updated.id)
-                .eq('date', today);
+                .eq('template_id', updated.id)
+                .eq('task_date', today);
             } catch (e) {
               console.warn(
                 'Gagal mensinkronkan instance hari ini setelah update template:',
@@ -588,7 +588,7 @@ export default {
             return;
           }
           const { data, error } = await this.supabase
-            .from('daily_tasks_template')
+            .from('productivity_task_templates')
             .insert([
               {
                 user_id: this.user.id,
@@ -654,7 +654,7 @@ export default {
       const id = this.pendingDelete.id;
       try {
         const { error } = await this.supabase
-          .from('daily_tasks_template')
+          .from('productivity_task_templates')
           .delete()
           .eq('id', id)
           .eq('user_id', this.user.id);

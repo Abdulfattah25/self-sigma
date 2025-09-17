@@ -94,20 +94,20 @@
                         <span v-if="task.category" class="badge bg-light text-dark badge-sm">{{
                           task.category
                         }}</span>
-                        <span v-if="!task.task_id" class="badge bg-info text-white badge-sm"
+                        <span v-if="!task.template_id" class="badge bg-info text-white badge-sm"
                           >Tambahan</span
                         >
                       </div>
                     </div>
                     <div class="text-end">
                       <small
-                        v-if="task.is_completed && task.checked_at"
+                        v-if="task.is_completed && task.completed_at"
                         class="text-success d-block"
                       >
-                        ✅ {{ formatTime(task.checked_at) }}
+                        ✅ {{ formatTime(task.completed_at) }}
                       </small>
                       <button
-                        v-if="!task.task_id"
+                        v-if="!task.template_id"
                         class="btn btn-sm btn-outline-danger mt-1"
                         @click="deleteAdHocTask(task.id)"
                         title="Hapus task tambahan"
@@ -183,15 +183,12 @@ export default {
       return Array.from(set);
     },
     sortedTasks() {
-      const priorityOrder = { tinggi: 3, sedang: 2, rendah: 1 };
+      const priorityOrder = { high: 3, medium: 2, low: 1, tinggi:3, sedang:2, rendah:1 };
       const filtered = this.todayTasks.filter((t) => {
-        // Filter deadline tasks: hanya tampil jika deadline = hari ini
-        if (t.jenis_task === 'deadline') {
-          // Untuk task deadline, hanya tampilkan jika deadline_date === today
+        if (t.task_type === 'deadline') {
           return t.deadline_date === this.today;
         }
-
-        const pr = t.priority || 'sedang';
+        const pr = t.priority || 'medium';
         const byPriority = this.filterPriority === 'all' || pr === this.filterPriority;
         const byCategory =
           this.filterCategory === 'all' || (t.category || null) === this.filterCategory;
@@ -330,13 +327,24 @@ export default {
       try {
         this.loading = true;
 
-        const result = await this.dataService.getTodayTasks(this.user.id, this.today, forceRefresh);
+        const tasksResult = await this.supabase
+          .from('productivity_task_instances')
+          .select('*')
+          .eq('user_id', this.user.id)
+          .eq('task_date', this.today)
+          .order('is_completed', { ascending: true })
+          .order('priority', { ascending: true })
+          .order('created_at', { ascending: true });
+
+        const tasks = tasksResult.data || [];
 
         // Data sudah diupdate via state subscription, tapi kita set juga untuk immediate response
-        this.todayTasks = result.data || [];
+        this.todayTasks = tasks;
         this.updateCounts();
 
-        if (result.fromCache) {
+        if (tasksResult.error) throw tasksResult.error;
+
+        if (tasksResult.fromCache) {
           console.log('📦 Menggunakan cached today tasks');
         } else {
           console.log('🌐 Menggunakan fresh today tasks dari server');
@@ -351,10 +359,17 @@ export default {
 
     async loadTodayScore(forceRefresh = false) {
       try {
-        const result = await this.dataService.getTodayScore(this.user.id, this.today, forceRefresh);
-        this.todayScoreDb = result.data || 0;
+        const { data: scoreRows } = await this.supabase
+          .from('productivity_score_logs')
+          .select('score_delta')
+          .eq('user_id', this.user.id)
+          .eq('log_date', this.today);
 
-        if (result.fromCache) {
+        const score = scoreRows.reduce((sum, row) => sum + row.score_delta, 0);
+
+        this.todayScoreDb = score;
+
+        if (scoreRows.fromCache) {
           console.log('📦 Menggunakan cached today score');
         } else {
           console.log('🌐 Menggunakan fresh today score dari server');

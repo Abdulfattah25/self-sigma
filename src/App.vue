@@ -72,11 +72,19 @@ const initializeApp = async () => {
 watch(
   () => route.path,
   async (newPath) => {
-    if (!loading.value && user.value && !publicPages.includes(newPath)) {
-      // Cek akses setiap kali navigasi ke halaman protected
-      const hasAccess = await LicenseService.checkUserAccess();
-      if (!hasAccess) {
-        router.push({ path: '/', query: { auth: 'signup' } });
+    // Skip watch jika sedang logout atau loading
+    if (loading.value || !user.value) return;
+    
+    if (!publicPages.includes(newPath)) {
+      try {
+        // Cek akses setiap kali navigasi ke halaman protected
+        const hasAccess = await LicenseService.checkUserAccess();
+        if (!hasAccess) {
+          router.push({ path: '/', query: { auth: 'signup' } });
+        }
+      } catch (error) {
+        // If access check fails, redirect to landing
+        router.push('/');
       }
     }
   },

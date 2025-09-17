@@ -43,8 +43,25 @@ export class AuthService {
   }
 
   static async signOut() {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      // Force global signout
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
+      if (error) throw error;
+    } catch (error) {
+      // If global signout fails, try local signout
+      await supabase.auth.signOut({ scope: 'local' });
+    }
+    
+    // Clear all Supabase storage
+    const clearStorage = (storage) => {
+      try {
+        const keys = Object.keys(storage).filter(k => k.startsWith('sb-'));
+        keys.forEach(k => storage.removeItem(k));
+      } catch {}
+    };
+    
+    clearStorage(localStorage);
+    clearStorage(sessionStorage);
   }
 
   static async getCurrentUser() {

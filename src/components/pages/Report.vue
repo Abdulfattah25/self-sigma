@@ -314,19 +314,19 @@ export default {
             : new Date(this.currentYear, this.currentMonth + 1, 0).toISOString().slice(0, 10);
 
         const { data: tasksData, error: tasksError } = await this.supabase
-          .from('daily_tasks_instance')
+          .from('productivity_task_instances')
           .select('*')
           .eq('user_id', this.user.id)
-          .gte('date', startDate)
-          .lte('date', endDate);
+          .gte('task_date', startDate)
+          .lte('task_date', endDate);
         if (tasksError) throw tasksError;
 
         const { data: scoresData, error: scoresError } = await this.supabase
-          .from('score_log')
+          .from('productivity_score_logs')
           .select('*')
           .eq('user_id', this.user.id)
-          .gte('date', startDate)
-          .lte('date', endDate);
+          .gte('log_date', startDate)
+          .lte('log_date', endDate);
         if (scoresError) throw scoresError;
 
         this.processMonthlyData(tasksData || [], scoresData || []);

@@ -197,9 +197,6 @@ body {
 [data-bs-theme='dark'] .report-page .report-metric {
   color: #0b1020;
 }
-[data-bs-theme='dark'] .report-page .metric-score .card-body .fs-5 {
-  color: #fff;
-}
 
 /* Auth modal field icons/buttons */
 [data-bs-theme='dark'] .field .icon,

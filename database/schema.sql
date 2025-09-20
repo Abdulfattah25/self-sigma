@@ -1,17 +1,75 @@
 -- Extensions (untuk gen_random_uuid)
 create extension if not exists pgcrypto;
 
--- 1) users
-create table if not exists public.users (
-  id uuid primary key,
-  email text not null,
-  created_at timestamptz not null default now()
+/******************************************************************
+  PROFILES: role-based access (admin vs user) - CREATE FIRST
+******************************************************************/
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  role text not null default 'user' check (role in ('user','admin')),
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
--- 2) daily_tasks_template (template harian)
+-- Ensure required columns exist even if table already existed earlier
+alter table public.profiles add column if not exists email text;
+alter table public.profiles add column if not exists role text;
+-- Backfill and enforce defaults/constraint for role
+update public.profiles set role = 'user' where role is null;
+alter table public.profiles alter column role set default 'user';
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'profiles_role_check'
+  ) THEN
+    ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check CHECK (role in ('user','admin'));
+  END IF;
+END $$;
+
+alter table public.profiles add column if not exists is_active boolean;
+update public.profiles set is_active = true where is_active is null;
+alter table public.profiles alter column is_active set default true;
+alter table public.profiles alter column is_active set not null;
+
+alter table public.profiles add column if not exists created_at timestamptz not null default now();
+alter table public.profiles add column if not exists updated_at timestamptz not null default now();
+
+-- Backfill: ensure every existing auth user has a profile row
+insert into public.profiles (id, email)
+select u.id, u.email
+from auth.users u
+left join public.profiles p on p.id = u.id
+where p.id is null;
+
+-- MIGRATION: Fix foreign key constraints AFTER profiles table exists
+DO $$
+BEGIN
+  -- Drop old foreign key constraints if they exist
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'daily_tasks_template_user_id_fkey') THEN
+    ALTER TABLE public.daily_tasks_template DROP CONSTRAINT daily_tasks_template_user_id_fkey;
+  END IF;
+  
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'daily_tasks_instance_user_id_fkey') THEN
+    ALTER TABLE public.daily_tasks_instance DROP CONSTRAINT daily_tasks_instance_user_id_fkey;
+  END IF;
+  
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'score_log_user_id_fkey') THEN
+    ALTER TABLE public.score_log DROP CONSTRAINT score_log_user_id_fkey;
+  END IF;
+  
+  -- Drop users table if it exists (no longer needed)
+  DROP TABLE IF EXISTS public.users CASCADE;
+END $$;
+
+-- Note: We use profiles table (which references auth.users) instead of separate users table
+-- This ensures consistency with Supabase auth system
+
+-- 2) daily_tasks_template (template harian) - NOW with proper reference
 create table if not exists public.daily_tasks_template (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.users(id) on delete cascade,
+  user_id uuid not null, -- Will add foreign key constraint later
   task_name text not null,
   priority text not null default 'sedang' check (priority in ('tinggi','sedang','rendah')),
   category text,
@@ -23,7 +81,7 @@ create table if not exists public.daily_tasks_template (
 -- 3) daily_tasks_instance (salinan per tanggal)
 create table if not exists public.daily_tasks_instance (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.users(id) on delete cascade,
+  user_id uuid not null, -- Will add foreign key constraint later
   task_id uuid references public.daily_tasks_template(id) on delete set null,
   task_name text not null,
   priority text not null default 'sedang' check (priority in ('tinggi','sedang','rendah')),
@@ -92,7 +150,7 @@ END $$;
 -- 4) score_log (pencatatan perubahan skor)
 create table if not exists public.score_log (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.users(id) on delete cascade,
+  user_id uuid not null, -- Will add foreign key constraint later
   date date not null,
   score_delta integer not null,
   reason text not null,
@@ -100,39 +158,8 @@ create table if not exists public.score_log (
 );
 
 /******************************************************************
-  PROFILES: role-based access (admin vs user)
+  PROFILES SETUP CONTINUED
 ******************************************************************/
-create table if not exists public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  email text,
-  role text not null default 'user' check (role in ('user','admin')),
-  is_active boolean not null default true,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
--- Ensure required columns exist even if table already existed earlier
-alter table public.profiles add column if not exists email text;
-alter table public.profiles add column if not exists role text;
--- Backfill and enforce defaults/constraint for role
-update public.profiles set role = 'user' where role is null;
-alter table public.profiles alter column role set default 'user';
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'profiles_role_check'
-  ) THEN
-    ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check CHECK (role in ('user','admin'));
-  END IF;
-END $$;
-
-alter table public.profiles add column if not exists is_active boolean;
-update public.profiles set is_active = true where is_active is null;
-alter table public.profiles alter column is_active set default true;
-alter table public.profiles alter column is_active set not null;
-
-alter table public.profiles add column if not exists created_at timestamptz not null default now();
-alter table public.profiles add column if not exists updated_at timestamptz not null default now();
 
 -- Keep updated_at fresh
 create or replace function public.set_profiles_updated_at()
@@ -206,29 +233,12 @@ create unique index if not exists ux_instance_user_date_taskname_adhoc
   where task_id is null;
 
 -- RLS: aktifkan dan kebijakan per tabel
-alter table public.users enable row level security;
 alter table public.daily_tasks_template enable row level security;
 alter table public.daily_tasks_instance enable row level security;
 alter table public.score_log enable row level security;
 alter table public.profiles enable row level security;
 
--- USERS policies
-drop policy if exists users_select_own on public.users;
-create policy users_select_own on public.users
-  for select using (id = auth.uid());
-
-drop policy if exists users_insert_self on public.users;
-create policy users_insert_self on public.users
-  for insert with check (id = auth.uid());
-
-drop policy if exists users_update_self on public.users;
-create policy users_update_self on public.users
-  for update using (id = auth.uid()) with check (id = auth.uid());
-
--- (Opsional) hapus sendiri
-drop policy if exists users_delete_self on public.users;
-create policy users_delete_self on public.users
-  for delete using (id = auth.uid());
+-- NOTE: No longer using separate users table - everything goes through profiles
 
 -- DAILY_TASKS_TEMPLATE policies
 drop policy if exists dtt_select_own on public.daily_tasks_template;
@@ -337,6 +347,42 @@ select u.id, u.email
 from auth.users u
 left join public.profiles p on p.id = u.id
 where p.id is null;
+
+-- NOW ADD FOREIGN KEY CONSTRAINTS AFTER ALL TABLES ARE CREATED
+-- This fixes any remaining foreign key issues
+DO $$
+BEGIN
+  -- Add correct foreign key constraints to profiles table (idempotent)
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'daily_tasks_template_user_id_fkey' 
+    AND confrelid = 'public.profiles'::regclass
+  ) THEN
+    ALTER TABLE public.daily_tasks_template 
+    ADD CONSTRAINT daily_tasks_template_user_id_fkey 
+    FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'daily_tasks_instance_user_id_fkey' 
+    AND confrelid = 'public.profiles'::regclass
+  ) THEN
+    ALTER TABLE public.daily_tasks_instance 
+    ADD CONSTRAINT daily_tasks_instance_user_id_fkey 
+    FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'score_log_user_id_fkey' 
+    AND confrelid = 'public.profiles'::regclass
+  ) THEN
+    ALTER TABLE public.score_log 
+    ADD CONSTRAINT score_log_user_id_fkey 
+    FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+  END IF;
+END $$;
 
 -- ============================================================
 -- Licenses: table, RLS, dan fungsi RPC untuk validasi/assign
@@ -462,3 +508,13 @@ end
 $$;
 
 grant execute on function public.admin_generate_license() to authenticated;
+
+-- FINAL CLEANUP: Ensure users table is completely removed
+DO $$
+BEGIN
+  -- Force drop users table if it still exists
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'users') THEN
+    DROP TABLE public.users CASCADE;
+    RAISE NOTICE 'Removed obsolete users table';
+  END IF;
+END $$;

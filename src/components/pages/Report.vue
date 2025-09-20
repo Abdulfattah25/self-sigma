@@ -45,7 +45,7 @@
           >
             <div class="card-body text-center py-3">
               <div class="fs-5 fw-bold">{{ monthlyData.totalTasks }}</div>
-              <small class="text-muted">Total Task</small>
+              <small class="text-dark">Total Task</small>
             </div>
           </div>
         </div>
@@ -55,7 +55,7 @@
           >
             <div class="card-body text-center py-3">
               <div class="fs-5 fw-bold">{{ monthlyData.completedTasks }}</div>
-              <small class="text-muted">Task Selesai</small>
+              <small class="text-dark">Task Selesai</small>
             </div>
           </div>
         </div>
@@ -65,7 +65,7 @@
           >
             <div class="card-body text-center py-3">
               <div class="fs-5 fw-bold">{{ monthlyData.incompleteTasks }}</div>
-              <small class="text-muted">Belum Selesai</small>
+              <small class="text-dark">Belum Selesai</small>
             </div>
           </div>
         </div>
@@ -77,7 +77,7 @@
               <div class="fs-5 fw-bold" :class="monthlyData.totalScore >= 0 ? '' : ''">
                 {{ monthlyData.totalScore >= 0 ? '+' : '' }}{{ monthlyData.totalScore }}
               </div>
-              <small class="text-muted">Total Skor</small>
+              <small class="text-dark">Total Skor</small>
             </div>
           </div>
         </div>

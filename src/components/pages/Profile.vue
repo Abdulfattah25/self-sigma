@@ -82,7 +82,7 @@
           <div class="row g-3">
             <div class="col-6 col-md-6 col-lg-2">
               <button
-                class="btn btn-primary w-100 setting-btn"
+                class="btn btn-primary w-100 setting-btn text-dark"
                 @click="toggleSection('name')"
                 :class="{ active: activeSection === 'name' }"
               >
@@ -92,7 +92,7 @@
             </div>
             <div class="col-6 col-md-6 col-lg-2">
               <button
-                class="btn btn-primary w-100 setting-btn"
+                class="btn btn-primary w-100 setting-btn text-dark"
                 @click="toggleSection('password')"
                 :class="{ active: activeSection === 'password' }"
               >
@@ -102,7 +102,7 @@
             </div>
             <div class="col-6 col-md-6 col-lg-2">
               <button
-                class="btn btn-primary w-100 setting-btn"
+                class="btn btn-primary w-100 setting-btn text-dark"
                 @click="toggleSection('theme')"
                 :class="{ active: activeSection === 'theme' }"
               >
@@ -112,7 +112,7 @@
             </div>
             <div class="col-6 col-md-6 col-lg-2">
               <button
-                class="btn btn-primary w-100 setting-btn"
+                class="btn btn-primary w-100 setting-btn text-dark"
                 @click="toggleSection('plant')"
                 :class="{ active: activeSection === 'plant' }"
               >
@@ -122,7 +122,7 @@
             </div>
             <div class="col-6 col-md-6 col-lg-2">
               <button
-                class="btn btn-primary w-100 setting-btn"
+                class="btn w-100 setting-btn text-dark"
                 @click="toggleSection('score')"
                 :class="{ active: activeSection === 'score' }"
               >
@@ -132,7 +132,7 @@
             </div>
             <div class="col-6 col-md-6 col-lg-2">
               <button
-                class="btn btn-primary w-100 setting-btn"
+                class="btn w-100 setting-btn text-dark"
                 @click="toggleSection('delete')"
                 :class="{ active: activeSection === 'delete' }"
               >
@@ -852,8 +852,6 @@ export default {
 .setting-btn {
   height: 3rem;
   transition: all 0.3s ease;
-  border-width: 2px;
-  font-weight: 500;
 }
 
 .setting-btn:hover {

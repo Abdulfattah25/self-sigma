@@ -331,16 +331,8 @@ export default {
         this.loading = true;
 
         const result = await this.dataService.getTodayTasks(this.user.id, this.today, forceRefresh);
-
-        // Data sudah diupdate via state subscription, tapi kita set juga untuk immediate response
         this.todayTasks = result.data || [];
         this.updateCounts();
-
-        if (result.fromCache) {
-          console.log('📦 Menggunakan cached today tasks');
-        } else {
-          console.log('🌐 Menggunakan fresh today tasks dari server');
-        }
       } catch (error) {
         console.error('Error loading today tasks:', error);
         this.$root?.showToast?.('Gagal memuat task hari ini: ' + error.message, 'danger');
@@ -353,12 +345,6 @@ export default {
       try {
         const result = await this.dataService.getTodayScore(this.user.id, this.today, forceRefresh);
         this.todayScoreDb = result.data || 0;
-
-        if (result.fromCache) {
-          console.log('📦 Menggunakan cached today score');
-        } else {
-          console.log('🌐 Menggunakan fresh today score dari server');
-        }
       } catch (error) {
         console.warn('Gagal memuat skor harian:', error.message);
         this.todayScoreDb = 0;

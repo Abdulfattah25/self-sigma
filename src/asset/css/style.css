@@ -1,13 +1,12 @@
-/* Custom styles for productivity tracker */
 :root {
   --primary-color: #0d6efd;
   --success-color: #198754;
   --warning-color: #ffc107;
   --danger-color: #dc3545;
 
-  --gradient-1: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  --gradient-1: linear-gradient(135deg, #06b6d4 0%, #10b981 100%);
   --gradient-2: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --gradient-3: linear-gradient(135deg, #36d1dc 0%, #5b86e5 100%);
+  --gradient-3: linear-gradient(135deg, #b6f1f5 0%, #6b96f1 100%);
   --glass-bg: rgba(255, 255, 255, 0.18);
   --glass-border: rgba(255, 255, 255, 0.35);
   --text-invert: #f8fafc;
@@ -29,16 +28,14 @@ body {
   padding: 0 !important;
 }
 
-/* Ensure #app has no spacing issues */
 #app {
   margin: 0 !important;
   padding: 0 !important;
   min-height: 100vh;
 }
 
-/* --- Dark theme globals (Bootstrap sets data-bs-theme on <html>) --- */
 [data-bs-theme='dark'] body {
-  background-color: #0b1020; /* deep slate */
+  background-color: #0b1020;
   color: #e5e7eb;
   background-image:
     radial-gradient(900px 360px at -10% -20%, rgba(49, 46, 129, 0.4), transparent 60%),
@@ -58,7 +55,6 @@ body {
   color: rgba(255, 255, 255, 0.78) !important;
 }
 
-/* Core surfaces */
 [data-bs-theme='dark'] .card {
   background-color: #0f172a;
   border-color: rgba(148, 163, 184, 0.18);
@@ -93,7 +89,6 @@ body {
   background-color: rgba(148, 163, 184, 0.12);
 }
 
-/* Navbar + sidebar */
 [data-bs-theme='dark'] .navbar.bg-primary {
   background: linear-gradient(90deg, #0b5ed7, #084298);
 }
@@ -115,7 +110,6 @@ body {
   color: #93c5fd;
 }
 
-/* Mobile bottom nav */
 [data-bs-theme='dark'] .mobile-bottom-nav {
   background: #0f172a;
   border-top-color: rgba(148, 163, 184, 0.18);
@@ -129,7 +123,6 @@ body {
   color: #93c5fd;
 }
 
-/* Landing/hero surfaces */
 [data-bs-theme='dark'] .landing-visual {
   background: #0b1224;
   border-color: rgba(148, 163, 184, 0.15);
@@ -158,7 +151,6 @@ body {
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* Tables & progress */
 [data-bs-theme='dark'] .table {
   --bs-table-striped-bg: rgba(255, 255, 255, 0.04);
   color: #e5e7eb;
@@ -170,7 +162,6 @@ body {
   background-color: rgba(255, 255, 255, 0.08);
 }
 
-/* Buttons */
 [data-bs-theme='dark'] .btn-outline-secondary {
   color: #e5e7eb;
   border-color: rgba(148, 163, 184, 0.35);
@@ -182,23 +173,19 @@ body {
   color: #fff;
 }
 
-/* Quote card stays bright and readable */
 [data-bs-theme='dark'] .quote-card {
   color: #fff;
 }
 
-/* Text utilities that used dark-only colors */
 [data-bs-theme='dark'] .section-kicker {
   color: #93c5fd;
   background: rgba(59, 130, 246, 0.18);
 }
 
-/* Report metrics stay vibrant but readable text */
 [data-bs-theme='dark'] .report-page .report-metric {
   color: #0b1020;
 }
 
-/* Auth modal field icons/buttons */
 [data-bs-theme='dark'] .field .icon,
 [data-bs-theme='dark'] .toggle-password {
   color: #a3aab8;
@@ -206,7 +193,7 @@ body {
 [data-bs-theme='dark'] .toggle-password:hover {
   background: rgba(255, 255, 255, 0.06);
 }
-/* WebKit browsers */
+
 body::-webkit-scrollbar,
 .sidebar-fixed .sidebar-inner::-webkit-scrollbar,
 .modal .modal-body::-webkit-scrollbar,
@@ -230,7 +217,7 @@ body::-webkit-scrollbar-thumb,
 #toastContainer::-webkit-scrollbar-thumb {
   background-color: var(--scrollbar-thumb);
   border-radius: 999px;
-  border: 2px solid transparent; /* creates inner padding/gap */
+  border: 2px solid transparent;
   background-clip: padding-box;
 }
 body::-webkit-scrollbar-thumb:hover,
@@ -244,7 +231,6 @@ body::-webkit-scrollbar-corner {
   background: transparent;
 }
 
-/* Dark theme variants */
 [data-bs-theme='dark'] {
   --scrollbar-track: rgba(148, 163, 184, 0.12);
   --scrollbar-thumb: rgba(148, 163, 184, 0.45);
@@ -254,7 +240,6 @@ body::-webkit-scrollbar-corner {
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
-/* Light theme explicit definitions */
 [data-bs-theme='light'] body {
   background-color: #f6f8fc;
   color: #212529;
@@ -262,37 +247,31 @@ body::-webkit-scrollbar-corner {
     radial-gradient(1000px 400px at -10% -20%, rgba(13, 110, 253, 0.08), transparent 60%),
     radial-gradient(800px 300px at 120% -10%, rgba(118, 75, 162, 0.08), transparent 60%);
 }
-
 [data-bs-theme='light'] .card {
   background-color: #fff;
   border-color: rgba(0, 0, 0, 0.125);
   color: #212529;
 }
-
 [data-bs-theme='light'] .card-header {
   background-color: #fff;
   border-bottom-color: rgba(0, 0, 0, 0.06);
   color: #212529;
 }
-
 [data-bs-theme='light'] .form-control,
 [data-bs-theme='light'] .form-select {
   background-color: #fff;
   color: #212529;
   border-color: #ced4da;
 }
-
 [data-bs-theme='light'] .navbar.bg-primary {
   background: linear-gradient(135deg, var(--primary-color) 0%, #084298 100%);
 }
 
-/* Make scrollbars a bit slimmer on small screens */
 @media (max-width: 576px) {
   :root {
     --scrollbar-size: 8px;
   }
 }
-/* Toasts readable in dark */
 [data-bs-theme='dark'] .toast .btn-close-white {
   filter: none;
 }
@@ -308,11 +287,6 @@ body::-webkit-scrollbar-corner {
     transform 0.15s ease,
     box-shadow 0.2s ease;
 }
-
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-}
 .setting-btn {
   background: var(--gradient-3);
 }
@@ -320,7 +294,6 @@ body::-webkit-scrollbar-corner {
   background-color: rgba(255, 255, 255, 0.2);
 }
 
-/* Modern utilities */
 .badge-sm {
   font-size: 0.75rem;
   padding: 0.35em 0.5em;
@@ -349,28 +322,21 @@ body::-webkit-scrollbar-corner {
   transition: width 0.4s ease;
 }
 
-
-
-/* Task Priority Indicators */
 .priority-high {
   border-left: 4px solid var(--danger-color);
 }
-
 .priority-medium,
 .priority-sedang {
   border-left: 4px solid var(--warning-color);
 }
-
 .priority-low,
 .priority-rendah {
   border-left: 4px solid var(--success-color);
 }
-
 .priority-tinggi {
   border-left: 4px solid var(--danger-color);
 }
 
-/* Task States */
 .task-completed {
   opacity: 0.6;
   text-decoration: line-through;
@@ -387,26 +353,15 @@ body::-webkit-scrollbar-corner {
   will-change: transform, background-color, box-shadow;
 }
 
-.task-item:hover {
-  background-color: rgba(13, 110, 253, 0.06);
-  /* Hindari perubahan ukuran yang memicu layout shift */
-  transform: translateY(-2px);
-  z-index: 10;
-  box-shadow: 0 8px 20px rgba(13, 110, 253, 0.12);
-}
-
-/* Score Styling */
 .score-positive {
   color: var(--success-color);
   font-weight: bold;
 }
-
 .score-negative {
   color: var(--danger-color);
   font-weight: bold;
 }
 
-/* Quote Card */
 .quote-card {
   background: linear-gradient(135deg, #5b86e5 0%, #36d1dc 100%);
   color: #fff;
@@ -414,22 +369,18 @@ body::-webkit-scrollbar-corner {
   margin-top: 20px;
 }
 
-/* Stats Cards */
 .stats-card {
   text-align: center;
 }
-
 .stats-number {
   font-size: 2rem;
   font-weight: bold;
   display: block;
 }
 
-/* Calendar Heatmap */
 .calendar-heatmap {
   font-size: 0.8rem;
 }
-
 .calendar-day {
   width: 26px;
   height: 26px;
@@ -443,51 +394,37 @@ body::-webkit-scrollbar-corner {
   transition: all 0.2s ease;
 }
 
-.calendar-day:hover {
-  transform: scale(1.1);
-  z-index: 10;
-  position: relative;
-}
-
-/* Heatmap Colors */
 .heatmap-0 {
   background-color: #ebedf0;
   color: #666;
 }
-
 .heatmap-1 {
   background-color: #c6e48b;
   color: #333;
 }
-
 .heatmap-2 {
   background-color: #7bc96f;
   color: white;
 }
-
 .heatmap-3 {
   background-color: #239a3b;
   color: white;
 }
-
 .heatmap-4 {
   background-color: #196127;
   color: white;
 }
 
-/* Heatmap Legend */
 .heatmap-legend {
   display: flex;
   gap: 2px;
 }
-
 .legend-item {
   width: 14px;
   height: 14px;
   border-radius: 2px;
 }
 
-/* Animations */
 .fade-in {
   animation: fadeIn 0.25s ease;
 }
@@ -502,42 +439,30 @@ body::-webkit-scrollbar-corner {
   }
 }
 
-/* Navbar subtle glass */
 .navbar.bg-primary {
   background: linear-gradient(90deg, #0d6efd, #0b5ed7);
 }
-
-/* Elegant palette for logged-out landing */
 .navbar.bg-elegant {
-  background: linear-gradient(90deg, #3676c9, #3e5c9e); /* slate -> near-black */
+  background: linear-gradient(90deg, #3676c9, #3e5c9e);
 }
 
-/* Override gradients only within logged-out landing */
 .landing-theme {
-  /* Replace default blue-ish gradients with elegant violet → rose and fresh cyan → emerald for CTAs */
-  --gradient-3: linear-gradient(135deg, #3a3ded 0%, #db2777 100%); /* hero background */
-  --gradient-1: linear-gradient(135deg, #06b6d4 0%, #10b981 100%); /* primary CTA button */
+  --gradient-3: linear-gradient(135deg, #3a3ded 0%, #cae4f3 100%);
+  --gradient-1: linear-gradient(135deg, #06b6d4 0%, #10b981 100%);
 }
 
-/* Modern navbar tweaks */
 .modern-navbar {
   backdrop-filter: saturate(140%) blur(8px);
   box-shadow: 0 10px 24px rgba(13, 110, 253, 0.12);
 }
 .brand-badge {
   display: inline-flex;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: var(--text-invert);
-  color: var(--primary-color);
+  width: 35px;
+  height: 35px;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
-  letter-spacing: -0.5px;
 }
 
-/* Glass elements */
 .glass-card {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
@@ -546,7 +471,6 @@ body::-webkit-scrollbar-corner {
   color: #fff;
 }
 
-/* Gradient button */
 .btn-gradient {
   background-image: var(--gradient-1);
   color: #fff;
@@ -568,7 +492,6 @@ body::-webkit-scrollbar-corner {
   backdrop-filter: blur(8px);
 }
 
-/* Landing hero */
 .hero-section {
   padding-top: 72px;
   padding-bottom: 24px;
@@ -599,23 +522,15 @@ body::-webkit-scrollbar-corner {
   font-size: 0.85rem;
   backdrop-filter: blur(6px);
 }
-.hero-blur {
-  position: absolute;
-  filter: blur(60px);
-  opacity: 0.5;
-  z-index: 0;
-}
 
-/* Ensure landing hero fills viewport height (without overlapping next section) */
 .landing-theme .hero-section {
-  min-height: calc(100vh - 56px); /* subtract fixed navbar height */
+  min-height: 100vh;
   display: flex;
-  align-items: center; /* vertically center content */
-  padding-top: 0 !important; /* no additional top padding - main-content handles navbar offset */
+  align-items: center;
+  padding-top: 0 !important;
   padding-bottom: 24px;
 }
 
-/* Landing visual mock */
 .landing-visual {
   background: #ffffff;
   border-radius: 16px;
@@ -655,10 +570,6 @@ body::-webkit-scrollbar-corner {
     background 0.2s ease,
     transform 0.2s ease;
 }
-.mock-panel .task-row:hover {
-  background: rgba(13, 110, 253, 0.06);
-  transform: translateX(2px);
-}
 .hero-illustration {
   width: 100%;
   max-height: 160px;
@@ -667,12 +578,10 @@ body::-webkit-scrollbar-corner {
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-/* Quote preview in hero */
 .quote-preview {
   border-radius: 14px;
 }
 
-/* Section styles */
 .section-kicker {
   display: inline-block;
   font-size: 0.8rem;
@@ -694,13 +603,7 @@ body::-webkit-scrollbar-corner {
     box-shadow 0.2s ease,
     border-color 0.2s ease;
 }
-.feature-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 28px rgba(13, 110, 253, 0.12);
-  border-color: rgba(13, 110, 253, 0.3);
-}
 
-/* Auth modal styling */
 .auth-modal .modal-content {
   border: none;
   border-radius: 18px;
@@ -757,14 +660,13 @@ body::-webkit-scrollbar-corner {
   transform: translateY(-50%);
   color: #6c757d;
   font-size: 1rem;
-  pointer-events: none; /* prevent blocking input clicks */
+  pointer-events: none;
 }
-/* Add padding so text/placeholder won’t overlap icons/buttons */
 .field .form-control,
 .field .form-select,
 .field .form-control-modern {
-  padding-left: 38px; /* space for left icon */
-  padding-right: 44px; /* space for right toggle button if present */
+  padding-left: 38px;
+  padding-right: 44px;
 }
 .toggle-password {
   position: absolute;
@@ -778,19 +680,16 @@ body::-webkit-scrollbar-corner {
   border-radius: 8px;
 }
 
-/* Tables */
 .table {
   --bs-table-striped-bg: rgba(0, 0, 0, 0.03);
 }
 
-/* Chart container */
 #weeklyChart,
 #dailyPerformanceChart,
 #taskDistributionChart {
   max-width: 100%;
 }
 
-/* --- Dashboard cards (modern) --- */
 .dashboard-card,
 .checklist-card {
   border: 1px solid rgba(13, 110, 253, 0.08);
@@ -803,13 +702,6 @@ body::-webkit-scrollbar-corner {
     box-shadow 0.22s ease,
     border-color 0.2s ease;
   overflow: hidden;
-}
-.dashboard-card:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    0 18px 44px rgba(13, 110, 253, 0.12),
-    0 12px 30px rgba(0, 0, 0, 0.08);
-  border-color: rgba(13, 110, 253, 0.2);
 }
 .dashboard-card .card-header {
   background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
@@ -834,13 +726,11 @@ body::-webkit-scrollbar-corner {
   border-radius: 999px;
 }
 
-/* Gradient header accents */
 .dashboard-card .card-header h5,
 .dashboard-card .card-header h6 {
   font-weight: 700;
 }
 
-/* Dark mode variants for dashboard cards */
 [data-bs-theme='dark'] .dashboard-card {
   border-color: rgba(148, 163, 184, 0.14);
   box-shadow:
@@ -861,7 +751,6 @@ body::-webkit-scrollbar-corner {
   border-color: rgba(148, 163, 184, 0.22) !important;
 }
 
-/* --- Card gradient accents (gardien) --- */
 .card-accent {
   position: relative;
 }
@@ -908,32 +797,6 @@ body::-webkit-scrollbar-corner {
   background-image: linear-gradient(180deg, rgba(6, 182, 212, 0.1), rgba(6, 182, 212, 0));
 }
 
-.card-accent:hover {
-  box-shadow:
-    0 18px 44px rgba(13, 110, 253, 0.12),
-    0 12px 30px rgba(0, 0, 0, 0.08);
-}
-.card-accent--success:hover {
-  box-shadow:
-    0 18px 44px rgba(16, 185, 129, 0.16),
-    0 12px 30px rgba(0, 0, 0, 0.08);
-}
-.card-accent--warning:hover {
-  box-shadow:
-    0 18px 44px rgba(245, 158, 11, 0.18),
-    0 12px 30px rgba(0, 0, 0, 0.08);
-}
-.card-accent--violet:hover {
-  box-shadow:
-    0 18px 44px rgba(118, 75, 162, 0.18),
-    0 12px 30px rgba(0, 0, 0, 0.08);
-}
-.card-accent--cyan:hover {
-  box-shadow:
-    0 18px 44px rgba(6, 182, 212, 0.18),
-    0 12px 30px rgba(0, 0, 0, 0.08);
-}
-
 [data-bs-theme='dark'] .card-accent::before {
   opacity: 0.9;
 }
@@ -953,26 +816,22 @@ body::-webkit-scrollbar-corner {
   background-image: linear-gradient(180deg, rgba(6, 182, 212, 0.18), rgba(6, 182, 212, 0));
 }
 
-/* Responsive: Calendar Heatmap on Mobile */
 @media (max-width: 576px) {
   .calendar-heatmap {
     width: 100%;
   }
-  /* Setiap baris minggu tetap 7 kolom, membagi lebar sama rata */
   .calendar-heatmap .d-flex {
     width: 100%;
   }
   .calendar-day {
-    /* Bagi rata 7 kolom: kurangi total gap (6 * 4px) dari 100% */
     flex: 1 1 calc((100% - 24px) / 7);
     width: auto;
     height: auto;
-    aspect-ratio: 1 / 1; /* tetap kotak */
+    aspect-ratio: 1 / 1;
     font-size: 0.7rem;
   }
 }
 
-/* Plant scene */
 .plant-scene-wrap {
   border-radius: 12px;
   overflow: hidden;
@@ -990,7 +849,6 @@ body::-webkit-scrollbar-corner {
   transform: scale(1.01);
 }
 
-/* Mobile Bottom Navigation */
 .mobile-bottom-nav {
   position: fixed;
   left: 0;
@@ -1024,21 +882,17 @@ body::-webkit-scrollbar-corner {
   color: var(--primary-color);
 }
 
-/* Make room for bottom nav on small screens */
 @media (max-width: 767.98px) {
   body {
-    /* Bottom nav height (64px) + small breathing room (8px) + safe area */
     padding-bottom: calc(64px + 8px + env(safe-area-inset-bottom));
   }
 }
 
-/* Navbar adjustments for mobile */
 @media (max-width: 767.98px) {
   .navbar .navbar-brand {
     font-weight: 700;
     font-size: 1.2rem;
   }
-  /* Hide any collapse area if present */
   .navbar .navbar-collapse {
     display: none !important;
   }
@@ -1047,7 +901,6 @@ body::-webkit-scrollbar-corner {
   }
 }
 
-/* Report page UI enhancements */
 .report-page .report-metric {
   border-radius: 14px;
   background: #fff;
@@ -1068,10 +921,9 @@ body::-webkit-scrollbar-corner {
   border-radius: 14px;
 }
 
-/* Desktop layout fixes for Consistency table */
 @media (min-width: 1200px) {
   .report-page .consistency-table table {
-    table-layout: fixed; /* prevent overflow cutting */
+    table-layout: fixed;
   }
   .report-page .consistency-table .col-activity {
     width: 40%;
@@ -1093,14 +945,12 @@ body::-webkit-scrollbar-corner {
   }
 }
 
-/* Calendar heatmap tweaks inside report page */
 .report-page .calendar-heatmap .calendar-day {
   width: 30px;
   height: 30px;
   border-radius: 8px;
 }
 
-/* Make controls compact on small screens */
 @media (max-width: 767.98px) {
   .report-page .form-select {
     height: 36px;
@@ -1108,7 +958,6 @@ body::-webkit-scrollbar-corner {
   }
 }
 
-/* Responsive typography: improve readability on mobile */
 @media (max-width: 576px) {
   html,
   body {
@@ -1188,7 +1037,6 @@ body::-webkit-scrollbar-corner {
   }
 }
 
-/* Desktop Sidebar */
 .sidebar-card {
   border: none;
   border-radius: 14px;
@@ -1196,7 +1044,7 @@ body::-webkit-scrollbar-corner {
 }
 .sidebar-menu .list-group-item {
   border: none;
-  padding: 0.8rem 1rem; /* merged: last-winning padding */
+  padding: 0.8rem 1rem;
   display: flex;
   align-items: center;
   color: #495057;
@@ -1208,31 +1056,29 @@ body::-webkit-scrollbar-corner {
   background: rgba(13, 110, 253, 0.06);
 }
 .sidebar-menu .list-group-item.active {
-  background: rgba(13, 110, 253, 0.12); /* keep last-winning value */
+  background: rgba(13, 110, 253, 0.12);
   color: #0d6efd;
   font-weight: 600;
 }
 
-/* Fixed header */
 .app-navbar {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  z-index: 1060; /* above content */
-  height: 56px; /* explicit height */
-  margin: 0 !important; /* no margin */
-  padding: 0; /* default bootstrap navbar padding is fine */
+  z-index: 1060;
+  height: 56px;
+  margin: 0 !important;
+  padding: 0;
 }
 
-/* Fixed full-height sidebar (desktop) */
 .sidebar-fixed {
   position: fixed;
-  top: 56px; /* below navbar height */
+  top: 56px;
   left: 0;
   width: 240px;
   height: calc(100vh - 56px);
-  z-index: 1061; /* above navbar so header sits beside sidebar visually */
+  z-index: 1061;
   padding: 0.75rem;
 }
 .sidebar-fixed .sidebar-inner {
@@ -1243,65 +1089,79 @@ body::-webkit-scrollbar-corner {
   box-shadow: 0 0 12px rgba(0, 0, 0, 0.05);
 }
 
-/* Main content area: offset by fixed navbar and sidebar */
 .main-content {
-  padding-top: 56px; /* navbar height */
-  margin-top: 0; /* ensure no additional margin */
-  margin-left: 0; /* default: no sidebar */
+  padding-top: 56px;
+  margin-top: 0;
+  margin-left: 0;
 }
 
-/* Remove any potential gaps on all screen sizes */
 .main-content > .container-fluid {
-  padding-top: 0 !important; /* let main-content handle the top spacing */
-  margin-top: 0 !important; /* eliminate any unwanted top margin */
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 50px;
 }
 
 @media (min-width: 768px) {
   .main-content.with-sidebar {
-    margin-left: calc(240px + 1.5rem); /* final offset merged */
+    margin-left: calc(240px + 1.5rem);
   }
 }
 
-/* Mobile adjustments (no sidebar) */
 @media (max-width: 767.98px) {
-  /* Remove large padding to avoid double spacing with body padding-bottom */
   .main-content {
     padding-bottom: 8px;
-    /* navbar offset already handled in main mobile query above */
   }
-
-  /* Hero compact on mobile - remove default padding */
   .hero-section {
     border-radius: 0 0 18px 18px;
-    padding-top: 0 !important; /* no extra padding - use main-content offset */
+    padding-top: 0 !important;
   }
 }
 
-/* --- Layering fixes: modals and toasts over fixed header/sidebar --- */
+body:not(:has(.app-navbar)) .main-content {
+  padding-top: 0 !important;
+}
+body:not(:has(.app-navbar)) .main-content > .container-fluid {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+body:not(:has(.app-navbar)) #toastContainer {
+  top: 16px !important;
+}
+
+body.no-header .main-content {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+body.no-header .main-content > .container-fluid {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+body.no-header #toastContainer {
+  top: 16px !important;
+}
+
 .modal {
-  z-index: 2000; /* above sidebar (1061) and navbar (1060) */
+  z-index: 2000;
 }
 .modal-backdrop {
   z-index: 1990;
 }
 #toastContainer {
-  z-index: 2100; /* keep toasts on top of modal too */
-  top: 64px !important; /* push below fixed navbar */
+  z-index: 2100;
+  top: 64px !important;
 }
 
-/* Optional: adjust on very small screens to keep visibility */
 @media (max-width: 576px) {
   #toastContainer {
-    top: 60px !important;
+    top: calc(56px + max(4px, env(safe-area-inset-top))) !important;
   }
 }
 
-/* Task modal mobile sizing: avoid fullscreen on mobile */
 @media (max-width: 576px) {
   .task-modal .modal-dialog {
-    width: calc(100% - 2rem); /* leave margin on sides */
-    max-width: 480px; /* reasonable cap */
-    margin: 1rem auto; /* spacing from edges */
+    width: calc(100% - 2rem);
+    max-width: 480px;
+    margin: 1rem auto;
   }
   .task-modal .modal-content {
     border-radius: 12px;
@@ -1311,57 +1171,46 @@ body::-webkit-scrollbar-corner {
   }
 }
 
-/* Fix dropdown stacking within Task Manager templates grid */
 .templates-grid .card {
-  position: relative; /* create stacking context */
-  will-change: transform; /* avoid reflow/resize when dropdown opens */
+  position: relative;
+  will-change: transform;
 }
 .templates-grid .dropdown,
 .templates-grid .dropdown-toggle {
   position: relative;
-  z-index: 1200; /* above cards and common shadows */
+  z-index: 1200;
 }
 .templates-grid .card.dropdown-open {
   z-index: 1300;
 }
 .templates-grid .dropdown-menu {
-  position: absolute; /* detach from normal flow inside card */
-  z-index: 1400; /* above elevated card */
-  transform: translate3d(0, 0, 0); /* avoid clipping due to transforms */
+  position: absolute;
+  z-index: 1400;
+  transform: translate3d(0, 0, 0);
 }
-/* Prevent layout shift and ensure dropdown overlays properly */
 .templates-grid .card .dropdown-toggle {
-  white-space: nowrap; /* prevent button text wrapping */
+  white-space: nowrap;
 }
-/* Always render dropdown menu above sibling cards and outside clipping */
 .templates-grid .card .card-body {
-  overflow: visible; /* allow menu to overflow without clipping */
+  overflow: visible;
 }
 
-/* --- Mobile layout enhancements --- */
 @media (max-width: 767.98px) {
-  /* Remove white gap between fixed navbar and main content */
   .main-content {
-    padding-top: 56px !important; /* keep navbar offset, force it */
-    margin-top: 0 !important; /* no additional margin */
+    padding-top: 56px !important;
+    margin-top: 0 !important;
   }
-
-  /* Ensure container-fluid has no top spacing */
   .main-content > .container-fluid {
     padding-top: 0 !important;
     margin-top: 0 !important;
   }
-
-  /* Special handling for landing page to remove extra spacing */
   .main-content > .container-fluid.px-0 > .landing-theme {
     margin-top: 0 !important;
     padding-top: 0 !important;
   }
-
-  /* Center hero content and tighten paddings */
   .landing-theme .hero-section {
     text-align: center;
-    padding-top: 0 !important; /* no extra top padding - main-content handles navbar offset */
+    padding-top: 0 !important;
     padding-bottom: 16px;
   }
   .landing-theme .hero-section .container {
@@ -1373,13 +1222,11 @@ body::-webkit-scrollbar-corner {
     margin-right: auto;
     font-size: 0.87rem;
   }
-  /* Center CTAs */
   .landing-theme .d-flex.gap-2.my-4,
   .landing-theme .d-flex.gap-2.mt-4,
   .landing-theme .d-flex.gap-2 {
     justify-content: center;
   }
-  /* Visual panel sizing */
   .landing-theme .landing-visual {
     max-width: 520px;
     margin-top: -0px;
@@ -1389,17 +1236,14 @@ body::-webkit-scrollbar-corner {
     padding: 12px;
     border-radius: 12px;
   }
-  /* Ensure feature titles have no top margin on mobile, keep on desktop */
   #fitur .feature-card h6,
   #fitur .feature-card h6.mt-3 {
     margin-top: 0 !important;
   }
-  /* Space before features so it doesn't feel cramped */
   .landing-theme #fitur.container {
     margin-top: 2rem !important;
     margin-bottom: 2.5rem !important;
   }
-  /* Feature cards: horizontal layout for better scanability */
   #fitur .feature-card {
     display: flex;
     align-items: flex-start;
@@ -1412,9 +1256,7 @@ body::-webkit-scrollbar-corner {
   }
 }
 
-/* Ultra-small phones: refine layout at <=567px */
-@media (max-width: 567px) {
-  /* Hero: tighter, readable */
+@media (max-width: 576px) {
   .landing-theme .hero-title {
     font-size: 1.6rem;
     line-height: 1.25;
@@ -1422,7 +1264,6 @@ body::-webkit-scrollbar-corner {
   .landing-theme .lead {
     font-size: 0.95rem;
   }
-  /* CTA buttons stack and fill width for easier tap */
   .landing-theme .d-flex.gap-2.my-4 .btn,
   .landing-theme .d-flex.gap-2.mt-4 .btn {
     width: 100%;
@@ -1430,20 +1271,14 @@ body::-webkit-scrollbar-corner {
   .landing-theme .d-flex.gap-2.my-4 {
     gap: 10px;
   }
-
-  /* Ensure feature titles have no top margin on very small screens */
   #fitur .feature-card h6,
   #fitur .feature-card h6.mt-3 {
     margin-top: 0 !important;
   }
-
-  /* Visual panel uses full width on very small screens */
   .landing-theme .landing-visual {
     max-width: 100%;
     margin-top: 8px;
   }
-
-  /* Feature grid: force single column for better readability */
   #fitur .col-6 {
     flex: 0 0 100%;
     max-width: 100%;
@@ -1457,12 +1292,10 @@ body::-webkit-scrollbar-corner {
   }
 }
 
-/* Ensure login button text readable on elegant dark navbar */
 .navbar.bg-elegant .nav-link.btn.btn-light {
   color: #111827 !important;
 }
 
-/* Mini-card: prevent label wrapping on small screens */
 @media (max-width: 576px) {
   .landing-theme .mini-card .d-flex.align-items-center {
     gap: 8px;
@@ -1471,7 +1304,7 @@ body::-webkit-scrollbar-corner {
     width: 14px;
     height: 14px;
     font-size: 0.95rem;
-    margin-right: 0.2rem !important; /* override me-3 if present */
+    margin-right: 0.2rem !important;
   }
   .landing-theme .mini-card .small.text-muted {
     overflow: hidden;
@@ -1482,8 +1315,134 @@ body::-webkit-scrollbar-corner {
     font-size: 1.1rem;
   }
 }
-/* Prevent horizontal scroll on full-bleed landing */
 .landing-theme,
 .landing-theme .hero-section {
   overflow-x: hidden;
+}
+
+/* Hover effects only on hover-capable pointers (desktops, laptops) */
+@media (hover: hover) and (pointer: fine) {
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  }
+  .task-item:hover {
+    background-color: rgba(13, 110, 253, 0.06);
+    transform: translateY(-2px);
+    z-index: 10;
+    box-shadow: 0 8px 20px rgba(13, 110, 253, 0.12);
+  }
+  .mock-panel .task-row:hover {
+    background: rgba(13, 110, 253, 0.06);
+    transform: translateX(2px);
+  }
+  .feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 28px rgba(13, 110, 253, 0.12);
+    border-color: rgba(13, 110, 253, 0.3);
+  }
+  .card-accent:hover {
+    box-shadow:
+      0 18px 44px rgba(13, 110, 253, 0.12),
+      0 12px 30px rgba(0, 0, 0, 0.08);
+  }
+  .card-accent--success:hover {
+    box-shadow:
+      0 18px 44px rgba(16, 185, 129, 0.16),
+      0 12px 30px rgba(0, 0, 0, 0.08);
+  }
+  .card-accent--warning:hover {
+    box-shadow:
+      0 18px 44px rgba(245, 158, 11, 0.18),
+      0 12px 30px rgba(0, 0, 0, 0.08);
+  }
+  .card-accent--violet:hover {
+    box-shadow:
+      0 18px 44px rgba(118, 75, 162, 0.18),
+      0 12px 30px rgba(0, 0, 0, 0.08);
+  }
+  .card-accent--cyan:hover {
+    box-shadow:
+      0 18px 44px rgba(6, 182, 212, 0.18),
+      0 12px 30px rgba(0, 0, 0, 0.08);
+  }
+  .calendar-day:hover {
+    transform: scale(1.1);
+    z-index: 10;
+    position: relative;
+  }
+}
+
+/* Mobile-specific overflow safety and UI tweaks */
+@media (max-width: 767.98px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+  .templates-grid .dropdown-menu {
+    max-width: 92vw;
+    max-height: 60vh;
+    overflow: auto;
+    left: 0;
+    right: auto;
+  }
+}
+
+/* Micro-adjustments for very small devices */
+@media (max-width: 480px) {
+  html,
+  body {
+    font-size: 14.5px;
+  }
+  .btn {
+    font-size: 0.88rem;
+    padding: 0.38rem 0.6rem;
+  }
+  .btn.btn-lg {
+    font-size: 0.98rem;
+    padding: 0.48rem 0.8rem;
+  }
+  .btn-icon {
+    gap: 0.35rem;
+  }
+  .icon-bubble {
+    width: 36px;
+    height: 36px;
+  }
+  .stats-number {
+    font-size: 1.4rem;
+  }
+  .table {
+    font-size: 0.88rem;
+  }
+  .mobile-bottom-nav .mobile-nav-item i {
+    font-size: 1.2rem;
+  }
+}
+
+@media (max-width: 360px) {
+  html,
+  body {
+    font-size: 14px;
+  }
+  .btn {
+    font-size: 0.86rem;
+    padding: 0.36rem 0.56rem;
+  }
+  .mobile-bottom-nav .mobile-nav-item {
+    font-size: 0.66rem;
+  }
+  .mobile-bottom-nav .mobile-nav-item i {
+    font-size: 1.1rem;
+  }
+  .icon-bubble {
+    width: 34px;
+    height: 34px;
+  }
+  .stats-number {
+    font-size: 1.3rem;
+  }
+  .table {
+    font-size: 0.85rem;
+  }
 }

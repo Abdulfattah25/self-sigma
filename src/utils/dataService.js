@@ -1,20 +1,12 @@
-/**
- * Data Service Layer dengan Smart Caching
- * Mengelola semua API calls dan implementasi caching otomatis
- */
-
 class DataService {
   constructor(supabaseClient, stateManager) {
     this.supabase = supabaseClient;
     this.state = stateManager;
+    this._realtime = null;
   }
 
-  /**
-   * Generic method untuk fetch data dengan caching
-   */
   async fetchWithCache(cacheKey, fetchFunction, forceRefresh = false) {
     try {
-      // Jika tidak force refresh, cek cache dulu
       if (!forceRefresh) {
         const cachedData = this.state.getFromCache(cacheKey);
         if (cachedData !== null) {
@@ -22,129 +14,148 @@ class DataService {
         }
       }
 
-      // Fetch data dari API
-      console.log(`🌐 Fetching fresh data for: ${cacheKey}`);
-      const result = await fetchFunction();
-
-      if (result.error) {
-        throw result.error;
+      if (!navigator.onLine) {
+        const staleData = this.state.state.cache[cacheKey];
+        if (staleData !== null) {
+          return { data: staleData, fromCache: true, stale: true };
+        }
+        throw new Error('Tidak ada koneksi internet');
       }
 
-      // Cache hasil
+      const result = await fetchFunction();
+      if (result.error) throw result.error;
+
       this.state.setCache(cacheKey, result.data);
       return { data: result.data, fromCache: false };
     } catch (error) {
-      console.error(`Error fetching ${cacheKey}:`, error);
+      const staleData = this.state.state.cache[cacheKey];
+      if (staleData !== null) {
+        return { data: staleData, fromCache: true, stale: true };
+      }
       throw error;
     }
   }
 
-  /**
-   * Fetch today tasks dengan caching
-   */
-  async getTodayTasks(userId, today, forceRefresh = false) {
-    const cacheKey = 'todayTasks';
+  // --- Realtime subscriptions ---
+  initRealtime(userId) {
+    try {
+      if (!this.supabase || !userId) return;
+      this.teardownRealtime();
 
-    return this.fetchWithCache(
-      cacheKey,
-      async () => {
-        const result = await this.supabase
-          .from('daily_tasks_instance')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('date', today)
-          .order('created_at', { ascending: true });
+      const channel = this.supabase.channel(`changes:${userId}`);
 
-        // Filter deadline tasks: hanya tampil jika deadline = hari ini
-        if (result.data) {
-          result.data = result.data.filter((task) => {
-            // Jika bukan deadline task, tampilkan
-            if (task.jenis_task !== 'deadline') return true;
+      // daily_tasks_instance changes (todayTasks)
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_tasks_instance',
+          filter: `user_id=eq.${userId}`,
+        },
+        async () => {
+          // Invalidate and refresh todayTasks and related scores if visible
+          this.state.invalidateCache('todayTasks');
+          const today = window.WITA?.today?.() || new Date().toISOString().slice(0, 10);
+          try {
+            await this.getTodayTasks(userId, today, true);
+            this.state.invalidateCache('todayScore');
+            this.state.invalidateCache('totalScore');
+            await Promise.all([
+              this.getTodayScore(userId, today, true),
+              this.getTotalScore(userId, true),
+            ]);
+          } catch (_) {}
+        },
+      );
 
-            // Jika deadline task, hanya tampil jika deadline_date = hari ini
-            return task.deadline_date === today;
-          });
-        }
+      // daily_tasks_template changes (templates)
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_tasks_template',
+          filter: `user_id=eq.${userId}`,
+        },
+        async () => {
+          this.state.invalidateCache('templates');
+          try {
+            await this.getTemplates(userId, true);
+            // Ensure today instances exist after template changes
+            const today = window.WITA?.today?.() || new Date().toISOString().slice(0, 10);
+            await this.syncFromTemplates(userId, today);
+          } catch (_) {}
+        },
+      );
 
-        return result;
-      },
-      forceRefresh,
-    );
+      // score_log changes (scores)
+      channel.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'score_log', filter: `user_id=eq.${userId}` },
+        async () => {
+          this.state.invalidateCache('todayScore');
+          this.state.invalidateCache('totalScore');
+          const today = window.WITA?.today?.() || new Date().toISOString().slice(0, 10);
+          try {
+            await Promise.all([
+              this.getTodayScore(userId, today, true),
+              this.getTotalScore(userId, true),
+            ]);
+          } catch (_) {}
+        },
+      );
+
+      channel.subscribe((status) => {
+        // optional: console.log('Realtime status', status)
+      });
+
+      this._realtime = channel;
+
+      // Window focus/visibility refresh for safety
+      this._onFocus = () => this.refreshOnFocus(userId);
+      this._onVisibility = () => {
+        if (!document.hidden) this.refreshOnFocus(userId);
+      };
+      window.addEventListener('focus', this._onFocus);
+      document.addEventListener('visibilitychange', this._onVisibility);
+    } catch (_) {}
   }
 
-  /**
-   * Fetch templates dengan caching
-   */
-  async getTemplates(userId, forceRefresh = false) {
-    const cacheKey = 'templates';
-
-    return this.fetchWithCache(
-      cacheKey,
-      async () => {
-        return await this.supabase
-          .from('daily_tasks_template')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: true });
-      },
-      forceRefresh,
-    );
+  teardownRealtime() {
+    try {
+      if (this._realtime) {
+        this.supabase.removeChannel(this._realtime);
+        this._realtime = null;
+      }
+      if (this._onFocus) window.removeEventListener('focus', this._onFocus);
+      if (this._onVisibility) document.removeEventListener('visibilitychange', this._onVisibility);
+      this._onFocus = null;
+      this._onVisibility = null;
+    } catch (_) {}
   }
 
-  /**
-   * Fetch today score dengan caching
-   */
-  async getTodayScore(userId, today, forceRefresh = false) {
-    const cacheKey = 'todayScore';
-
-    return this.fetchWithCache(
-      cacheKey,
-      async () => {
-        const result = await this.supabase
-          .from('score_log')
-          .select('score_delta')
-          .eq('user_id', userId)
-          .eq('date', today);
-
-        const totalScore = (result.data || []).reduce(
-          (sum, record) => sum + (record.score_delta || 0),
-          0,
-        );
-        return { data: totalScore };
-      },
-      forceRefresh,
-    );
+  async refreshOnFocus(userId) {
+    try {
+      const today = window.WITA?.today?.() || new Date().toISOString().slice(0, 10);
+      await Promise.all([
+        this.getTemplates(userId, true),
+        this.getTodayTasks(userId, today, true),
+        this.getTodayScore(userId, today, true),
+        this.getTotalScore(userId, true),
+      ]);
+    } catch (_) {}
   }
 
-  /**
-   * Fetch user profile dengan caching
-   */
-  async getUserProfile(userId, forceRefresh = false) {
-    const cacheKey = 'userProfile';
-
-    return this.fetchWithCache(
-      cacheKey,
-      async () => {
-        return await this.supabase.from('user_profiles').select('*').eq('user_id', userId).single();
-      },
-      forceRefresh,
-    );
-  }
-
-  /**
-   * Toggle task dengan optimistic update
-   */
   async toggleTask(taskId, userId, newStatus, taskName) {
     try {
       const now = new Date().toISOString();
 
-      // Optimistic update - update cache immediately
       this.state.updateCacheItem('todayTasks', taskId, {
         is_completed: newStatus,
         checked_at: newStatus ? now : null,
       });
 
-      // Then update database
       const { error } = await this.supabase
         .from('daily_tasks_instance')
         .update({ is_completed: newStatus, checked_at: newStatus ? now : null })
@@ -153,9 +164,9 @@ class DataService {
 
       if (error) throw error;
 
-      // Log score change
-      const rawReward = window.userScoreReward || 1;
-      const reward = Number.isFinite(parseFloat(rawReward)) ? parseFloat(rawReward) : 1;
+      const reward = Number.isFinite(parseFloat(window.userScoreReward))
+        ? parseFloat(window.userScoreReward)
+        : 1;
       const delta = newStatus ? reward : -reward;
 
       await this.logScoreChange(
@@ -164,136 +175,20 @@ class DataService {
         newStatus ? `Menyelesaikan: ${taskName}` : `Membatalkan: ${taskName}`,
       );
 
-      // Invalidate today score cache untuk refresh
       this.state.invalidateCache('todayScore');
+      this.state.invalidateCache('totalScore');
 
       return { success: true };
     } catch (error) {
-      // Rollback optimistic update jika gagal
-      this.state.updateCacheItem('todayTasks', taskId, {
-        is_completed: !newStatus,
-        checked_at: !newStatus ? new Date().toISOString() : null,
-      });
       throw error;
     }
   }
 
-  /**
-   * Add new ad-hoc task dengan optimistic update
-   */
-  async addAdHocTask(userId, taskName, today) {
-    try {
-      const tempId = `temp_${Date.now()}`;
-      const newTask = {
-        id: tempId,
-        user_id: userId,
-        task_id: null,
-        task_name: taskName.trim(),
-        priority: 'sedang',
-        category: null,
-        date: today,
-        is_completed: false,
-        created_at: new Date().toISOString(),
-      };
-
-      // Optimistic update
-      this.state.addCacheItem('todayTasks', newTask);
-
-      // Insert to database
-      const { data, error } = await this.supabase
-        .from('daily_tasks_instance')
-        .insert([
-          {
-            user_id: userId,
-            task_id: null,
-            task_name: taskName.trim(),
-            priority: 'sedang',
-            category: null,
-            date: today,
-            is_completed: false,
-          },
-        ])
-        .select();
-
-      if (error) throw error;
-
-      // Update cache dengan real ID
-      this.state.removeCacheItem('todayTasks', tempId);
-      this.state.addCacheItem('todayTasks', data[0]);
-
-      return { success: true, data: data[0] };
-    } catch (error) {
-      // Rollback optimistic update
-      this.state.removeCacheItem('todayTasks', tempId);
-      throw error;
-    }
-  }
-
-  /**
-   * Delete ad-hoc task dengan optimistic update
-   */
-  async deleteAdHocTask(taskId, userId) {
-    try {
-      // Get task data untuk rollback
-      const cachedTasks = this.state.getFromCache('todayTasks');
-      const taskToDelete = cachedTasks?.find((t) => t.id === taskId);
-
-      // Optimistic update
-      this.state.removeCacheItem('todayTasks', taskId);
-
-      // Delete from database
-      const { error } = await this.supabase
-        .from('daily_tasks_instance')
-        .delete()
-        .eq('id', taskId)
-        .eq('user_id', userId);
-
-      if (error) throw error;
-
-      return { success: true };
-    } catch (error) {
-      // Rollback optimistic update
-      if (taskToDelete) {
-        this.state.addCacheItem('todayTasks', taskToDelete);
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Log score change
-   */
-  async logScoreChange(userId, delta, reason) {
-    try {
-      const today =
-        window.WITA && window.WITA.today
-          ? window.WITA.today()
-          : new Date().toISOString().slice(0, 10);
-
-      const { error } = await this.supabase.from('score_log').insert([
-        {
-          user_id: userId,
-          date: today,
-          score_delta: delta,
-          reason,
-        },
-      ]);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error logging score change:', error);
-    }
-  }
-
-  /**
-   * Sync dari templates (untuk checklist initialization)
-   */
   async syncFromTemplates(userId, today) {
     try {
-      // Get templates
-      const { data: templates } = await this.getTemplates(userId);
+      const templatesResult = await this.getTemplates(userId);
+      const templates = templatesResult.data || [];
 
-      // Get existing tasks
       const { data: existing } = await this.supabase
         .from('daily_tasks_instance')
         .select('task_id')
@@ -302,8 +197,7 @@ class DataService {
 
       const existingIds = new Set((existing || []).map((i) => i.task_id).filter(Boolean));
 
-      // Filter templates that need to be created
-      const toInsert = (templates || [])
+      const toInsert = templates
         .filter((t) => !existingIds.has(t.id))
         .filter((t) => {
           const jenis = t.jenis_task || 'harian';
@@ -325,10 +219,10 @@ class DataService {
 
       if (toInsert.length) {
         const { error } = await this.supabase.from('daily_tasks_instance').insert(toInsert);
+
         if (error && error.code !== '23505') throw error;
       }
 
-      // Refresh today tasks cache
       await this.getTodayTasks(userId, today, true);
 
       return { success: true, created: toInsert.length };
@@ -338,14 +232,151 @@ class DataService {
     }
   }
 
-  /**
-   * Clear all cache (untuk logout)
-   */
+  async getTodayTasks(userId, today, forceRefresh = false) {
+    return this.fetchWithCache(
+      'todayTasks',
+      async () => {
+        const result = await this.supabase
+          .from('daily_tasks_instance')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('date', today)
+          .order('created_at', { ascending: true });
+
+        if (result.data) {
+          result.data = result.data.filter((task) => {
+            if (task.jenis_task !== 'deadline') return true;
+            return task.deadline_date === today;
+          });
+        }
+
+        return result;
+      },
+      forceRefresh,
+    );
+  }
+
+  async getTemplates(userId, forceRefresh = false) {
+    return this.fetchWithCache(
+      'templates',
+      async () => {
+        return await this.supabase
+          .from('daily_tasks_template')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: true });
+      },
+      forceRefresh,
+    );
+  }
+
+  async getTodayScore(userId, today, forceRefresh = false) {
+    return this.fetchWithCache(
+      'todayScore',
+      async () => {
+        const result = await this.supabase
+          .from('score_log')
+          .select('score_delta')
+          .eq('user_id', userId)
+          .eq('date', today);
+
+        const totalScore = (result.data || []).reduce(
+          (sum, record) => sum + (record.score_delta || 0),
+          0,
+        );
+        return { data: totalScore };
+      },
+      forceRefresh,
+    );
+  }
+
+  async getTotalScore(userId, forceRefresh = false) {
+    return this.fetchWithCache(
+      'totalScore',
+      async () => {
+        const result = await this.supabase
+          .from('score_log')
+          .select('score_delta')
+          .eq('user_id', userId);
+
+        const totalScore = (result.data || []).reduce(
+          (sum, record) => sum + (record.score_delta || 0),
+          0,
+        );
+        return { data: totalScore };
+      },
+      forceRefresh,
+    );
+  }
+
+  async addAdHocTask(userId, taskName, today) {
+    try {
+      const { data, error } = await this.supabase
+        .from('daily_tasks_instance')
+        .insert([
+          {
+            user_id: userId,
+            task_id: null,
+            task_name: taskName.trim(),
+            priority: 'sedang',
+            category: null,
+            date: today,
+            is_completed: false,
+          },
+        ])
+        .select();
+
+      if (error) throw error;
+
+      this.state.addCacheItem('todayTasks', data[0]);
+      return { success: true, data: data[0] };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async deleteAdHocTask(taskId, userId) {
+    try {
+      const { error } = await this.supabase
+        .from('daily_tasks_instance')
+        .delete()
+        .eq('id', taskId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      this.state.removeCacheItem('todayTasks', taskId);
+      return { success: true };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async logScoreChange(userId, delta, reason) {
+    const today = window.WITA?.today?.() || new Date().toISOString().slice(0, 10);
+
+    try {
+      await this.supabase.from('score_log').insert([
+        {
+          user_id: userId,
+          score_delta: delta,
+          reason: reason,
+          date: today,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      this.state.invalidateCache('todayScore');
+      this.state.invalidateCache('totalScore');
+    } catch (error) {
+      console.warn('Score logging failed:', error);
+    }
+  }
+
   clearAllCache() {
-    this.state.invalidateCache('all');
+    this.state.clearCache();
   }
 }
 
-// Export untuk digunakan di komponen
 window.DataService = DataService;
 export default DataService;

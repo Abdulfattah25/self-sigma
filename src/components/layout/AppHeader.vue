@@ -1,24 +1,21 @@
 <template>
   <nav
+    v-if="user"
     class="navbar navbar-dark app-navbar modern-navbar"
     :class="{ 'bg-elegant': !user, 'bg-primary': !!user }"
   >
-    <div class="container-fluid d-flex align-items-center w-100 px-4">
+    <div class="container-fluid d-flex align-items-center w-100 px-3">
       <a
         class="navbar-brand d-flex align-items-center"
         href="#"
         @click.prevent="$emit('set-view', 'dashboard')"
       >
-        <span class="brand-badge me-2">PT</span>
+        <span class="brand-badge">🌱</span>
         <span>Productivity Tracker</span>
       </a>
 
-      <!-- Desktop nav links (hidden, replaced by sidebar) -->
-      <ul class="navbar-nav d-none flex-row ms-4">
-        <!-- hidden -->
-      </ul>
+      <ul class="navbar-nav d-none flex-row ms-4"></ul>
 
-      <!-- Right: auth/notifications (visible on all sizes) -->
       <ul class="navbar-nav ms-auto">
         <li v-if="!user" class="nav-item">
           <a
@@ -30,7 +27,6 @@
         </li>
         <li v-else class="nav-item">
           <div class="d-flex align-items-center gap-3">
-            <!-- Notification Icon -->
             <a
               class="nav-link position-relative"
               href="#"
@@ -61,16 +57,13 @@ const props = defineProps({
 
 const emit = defineEmits(['show-auth', 'set-view', 'toggle-notifications']);
 
-// Notification state
-const hasUnreadNotifications = ref(true); // Example: could be computed from props
-
+const hasUnreadNotifications = ref(true);
 const formatUserName = computed(() => {
   return props.user?.user_metadata?.full_name || props.user?.email?.split('@')[0] || 'User';
 });
 
 const toggleNotifications = () => {
   emit('toggle-notifications');
-  // For now, just mark as read when clicked
   hasUnreadNotifications.value = false;
 };
 </script>

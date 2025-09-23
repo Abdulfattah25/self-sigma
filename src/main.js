@@ -14,12 +14,10 @@ import './asset/css/forest.css';
 import * as bootstrap from 'bootstrap';
 window.bootstrap = bootstrap;
 
-// Import State Manager and Data Service
-import stateManager from './utils/stateManager.js';
-import DataService from './utils/dataService.js';
-
 // Supabase singleton helper
 import { getSupabase } from './lib/supabaseClient.js';
+import stateManager from './utils/stateManager.js';
+import DataService from './utils/dataService.js';
 
 // Initialize a single Supabase client and reuse it everywhere
 const supabaseClient = getSupabase();
@@ -54,7 +52,6 @@ import './utils/sceneFor.js';
     { default: Report },
     { default: Profile },
     { default: Admin },
-    { default: CacheDebugger },
   ] = await Promise.all([
     import('./components/pages/PlantTile.vue'),
     import('./components/pages/ForestGrid.vue'),
@@ -65,7 +62,6 @@ import './utils/sceneFor.js';
     import('./components/pages/Report.vue'),
     import('./components/pages/Profile.vue'),
     import('./components/pages/Admin.vue'),
-    import('./components/pages/CacheDebugger.vue'),
   ]);
   window.Vue.component('plant-tile', PlantTile);
   window.Vue.component('forest-grid', ForestGrid);
@@ -76,7 +72,6 @@ import './utils/sceneFor.js';
   window.Vue.component('report', Report);
   window.Vue.component('profile', Profile);
   window.Vue.component('admin', Admin);
-  window.Vue.component('cache-debugger', CacheDebugger);
 
   // Initialize Vue app with App.vue as root component
   const { default: App } = await import('./App.vue');

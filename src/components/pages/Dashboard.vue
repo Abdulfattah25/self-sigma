@@ -107,9 +107,6 @@
                 </div>
               </div>
             </div>
-            <small class="text-muted d-block mt-2"
-              >Target (template) hari ini: {{ templateTargetCount }}</small
-            >
           </div>
         </div>
       </div>
@@ -235,6 +232,7 @@ export default {
       forestTrees: [],
       forestDaysRange: 21,
       themeObserver: null,
+      _unsubs: [],
     };
   },
   computed: {
@@ -257,6 +255,32 @@ export default {
     await this.loadWeeklyAgenda();
     await this.loadMonthlyAgenda();
     this.renderChart();
+
+    // Subscribe to cache changes
+    try {
+      if (window.stateManager && typeof window.stateManager.subscribe === 'function') {
+        this._unsubs.push(
+          window.stateManager.subscribe('todayTasks', (tasks) => {
+            this.todayTasks = tasks || [];
+            this.incompleteTasks = this.todayTasks.filter((t) => !t.is_completed);
+            const templateTasks = this.todayTasks.filter((t) => !!t.task_id);
+            this.templateTargetCount = templateTasks.length;
+            if (templateTasks.length > 0) {
+              const completed = templateTasks.filter((t) => t.is_completed).length;
+              this.completionRatio = Math.round((completed / templateTasks.length) * 100);
+            } else {
+              this.completionRatio = 0;
+            }
+          }),
+          window.stateManager.subscribe('todayScore', (score) => {
+            this.todayScore = score || 0;
+          }),
+          window.stateManager.subscribe('totalScore', (score) => {
+            this.totalScore = score || 0;
+          }),
+        );
+      }
+    } catch (_) {}
 
     this._onDeadlineCompleted = (ev) => {
       try {
@@ -306,6 +330,10 @@ export default {
       if (this._onAgendaRefresh)
         window.removeEventListener('agenda-refresh', this._onAgendaRefresh);
     } catch (_) {}
+    try {
+      (this._unsubs || []).forEach((u) => typeof u === 'function' && u());
+      this._unsubs = [];
+    } catch (_) {}
   },
   methods: {
     async loadDashboardData() {
@@ -315,12 +343,31 @@ export default {
             ? window.WITA.today()
             : new Date().toISOString().slice(0, 10);
 
-        const { data: todayScoreData } = await this.supabase
-          .from('score_log')
-          .select('score_delta')
-          .eq('user_id', this.user.id)
-          .eq('date', today);
-        this.todayScore = (todayScoreData || []).reduce((s, r) => s + (r.score_delta || 0), 0);
+        if (window.dataService) {
+          const [scoreResult, tasksResult, totalScoreResult] = await Promise.all([
+            window.dataService.getTodayScore(this.user.id, today),
+            window.dataService.getTodayTasks(this.user.id, today),
+            window.dataService.getTotalScore(this.user.id),
+          ]);
+
+          this.todayScore = scoreResult.data || 0;
+          this.todayTasks = tasksResult.data || [];
+          this.totalScore = totalScoreResult.data || 0;
+        } else {
+          const { data: todayScoreData } = await this.supabase
+            .from('score_log')
+            .select('score_delta')
+            .eq('user_id', this.user.id)
+            .eq('date', today);
+          this.todayScore = (todayScoreData || []).reduce((s, r) => s + (r.score_delta || 0), 0);
+
+          const { data: todayTasksData } = await this.supabase
+            .from('daily_tasks_instance')
+            .select('*')
+            .eq('user_id', this.user.id)
+            .eq('date', today);
+          this.todayTasks = todayTasksData || [];
+        }
 
         const { data: totalScoreData } = await this.supabase
           .from('score_log')
@@ -328,15 +375,8 @@ export default {
           .eq('user_id', this.user.id);
         this.totalScore = (totalScoreData || []).reduce((s, r) => s + (r.score_delta || 0), 0);
 
-        const { data: todayTasksData } = await this.supabase
-          .from('daily_tasks_instance')
-          .select('*')
-          .eq('user_id', this.user.id)
-          .eq('date', today);
-        this.todayTasks = todayTasksData || [];
         this.incompleteTasks = this.todayTasks.filter((t) => !t.is_completed);
 
-        // If the user hasn't completed any task today, ensure today's score stays 0
         const completedAny = (this.todayTasks || []).filter((t) => t.is_completed).length;
         if (completedAny === 0) {
           this.todayScore = 0;
@@ -364,6 +404,8 @@ export default {
           window.WITA && window.WITA.today
             ? window.WITA.today()
             : new Date().toISOString().slice(0, 10);
+
+        // Determine month start and first active date (cached)
         const parts =
           window.WITA && window.WITA.nowParts
             ? window.WITA.nowParts()
@@ -371,10 +413,13 @@ export default {
                 const d = new Date(endStr);
                 return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1 };
               })();
-        const startStr =
+        const monthStart =
           window.WITA && window.WITA.monthStartIso
             ? window.WITA.monthStartIso(parts.year, parts.month - 1)
             : `${parts.year}-${String(parts.month).padStart(2, '0')}-01`;
+
+        const firstActive = await this.getFirstActiveDate();
+        const startStr = firstActive && firstActive > monthStart ? firstActive : monthStart;
 
         const diffDays = Math.floor((Date.parse(endStr) - Date.parse(startStr)) / 86400000) + 1;
 
@@ -662,6 +707,48 @@ export default {
     getPriorityBadgeClass(priority) {
       const classes = { tinggi: 'bg-danger', sedang: 'bg-warning text-dark', rendah: 'bg-success' };
       return classes[priority] || 'bg-secondary';
+    },
+
+    async getFirstActiveDate() {
+      try {
+        // Try cached first
+        if (window.stateManager) {
+          const cached = window.stateManager.getFromCache('firstActiveDate');
+          if (cached) return cached;
+        }
+
+        // Use auth user.created_at as primary source
+        let iso = null;
+        try {
+          const createdAt = this.user && this.user.created_at;
+          if (createdAt) {
+            const dt = new Date(createdAt);
+            const witaMs = dt.getTime() + 7 * 60 * 60 * 1000; // UTC+7
+            iso = new Date(witaMs).toISOString().slice(0, 10);
+          }
+        } catch (_) {}
+
+        // Fallback: earliest instance date if exists
+        if (!iso) {
+          const { data, error } = await this.supabase
+            .from('daily_tasks_instance')
+            .select('date')
+            .eq('user_id', this.user.id)
+            .order('date', { ascending: true })
+            .limit(1);
+          if (!error && data && data[0]?.date) iso = data[0].date;
+        }
+
+        // Final fallback: today
+        if (!iso) {
+          iso = window.WITA?.today?.() || new Date().toISOString().slice(0, 10);
+        }
+
+        if (window.stateManager) window.stateManager.setCache('firstActiveDate', iso);
+        return iso;
+      } catch (_) {
+        return window.WITA?.today?.() || new Date().toISOString().slice(0, 10);
+      }
     },
   },
 };

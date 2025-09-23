@@ -324,7 +324,7 @@ export default {
           .lte('date', endDate);
         if (scoresError) throw scoresError;
 
-        this.processMonthlyData(tasksData || [], scoresData || []);
+        await this.processMonthlyData(tasksData || [], scoresData || []);
         this.$nextTick(() => {
           this.renderCharts();
         });
@@ -417,7 +417,7 @@ export default {
         });
       };
     },
-    processMonthlyData(tasksData, scoresData) {
+    async processMonthlyData(tasksData, scoresData) {
       const tasksByDate = {};
       (tasksData || []).forEach((task) => {
         if (!tasksByDate[task.date]) tasksByDate[task.date] = [];
@@ -454,6 +454,7 @@ export default {
         completedTasks += dayCompleted;
         totalScore += dayScore;
       }
+
       const activityMap = new Map();
       (tasksData || []).forEach((t) => {
         const key = t.task_id ? `tpl:${t.task_id}` : `adhoc:${t.task_name}`;
@@ -478,14 +479,54 @@ export default {
         if (b.total !== a.total) return b.total - a.total;
         return a.name.localeCompare(b.name);
       });
+
       const nowParts = window.WITA && window.WITA.nowParts ? window.WITA.nowParts() : null;
       const isCurrentMonth = nowParts && nowParts.year === year && nowParts.month - 1 === month;
-      const endDay = isCurrentMonth ? nowParts.day : daysInMonth;
-      const counters = new Map();
-      for (let d = 1; d <= endDay; d++) {
-        const iso = new Date(Date.UTC(year, month, d)).toISOString().slice(0, 10);
-        counters.set(iso, { done: 0, total: 0 });
+      const monthStartIso = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+      const monthEndIso = new Date(Date.UTC(year, month + 1, 0)).toISOString().slice(0, 10);
+      const endIso = isCurrentMonth
+        ? new Date(Date.UTC(year, month, nowParts.day)).toISOString().slice(0, 10)
+        : monthEndIso;
+
+      const firstActive = await (async () => {
+        try {
+          if (this && typeof this.getFirstActiveDate === 'function') {
+            return await this.getFirstActiveDate();
+          }
+          if (window.stateManager && typeof window.stateManager.getFromCache === 'function') {
+            const cached = window.stateManager.getFromCache('firstActiveDate');
+            if (cached) return cached;
+          }
+        } catch (_) {}
+        try {
+          const minTaskDate = (tasksData || []).reduce((min, t) => {
+            if (!t?.date) return min;
+            return !min || t.date < min ? t.date : min;
+          }, null);
+          if (minTaskDate) return minTaskDate;
+        } catch (_) {}
+        return window.WITA?.today?.() || new Date().toISOString().slice(0, 10);
+      })();
+      const startIso = firstActive && firstActive > monthStartIso ? firstActive : monthStartIso;
+
+      const dates = [];
+      const addDays = (iso, n) => {
+        const d = new Date(iso);
+        d.setDate(d.getDate() + n);
+        return d.toISOString().slice(0, 10);
+      };
+      if (startIso <= endIso) {
+        let cur = startIso;
+        while (true) {
+          dates.push(cur);
+          if (cur === endIso) break;
+          cur = addDays(cur, 1);
+        }
       }
+
+      const counters = new Map();
+      dates.forEach((k) => counters.set(k, { done: 0, total: 0 }));
+
       (tasksData || []).forEach((t) => {
         if (!t.task_id) return;
         const key = t.date;
@@ -495,6 +536,7 @@ export default {
         if (t.is_completed) c.done += 1;
         counters.set(key, c);
       });
+
       const forestTrees = [];
       counters.forEach((c, dateStr) => {
         const percent = c.total > 0 ? Math.round((c.done / c.total) * 100) : 0;
@@ -504,6 +546,7 @@ export default {
       const forestAvgPercent = forestTrees.length
         ? Math.round(forestTrees.reduce((s, t) => s + (t.percent || 0), 0) / forestTrees.length)
         : 0;
+
       this.monthlyData = {
         totalTasks,
         completedTasks,

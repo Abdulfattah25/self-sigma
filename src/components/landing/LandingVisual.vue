@@ -32,28 +32,28 @@
           <div class="mock-panel">
             <div class="d-flex align-items-center justify-content-between mb-2">
               <strong class="text-dark">Task Harian</strong>
-              <span class="badge bg-success-subtle text-success">On Track</span>
+              <span class="badge bg-success-subtle text-success">Poin</span>
             </div>
             <div class="task-row">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" checked />
               </div>
               <div class="flex-grow-1 text-muted">Minum 2L air putih</div>
-              <span class="badge rounded-pill bg-success-subtle text-success">+2</span>
+              <span class="badge rounded-pill bg-success-subtle text-success">+1</span>
             </div>
             <div class="task-row">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" />
               </div>
               <div class="flex-grow-1 text-muted">Olahraga 20 menit</div>
-              <span class="badge rounded-pill bg-success-subtle text-success">+4</span>
+              <span class="badge rounded-pill bg-success-subtle text-success">+1</span>
             </div>
             <div class="task-row">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" />
               </div>
               <div class="flex-grow-1 text-muted">Belajar 45 menit</div>
-              <span class="badge rounded-pill bg-success-subtle text-success">+6</span>
+              <span class="badge rounded-pill bg-success-subtle text-success">+1</span>
             </div>
           </div>
         </div>

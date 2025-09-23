@@ -135,7 +135,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-6 mb-2">
+      <div class="col-md-6 mb-4">
         <div class="card dashboard-card card-accent card-accent--info h-100">
           <div class="card-header">
             <h5 class="mb-0">🗓️ Template Task Deadline</h5>
@@ -331,6 +331,8 @@ export default {
       editingId: null,
       modalMode: 'add',
       pendingDelete: null,
+      // subscribe handle
+      _unsubTemplates: null,
     };
   },
   computed: {
@@ -395,6 +397,16 @@ export default {
       await this.cleanPastDeadlines();
     } catch (_) {}
     await this.loadTemplates();
+
+    // Subscribe to cache updates for templates
+    try {
+      if (window.stateManager && typeof window.stateManager.subscribe === 'function') {
+        this._unsubTemplates = window.stateManager.subscribe('templates', (list) => {
+          if (Array.isArray(list)) this.templates = list;
+        });
+      }
+    } catch (_) {}
+
     try {
       document.addEventListener('show.bs.dropdown', this.handleDropdownShow, true);
       document.addEventListener('hide.bs.dropdown', this.handleDropdownHide, true);
@@ -405,18 +417,27 @@ export default {
       document.removeEventListener('show.bs.dropdown', this.handleDropdownShow, true);
       document.removeEventListener('hide.bs.dropdown', this.handleDropdownHide, true);
     } catch (_) {}
+    try {
+      if (typeof this._unsubTemplates === 'function') this._unsubTemplates();
+    } catch (_) {}
   },
   methods: {
     async loadTemplates() {
       try {
         this.loading = true;
-        const { data, error } = await this.supabase
-          .from('daily_tasks_template')
-          .select('*')
-          .eq('user_id', this.user.id)
-          .order('created_at', { ascending: false });
-        if (error) throw error;
-        this.templates = data || [];
+
+        if (window.dataService) {
+          const result = await window.dataService.getTemplates(this.user.id);
+          this.templates = result.data || [];
+        } else {
+          const { data, error } = await this.supabase
+            .from('daily_tasks_template')
+            .select('*')
+            .eq('user_id', this.user.id)
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          this.templates = data || [];
+        }
       } catch (error) {
         console.error('Error loading templates:', error);
         this.$root &&
@@ -427,34 +448,46 @@ export default {
       }
     },
     async ensureTodayInstanceForTemplate(template) {
-      if (template && template.jenis_task && template.jenis_task !== 'harian') return;
+      const jenis = template?.jenis_task || 'harian';
       const today =
         window.WITA && window.WITA.today
           ? window.WITA.today()
           : new Date().toISOString().slice(0, 10);
-      const { data: existing, error: eErr } = await this.supabase
-        .from('daily_tasks_instance')
-        .select('id')
-        .eq('user_id', this.user.id)
-        .eq('date', today)
-        .eq('task_id', template.id)
-        .limit(1);
-      if (eErr) throw eErr;
-      if (existing && existing.length > 0) return;
-      const { error: iErr } = await this.supabase.from('daily_tasks_instance').insert([
-        {
-          user_id: this.user.id,
-          task_id: template.id,
-          task_name: template.task_name,
-          priority: template.priority,
-          category: template.category,
-          jenis_task: template.jenis_task || 'harian',
-          deadline_date: template.deadline_date || null,
-          date: today,
-          is_completed: false,
-        },
-      ]);
-      if (iErr && iErr.code !== '23505') throw iErr;
+
+      // Buat instance hanya untuk:
+      // - harian: selalu untuk hari ini
+      // - deadline: hanya jika deadline_date === today
+      if (jenis === 'deadline' && template?.deadline_date !== today) return;
+
+      try {
+        // Langsung coba insert (1 round-trip), abaikan duplikasi
+        const { error: iErr } = await this.supabase.from('daily_tasks_instance').insert([
+          {
+            user_id: this.user.id,
+            task_id: template.id,
+            task_name: template.task_name,
+            priority: template.priority,
+            category: template.category,
+            jenis_task: jenis,
+            deadline_date: template.deadline_date || null,
+            date: today,
+            is_completed: false,
+          },
+        ]);
+        if (iErr && iErr.code !== '23505') throw iErr;
+      } catch (e) {
+        // Jika gagal selain duplikasi, log saja
+        if (!e?.code || e.code !== '23505') console.warn('ensureTodayInstance failed:', e);
+      }
+
+      // Refresh cache di background agar UI lain update tanpa blokir
+      try {
+        if (window.dataService) {
+          window.dataService.getTodayTasks(this.user.id, today, true).catch(() => {});
+        } else if (window.stateManager) {
+          window.stateManager.invalidateCache('todayTasks');
+        }
+      } catch (_) {}
     },
     openAddModal() {
       this.editingId = null;
@@ -561,6 +594,10 @@ export default {
                 .eq('user_id', this.user.id)
                 .eq('task_id', updated.id)
                 .eq('date', today);
+              // Refresh todayTasks di background, jangan blok UI
+              if (window.dataService) {
+                window.dataService.getTodayTasks(this.user.id, today, true).catch(() => {});
+              }
             } catch (e) {
               console.warn(
                 'Gagal mensinkronkan instance hari ini setelah update template:',
@@ -604,7 +641,8 @@ export default {
           if (error) throw error;
           this.templates.unshift(data[0]);
           try {
-            await this.ensureTodayInstanceForTemplate(data[0]);
+            // Jalankan non-blocking agar modal cepat tertutup
+            this.ensureTodayInstanceForTemplate(data[0]).catch(() => {});
           } catch (e) {
             console.warn('Gagal membuat instance hari ini untuk template baru:', e.message);
           }

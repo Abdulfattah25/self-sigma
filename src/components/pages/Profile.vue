@@ -453,8 +453,14 @@ export default {
         this.tempFullName = this.fullName; // Initialize temp name
         this.selectedTheme = metadata.theme || 'light';
         this.selectedPlant = metadata.plant_type || 'forest';
-        this.scoreReward = parseFloat(metadata.score_reward_complete) || 1;
-        this.scorePenalty = parseFloat(metadata.score_penalty_incomplete) || 2;
+        const rw = Number(metadata.score_reward_complete);
+        const pn = Number(metadata.score_penalty_incomplete);
+        this.scoreReward = Number.isFinite(rw) ? rw : 1;
+        this.scorePenalty = Number.isFinite(pn) ? pn : 2;
+        try {
+          window.userScoreReward = this.scoreReward;
+          window.userScorePenalty = this.scorePenalty;
+        } catch (_) {}
       } catch (error) {
         console.error('Error loading user settings:', error);
       }
@@ -663,11 +669,18 @@ export default {
         this.saving = true;
         const { error } = await this.updateUserWithTimeout({
           data: {
-            score_reward_complete: this.scoreReward,
+            // Persist both reward and penalty to user metadata
+            score_reward_complete: Number(this.scoreReward) || 1,
             score_penalty_incomplete: this.scorePenalty,
           },
         });
         if (error) throw error;
+
+        // Optionally expose to global for other modules using window values
+        try {
+          window.userScoreReward = Number(this.scoreReward) || 1;
+          window.userScorePenalty = Number(this.scorePenalty) || 2;
+        } catch (_) {}
 
         this.showToast('Pengaturan skor berhasil diperbarui!', 'success');
         this.activeSection = null;

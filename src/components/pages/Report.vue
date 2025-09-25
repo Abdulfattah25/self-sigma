@@ -316,15 +316,22 @@ export default {
           .lte('date', endDate);
         if (tasksError) throw tasksError;
 
-        const { data: scoresData, error: scoresError } = await this.supabase
-          .from('score_log')
-          .select('*')
-          .eq('user_id', this.user.id)
-          .gte('date', startDate)
-          .lte('date', endDate);
-        if (scoresError) throw scoresError;
+        // Try to load score logs; if unavailable, we'll compute from tasks
+        let scoresData = [];
+        try {
+          const { data: sd, error: se } = await this.supabase
+            .from('score_log')
+            .select('*')
+            .eq('user_id', this.user.id)
+            .gte('date', startDate)
+            .lte('date', endDate);
+          if (se) throw se;
+          scoresData = sd || [];
+        } catch (_) {
+          scoresData = [];
+        }
 
-        await this.processMonthlyData(tasksData || [], scoresData || []);
+        await this.processMonthlyData(tasksData || [], scoresData);
         this.$nextTick(() => {
           this.renderCharts();
         });
@@ -423,6 +430,7 @@ export default {
         if (!tasksByDate[task.date]) tasksByDate[task.date] = [];
         tasksByDate[task.date].push(task);
       });
+      // Prepare score logs map (may be empty)
       const scoresByDate = {};
       (scoresData || []).forEach((score) => {
         if (!scoresByDate[score.date]) scoresByDate[score.date] = 0;
@@ -435,11 +443,25 @@ export default {
       const year = this.currentYear;
       const month = this.currentMonth;
       const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+      // Get user-configured reward/penalty from metadata if available
+      const meta = (this.user && this.user.user_metadata) || {};
+      const reward = Number.isFinite(Number(meta.score_reward_complete))
+        ? Number(meta.score_reward_complete)
+        : Number(window.userScoreReward) || 1;
+      const penalty = Number.isFinite(Number(meta.score_penalty_incomplete))
+        ? Number(meta.score_penalty_incomplete)
+        : Number(window.userScorePenalty) || 2;
+
       for (let day = 1; day <= daysInMonth; day++) {
         const date = new Date(Date.UTC(year, month, day)).toISOString().split('T')[0];
         const dayTasks = tasksByDate[date] || [];
         const dayCompleted = dayTasks.filter((t) => t.is_completed).length;
-        const dayScore = scoresByDate[date] || 0;
+        // If we have explicit scores for the day, use them; otherwise compute from tasks
+        let dayScore = typeof scoresByDate[date] === 'number' ? scoresByDate[date] : null;
+        if (dayScore === null) {
+          const incomplete = dayTasks.length - dayCompleted;
+          dayScore = dayCompleted * reward - incomplete * penalty;
+        }
         const dayStats = {
           date: date,
           totalTasks: dayTasks.length,

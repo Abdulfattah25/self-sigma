@@ -81,3 +81,54 @@ import './utils/sceneFor.js';
     render: (h) => h(App),
   });
 })();
+
+// PWA Service Worker registration
+import { registerSW } from 'virtual:pwa-register';
+const showToast = (message, variant = 'info', delay = 4000, action) => {
+  try {
+    const container =
+      document.getElementById('toastContainer') ||
+      (() => {
+        const el = document.createElement('div');
+        el.id = 'toastContainer';
+        el.className = 'position-fixed top-0 end-0 p-3';
+        el.setAttribute('aria-live', 'polite');
+        el.setAttribute('aria-atomic', 'true');
+        document.body.appendChild(el);
+        return el;
+      })();
+
+    const toastEl = document.createElement('div');
+    toastEl.className = `toast align-items-center text-bg-${variant} border-0`;
+    toastEl.setAttribute('role', 'alert');
+    toastEl.innerHTML = `
+      <div class="d-flex">
+        <div class="toast-body">${message}</div>
+        ${action ? `<button type="button" class="btn btn-light btn-sm me-2 m-auto">${action.label}</button>` : ''}
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>`;
+
+    const actionBtn = toastEl.querySelector('button.btn.btn-light');
+    if (actionBtn && typeof action.onClick === 'function') {
+      actionBtn.addEventListener('click', () => action.onClick());
+    }
+
+    container.appendChild(toastEl);
+    const toast = new window.bootstrap.Toast(toastEl, { delay });
+    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+    toast.show();
+  } catch (_) {}
+};
+
+const updateSW = registerSW({
+  immediate: true,
+  onOfflineReady() {
+    showToast('Aplikasi siap digunakan offline', 'success');
+  },
+  onNeedRefresh() {
+    showToast('Versi baru tersedia', 'info', 8000, {
+      label: 'Muat ulang',
+      onClick: () => updateSW(true),
+    });
+  },
+});

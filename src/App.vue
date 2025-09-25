@@ -176,11 +176,20 @@ const handleToggleNotifications = () => {
 };
 
 const setView = (view) => {
+  const publicViews = ['dashboard'];
+  if (!user.value && !publicViews.includes(view)) {
+    showToast('Silakan login untuk mengakses menu ini', 'warning');
+    currentView.value = 'dashboard';
+    showAuth.value = true;
+    return;
+  }
+
   if (view === 'admin' && !isAdmin.value) {
     showToast('Akses admin diperlukan', 'danger');
     currentView.value = 'dashboard';
     return;
   }
+
   currentView.value = view;
 };
 
@@ -213,6 +222,9 @@ const initializeApp = async () => {
       // Start realtime listeners after login
       dataService.initRealtime(user.value.id);
       await postLoginBootstrap();
+    } else {
+      // Ensure LandingPage is visible when not authenticated
+      currentView.value = 'dashboard';
     }
 
     supabase.auth.onAuthStateChange(async (event, newSession) => {
@@ -393,6 +405,18 @@ const applyTheme = (theme) => {
   }
 
   localStorage.setItem('app-theme', theme);
+  try {
+    const meta =
+      document.querySelector('meta[name="theme-color"]') ||
+      (() => {
+        const m = document.createElement('meta');
+        m.setAttribute('name', 'theme-color');
+        document.head.appendChild(m);
+        return m;
+      })();
+    const color = theme === 'dark' ? '#0b1220' : '#ffffff';
+    meta.setAttribute('content', color);
+  } catch (_) {}
 };
 
 const postLoginBootstrap = async () => {
@@ -528,13 +552,79 @@ watch(currentView, (val) => {
 
 onMounted(() => {
   initializeApp();
+  const onOffline = () => showToast('Koneksi internet terputus', 'warning');
+  const onOnline = () => showToast('Kembali online', 'success');
+  window.addEventListener('offline', onOffline);
+  window.addEventListener('online', onOnline);
+  window.__netListeners = { onOffline, onOnline };
+
+  try {
+    scheduleLocalReminders();
+  } catch (_) {}
+
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const open = params.get('open');
+    // Only honor deep-link for public view when logged out; otherwise require login
+    if (open && (open === 'dashboard' || !!user.value)) setView(open);
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.addEventListener('message', (e) => {
+        const v = e.data?.view;
+        if (e.data?.type === 'open-view' && v) setView(v);
+      });
+    }
+  } catch (_) {}
 });
 
 onBeforeUnmount(() => {
   try {
     dataService.teardownRealtime();
   } catch (_) {}
+  try {
+    if (window.__netListeners) {
+      window.removeEventListener('offline', window.__netListeners.onOffline);
+      window.removeEventListener('online', window.__netListeners.onOnline);
+    }
+  } catch (_) {}
 });
+
+function scheduleLocalReminders() {
+  const scheduleAt = (h) => {
+    const now = new Date();
+    const tzOffsetMs = 8 * 60 * 60 * 1000; // WITA UTC+8 for reminders
+    const witaNow = new Date(now.getTime() + tzOffsetMs);
+    const target = new Date(witaNow);
+    target.setHours(h, 0, 0, 0);
+    let delay = target.getTime() - witaNow.getTime();
+    if (delay < 0) delay += 24 * 60 * 60 * 1000;
+    setTimeout(() => {
+      fireLocalReminder(h);
+      setInterval(() => fireLocalReminder(h), 24 * 60 * 60 * 1000);
+    }, delay);
+  };
+
+  scheduleAt(6);
+  scheduleAt(18);
+}
+
+function fireLocalReminder(hour) {
+  const today = getToday();
+  const key = `local_reminder_${hour}_${today}`;
+  if (localStorage.getItem(key)) return;
+  localStorage.setItem(key, '1');
+
+  const title = hour === 6 ? 'Pengingat pagi' : 'Pengingat sore';
+  const body =
+    hour === 6 ? 'Mulai hari ini dengan menyelesaikan tugas.' : 'Cek tugas yang belum selesai.';
+
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(title, { body, icon: '/icons/icon-192.png' });
+      return;
+    } catch (_) {}
+  }
+  showToast(`${title}: ${body}`, 'info');
+}
 </script>
 
 <style>

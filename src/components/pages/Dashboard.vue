@@ -343,24 +343,11 @@ export default {
             ? window.WITA.today()
             : new Date().toISOString().slice(0, 10);
 
+        // Always load today's tasks
         if (window.dataService) {
-          const [scoreResult, tasksResult, totalScoreResult] = await Promise.all([
-            window.dataService.getTodayScore(this.user.id, today),
-            window.dataService.getTodayTasks(this.user.id, today),
-            window.dataService.getTotalScore(this.user.id),
-          ]);
-
-          this.todayScore = scoreResult.data || 0;
+          const tasksResult = await window.dataService.getTodayTasks(this.user.id, today);
           this.todayTasks = tasksResult.data || [];
-          this.totalScore = totalScoreResult.data || 0;
         } else {
-          const { data: todayScoreData } = await this.supabase
-            .from('score_log')
-            .select('score_delta')
-            .eq('user_id', this.user.id)
-            .eq('date', today);
-          this.todayScore = (todayScoreData || []).reduce((s, r) => s + (r.score_delta || 0), 0);
-
           const { data: todayTasksData } = await this.supabase
             .from('daily_tasks_instance')
             .select('*')
@@ -369,18 +356,45 @@ export default {
           this.todayTasks = todayTasksData || [];
         }
 
+        // Load today's score from logs (if any)
+        const { data: todayScoreRows } = await this.supabase
+          .from('score_log')
+          .select('score_delta')
+          .eq('user_id', this.user.id)
+          .eq('date', today);
+        const loggedToday = (todayScoreRows || []).reduce(
+          (s, r) => s + (Number(r.score_delta) || 0),
+          0,
+        );
+
+        // Compute fallback score from tasks using user-configured reward/penalty
+        const meta = (this.user && this.user.user_metadata) || {};
+        const reward = Number.isFinite(Number(meta.score_reward_complete))
+          ? Number(meta.score_reward_complete)
+          : Number(window.userScoreReward) || 1;
+        const penalty = Number.isFinite(Number(meta.score_penalty_incomplete))
+          ? Number(meta.score_penalty_incomplete)
+          : Number(window.userScorePenalty) || 2;
+        const completedCount = (this.todayTasks || []).filter((t) => t.is_completed).length;
+        const incompleteCount = (this.todayTasks || []).length - completedCount;
+        const computedToday = completedCount * reward - incompleteCount * penalty;
+
+        // Final today score: prefer logs if present; otherwise use computed
+        const hasTodayLogs = (todayScoreRows || []).length > 0;
+        this.todayScore = hasTodayLogs ? loggedToday : computedToday;
+
+        // Total score from logs plus today's computed if there are no logs for today
         const { data: totalScoreData } = await this.supabase
           .from('score_log')
           .select('score_delta')
           .eq('user_id', this.user.id);
-        this.totalScore = (totalScoreData || []).reduce((s, r) => s + (r.score_delta || 0), 0);
+        const totalLogged = (totalScoreData || []).reduce(
+          (s, r) => s + (Number(r.score_delta) || 0),
+          0,
+        );
+        this.totalScore = totalLogged + (hasTodayLogs ? 0 : this.todayScore);
 
         this.incompleteTasks = this.todayTasks.filter((t) => !t.is_completed);
-
-        const completedAny = (this.todayTasks || []).filter((t) => t.is_completed).length;
-        if (completedAny === 0) {
-          this.todayScore = 0;
-        }
 
         const templateTasks = this.todayTasks.filter((t) => !!t.task_id);
         this.templateTargetCount = templateTasks.length;

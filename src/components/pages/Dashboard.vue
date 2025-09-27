@@ -281,20 +281,22 @@ export default {
     // Check if we have cached data, if not then load
     const hasCachedTasks = window.stateManager?.getFromCache('todayTasks');
     const hasCachedScores = window.stateManager?.getFromCache('todayScore');
-    
+
     if (!hasCachedTasks || !hasCachedScores) {
       await this.loadDashboardData();
     }
-    
+
     // Load other data in background without blocking UI
     Promise.all([
       this.loadScoresRange(this.chartRangeDays),
       this.loadForestData(this.forestDaysRange),
       this.loadWeeklyAgenda(),
-      this.loadMonthlyAgenda()
-    ]).then(() => {
-      this.renderChart();
-    }).catch(() => {});
+      this.loadMonthlyAgenda(),
+    ])
+      .then(() => {
+        this.renderChart();
+      })
+      .catch(() => {});
 
     this._onDeadlineCompleted = (ev) => {
       try {

@@ -12,7 +12,7 @@ const version = `${now.getFullYear()}.${(now.getMonth() + 1).toString().padStart
 // Update SW_VERSION in service worker
 const updatedSwContent = swContent.replace(
   /const SW_VERSION = '[^']+';/,
-  `const SW_VERSION = '${version}';`
+  `const SW_VERSION = '${version}';`,
 );
 
 writeFileSync(swPath, updatedSwContent);

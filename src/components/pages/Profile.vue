@@ -424,7 +424,7 @@ export default {
     await this.loadUserSettings();
     this.setupModal();
     this.applyTheme(this.selectedTheme);
-    
+
     // Load stats in background without blocking UI
     this.loadUserStats().catch(() => {});
   },

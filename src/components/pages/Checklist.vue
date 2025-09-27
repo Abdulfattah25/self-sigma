@@ -240,7 +240,7 @@ export default {
     // Check if we have cached data, if not then load
     const hasCachedTasks = window.stateManager?.getFromCache('todayTasks');
     const hasCachedScore = window.stateManager?.getFromCache('todayScore');
-    
+
     if (!hasCachedTasks || !hasCachedScore) {
       await this.initializeTodayTasks();
     }

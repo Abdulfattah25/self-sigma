@@ -65,12 +65,20 @@
             </ul>
             <div class="alert alert-info small">
               <i class="bi bi-info-circle me-1"></i>
-              <strong>Catatan:</strong> Notifikasi push hanya berfungsi optimal saat aplikasi sudah ditambahkan ke home screen (diinstall sebagai PWA).
+              <strong>Catatan:</strong> Notifikasi push hanya berfungsi optimal saat aplikasi sudah
+              ditambahkan ke home screen (diinstall sebagai PWA).
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="rejectNotification">Tolak</button>
-            <button type="button" class="btn btn-primary" @click="acceptNotification" :disabled="processing">
+            <button type="button" class="btn btn-secondary" @click="rejectNotification">
+              Tolak
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              @click="acceptNotification"
+              :disabled="processing"
+            >
               <span v-if="processing" class="spinner-border spinner-border-sm me-2"></span>
               Terima
             </button>
@@ -115,7 +123,12 @@ const bellTitle = computed(() => {
 });
 
 const bellIconClass = computed(() => {
-  return ['fs-5', 'bi', enabled.value ? 'bi-bell-fill' : 'bi-bell', enabled.value ? 'text-warning' : 'text-light'];
+  return [
+    'fs-5',
+    'bi',
+    enabled.value ? 'bi-bell-fill' : 'bi-bell',
+    enabled.value ? 'text-warning' : 'text-light',
+  ];
 });
 
 function toast(msg, variant = 'info', delay = 3000) {
@@ -163,38 +176,47 @@ function closeModal() {
 async function acceptNotification() {
   if (processing.value) return;
   processing.value = true;
-  
+
   try {
     // Check if PWA is installed
-    const isInstalled = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
-    
+    const isInstalled =
+      window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+
     const status = await getPermissionStatus();
     if (status === 'denied') {
-      toast('Notifikasi diblokir di browser. Buka Settings > Notifications untuk mengaktifkan.', 'warning', 6000);
+      toast(
+        'Notifikasi diblokir di browser. Buka Settings > Notifications untuk mengaktifkan.',
+        'warning',
+        6000,
+      );
       closeModal();
       return;
     }
-    
+
     let perm = status;
     if (status === 'default') {
       perm = await requestPermission();
     }
-    
+
     if (perm !== 'granted') {
       toast('Izin notifikasi diperlukan.', 'warning');
       closeModal();
       return;
     }
-    
+
     await subscribePush(props.user.id);
     enabled.value = true;
-    
+
     if (!isInstalled) {
-      toast('Notifikasi diaktifkan! Untuk hasil terbaik, install aplikasi ini ke home screen.', 'success', 6000);
+      toast(
+        'Notifikasi diaktifkan! Untuk hasil terbaik, install aplikasi ini ke home screen.',
+        'success',
+        6000,
+      );
     } else {
       toast('Notifikasi diaktifkan!', 'success');
     }
-    
+
     closeModal();
   } catch (e) {
     let msg = 'Gagal mengaktifkan notifikasi.';
@@ -215,7 +237,7 @@ function rejectNotification() {
 async function disableNotifications() {
   if (processing.value) return;
   processing.value = true;
-  
+
   try {
     await unsubscribePush(props.user.id);
     enabled.value = false;

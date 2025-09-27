@@ -646,11 +646,14 @@ function setupPWAUpdateListener() {
   // Register update listener
   navigator.serviceWorker.ready.then((registration) => {
     // Check for updates every 10 minutes when app is active
-    setInterval(() => {
-      if (!document.hidden) {
-        registration.update();
-      }
-    }, 10 * 60 * 1000);
+    setInterval(
+      () => {
+        if (!document.hidden) {
+          registration.update();
+        }
+      },
+      10 * 60 * 1000,
+    );
 
     // Listen for waiting service worker
     if (registration.waiting) {
@@ -679,12 +682,12 @@ function setupPWAUpdateListener() {
   function showUpdateToast(worker) {
     updateAvailable = true;
     deferredReload = worker;
-    
+
     // Auto-update after 5 seconds or user can click to update immediately
     showToast(
       '🆕 Versi baru tersedia! <button class="btn btn-sm btn-light ms-2" onclick="window.__immediateUpdate()">Update Sekarang</button>',
       'primary',
-      8000
+      8000,
     );
 
     // Auto-update after 8 seconds

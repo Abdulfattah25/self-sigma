@@ -1,6 +1,6 @@
-// Base URL aset hutan. Simpan file di src/asset/forest/
+// Base URL aset hutan. File sekarang di public/images/forest
 (function (w) {
-  const ASSET_BASE = '/src/asset/forest';
+  const ASSET_BASE = '/images/forest';
 
   function sceneFor(percent) {
     if (percent <= 10) return 'plant-0-dead.png';

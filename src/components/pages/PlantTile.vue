@@ -31,7 +31,7 @@ export default {
       const percent = Math.max(0, Math.min(100, Number(this.tree?.percent) || 0));
       const stage = Math.min(4, Math.floor(percent / 25));
       if (this.plant === 'garden') {
-        return `/src/asset/garden/${stage + 1}.png`;
+        return `/images/garden/${stage + 1}.png`;
       }
       const forestFiles = [
         'plant-0-dead.png',
@@ -40,7 +40,7 @@ export default {
         'plant-3-better.png',
         'plant-4-perfect.png',
       ];
-      return `/src/asset/forest/${forestFiles[stage]}`;
+      return `/images/forest/${forestFiles[stage]}`;
     },
     dateLabel() {
       try {

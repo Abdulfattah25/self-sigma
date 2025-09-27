@@ -81,7 +81,7 @@ export default {
     },
     resolveTileSrc(percent) {
       const stage = this.percentToStage(percent);
-      if (this.plant === 'garden') return `/src/asset/garden/${stage + 1}.png`;
+      if (this.plant === 'garden') return `/images/garden/${stage + 1}.png`;
       const forestFiles = [
         'plant-0-dead.png',
         'plant-1-wilted.png',
@@ -89,7 +89,7 @@ export default {
         'plant-3-better.png',
         'plant-4-perfect.png',
       ];
-      return `/src/asset/forest/${forestFiles[stage]}`;
+      return `/images/forest/${forestFiles[stage]}`;
     },
   },
 };

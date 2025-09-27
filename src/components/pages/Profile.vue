@@ -658,11 +658,11 @@ export default {
     getPlantPreviewImage() {
       // Get a preview image based on selected plant type
       if (this.selectedPlant === 'forest') {
-        return '/src/asset/forest/plant-4-perfect.png'; // Best forest plant
+        return '/images/forest/plant-4-perfect.png'; // Best forest plant
       } else if (this.selectedPlant === 'garden') {
-        return '/src/asset/garden/5.png'; // Garden plant
+        return '/images/garden/5.png'; // Garden plant
       }
-      return '/src/asset/forest/plant-4-perfect.png'; // Default fallback
+      return '/images/forest/plant-4-perfect.png'; // Default fallback
     },
     async updateScoreSettings() {
       try {

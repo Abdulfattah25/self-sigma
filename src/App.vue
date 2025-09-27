@@ -205,6 +205,7 @@ const initializeApp = async () => {
     if (currentSession) {
       session.value = currentSession;
       user.value = currentSession.user;
+      window.user = currentSession.user; // Expose for DataService
 
       const active = await ensureAccountActive();
       if (!active) {
@@ -250,6 +251,7 @@ const initializeApp = async () => {
 
       session.value = newSession;
       user.value = newSession?.user || null;
+      window.user = newSession?.user || null; // Keep global user in sync
 
       if (user.value) {
         const active = await ensureAccountActive();

@@ -473,14 +473,22 @@ export default {
           .select('date, is_completed')
           .eq('user_id', this.user.id);
 
-        const { data: scores } = await this.supabase
-          .from('score_log')
-          .select('score_delta')
-          .eq('user_id', this.user.id);
-
         const uniqueDates = new Set((tasks || []).map((t) => t.date));
         const completed = (tasks || []).filter((t) => t.is_completed).length;
-        const totalScore = (scores || []).reduce((sum, s) => sum + (s.score_delta || 0), 0);
+
+        // Use consistent total score from DataService
+        let totalScore = 0;
+        if (window.dataService) {
+          const totalResult = await window.dataService.getTotalScore(this.user.id);
+          totalScore = totalResult.data || 0;
+        } else {
+          // Fallback to score_log only if DataService unavailable
+          const { data: scores } = await this.supabase
+            .from('score_log')
+            .select('score_delta')
+            .eq('user_id', this.user.id);
+          totalScore = (scores || []).reduce((sum, s) => sum + (s.score_delta || 0), 0);
+        }
 
         this.stats = {
           totalDays: uniqueDates.size,

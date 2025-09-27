@@ -399,16 +399,11 @@ export default {
         const hasTodayLogs = (todayScoreRows || []).length > 0;
         this.todayScore = hasTodayLogs ? loggedToday : computedToday;
 
-        // Total score from logs plus today's computed if there are no logs for today
-        const { data: totalScoreData } = await this.supabase
-          .from('score_log')
-          .select('score_delta')
-          .eq('user_id', this.user.id);
-        const totalLogged = (totalScoreData || []).reduce(
-          (s, r) => s + (Number(r.score_delta) || 0),
-          0,
-        );
-        this.totalScore = totalLogged + (hasTodayLogs ? 0 : this.todayScore);
+        // Use DataService for consistent total score calculation
+        if (window.dataService) {
+          const totalResult = await window.dataService.getTotalScore(this.user.id);
+          this.totalScore = totalResult.data || 0;
+        }
 
         this.incompleteTasks = this.todayTasks.filter((t) => !t.is_completed);
 

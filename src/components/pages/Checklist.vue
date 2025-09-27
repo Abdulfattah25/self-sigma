@@ -222,20 +222,28 @@ export default {
       return;
     }
 
-    // Subscribe to state changes
+    // Subscribe to state changes for instant updates
     const unsubTasks = window.stateManager.subscribe('todayTasks', (tasks) => {
-      this.todayTasks = tasks || [];
-      this.updateCounts();
+      if (Array.isArray(tasks)) {
+        this.todayTasks = tasks;
+        this.updateCounts();
+        this.loading = false;
+      }
     });
 
     const unsubScore = window.stateManager.subscribe('todayScore', (score) => {
-      this.todayScoreDb = score || 0;
+      if (typeof score === 'number') this.todayScoreDb = score;
     });
 
     this.unsubscribeCallbacks.push(unsubTasks, unsubScore);
 
-    // Initialize today tasks
-    await this.initializeTodayTasks();
+    // Check if we have cached data, if not then load
+    const hasCachedTasks = window.stateManager?.getFromCache('todayTasks');
+    const hasCachedScore = window.stateManager?.getFromCache('todayScore');
+    
+    if (!hasCachedTasks || !hasCachedScore) {
+      await this.initializeTodayTasks();
+    }
 
     // Setup event listeners for template changes
     this._onTemplateAdded = async (ev) => {

@@ -14,7 +14,7 @@
             </h1>
             <p class="lead text-light mt-3">
               Productivity Tracker membantu Anda membangun kebiasaan positif dengan checklist
-              harian, sistem poin, dan laporan visual yang menawan.
+              harian, sistem poin, dan laporan visual yang menarik.
             </p>
 
             <div class="d-flex justify-content-center justify-content-lg-start my-4">

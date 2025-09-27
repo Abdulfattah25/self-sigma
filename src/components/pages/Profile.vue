@@ -420,12 +420,13 @@ export default {
     },
   },
   async mounted() {
+    // Fast UI setup first
     await this.loadUserSettings();
-    await this.loadUserStats();
     this.setupModal();
-
-    // Apply current theme on load
     this.applyTheme(this.selectedTheme);
+    
+    // Load stats in background without blocking UI
+    this.loadUserStats().catch(() => {});
   },
   beforeDestroy() {
     this.cleanupModal();

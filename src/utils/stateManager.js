@@ -18,6 +18,7 @@ class StateManager {
       totalScore: 30 * 60 * 1000, // 30 menit
       userProfile: 60 * 60 * 1000, // 1 jam
       firstActiveDate: 24 * 60 * 60 * 1000, // 24 jam
+      monthlyReport: 30 * 60 * 1000, // 30 menit untuk laporan bulanan
     };
 
     this.setupNetworkMonitoring();

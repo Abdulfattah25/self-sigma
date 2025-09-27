@@ -558,6 +558,9 @@ onMounted(() => {
   window.addEventListener('online', onOnline);
   window.__netListeners = { onOffline, onOnline };
 
+  // PWA Update Detection & Auto-reload
+  setupPWAUpdateListener();
+
   try {
     scheduleLocalReminders();
   } catch (_) {}
@@ -624,6 +627,86 @@ function fireLocalReminder(hour) {
     } catch (_) {}
   }
   showToast(`${title}: ${body}`, 'info');
+}
+
+function setupPWAUpdateListener() {
+  if (!('serviceWorker' in navigator)) return;
+
+  let updateAvailable = false;
+  let deferredReload = null;
+
+  // Listen for service worker updates
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (updateAvailable) {
+      showToast('🔄 Aplikasi telah diperbarui! Memuat ulang...', 'success', 2000);
+      setTimeout(() => window.location.reload(), 2000);
+    }
+  });
+
+  // Register update listener
+  navigator.serviceWorker.ready.then((registration) => {
+    // Check for updates every 10 minutes when app is active
+    setInterval(() => {
+      if (!document.hidden) {
+        registration.update();
+      }
+    }, 10 * 60 * 1000);
+
+    // Listen for waiting service worker
+    if (registration.waiting) {
+      showUpdateToast(registration.waiting);
+    }
+
+    registration.addEventListener('updatefound', () => {
+      const newWorker = registration.installing;
+      if (!newWorker) return;
+
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          showUpdateToast(newWorker);
+        }
+      });
+    });
+
+    // Auto-check for updates on page visibility change
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        registration.update();
+      }
+    });
+  });
+
+  function showUpdateToast(worker) {
+    updateAvailable = true;
+    deferredReload = worker;
+    
+    // Auto-update after 5 seconds or user can click to update immediately
+    showToast(
+      '🆕 Versi baru tersedia! <button class="btn btn-sm btn-light ms-2" onclick="window.__immediateUpdate()">Update Sekarang</button>',
+      'primary',
+      8000
+    );
+
+    // Auto-update after 8 seconds
+    setTimeout(() => {
+      if (updateAvailable && deferredReload) {
+        triggerUpdate(deferredReload);
+      }
+    }, 8000);
+
+    // Expose immediate update function
+    window.__immediateUpdate = () => {
+      if (deferredReload) {
+        triggerUpdate(deferredReload);
+      }
+    };
+  }
+
+  function triggerUpdate(worker) {
+    updateAvailable = false;
+    worker.postMessage({ type: 'SKIP_WAITING' });
+    showToast('🔄 Memperbarui aplikasi...', 'info', 3000);
+  }
 }
 </script>
 

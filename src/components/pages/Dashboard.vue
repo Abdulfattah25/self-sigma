@@ -249,38 +249,52 @@ export default {
     },
   },
   async mounted() {
-    await this.loadDashboardData();
-    await this.loadScoresRange(this.chartRangeDays);
-    await this.loadForestData(this.forestDaysRange);
-    await this.loadWeeklyAgenda();
-    await this.loadMonthlyAgenda();
-    this.renderChart();
-
-    // Subscribe to cache changes
+    // Subscribe to cache changes first for instant updates
     try {
       if (window.stateManager && typeof window.stateManager.subscribe === 'function') {
         this._unsubs.push(
           window.stateManager.subscribe('todayTasks', (tasks) => {
-            this.todayTasks = tasks || [];
-            this.incompleteTasks = this.todayTasks.filter((t) => !t.is_completed);
-            const templateTasks = this.todayTasks.filter((t) => !!t.task_id);
-            this.templateTargetCount = templateTasks.length;
-            if (templateTasks.length > 0) {
-              const completed = templateTasks.filter((t) => t.is_completed).length;
-              this.completionRatio = Math.round((completed / templateTasks.length) * 100);
-            } else {
-              this.completionRatio = 0;
+            if (Array.isArray(tasks)) {
+              this.todayTasks = tasks;
+              this.incompleteTasks = this.todayTasks.filter((t) => !t.is_completed);
+              const templateTasks = this.todayTasks.filter((t) => !!t.task_id);
+              this.templateTargetCount = templateTasks.length;
+              if (templateTasks.length > 0) {
+                const completed = templateTasks.filter((t) => t.is_completed).length;
+                this.completionRatio = Math.round((completed / templateTasks.length) * 100);
+              } else {
+                this.completionRatio = 0;
+              }
+              this.loading = false;
             }
           }),
           window.stateManager.subscribe('todayScore', (score) => {
-            this.todayScore = score || 0;
+            if (typeof score === 'number') this.todayScore = score;
           }),
           window.stateManager.subscribe('totalScore', (score) => {
-            this.totalScore = score || 0;
+            if (typeof score === 'number') this.totalScore = score;
           }),
         );
       }
     } catch (_) {}
+
+    // Check if we have cached data, if not then load
+    const hasCachedTasks = window.stateManager?.getFromCache('todayTasks');
+    const hasCachedScores = window.stateManager?.getFromCache('todayScore');
+    
+    if (!hasCachedTasks || !hasCachedScores) {
+      await this.loadDashboardData();
+    }
+    
+    // Load other data in background without blocking UI
+    Promise.all([
+      this.loadScoresRange(this.chartRangeDays),
+      this.loadForestData(this.forestDaysRange),
+      this.loadWeeklyAgenda(),
+      this.loadMonthlyAgenda()
+    ]).then(() => {
+      this.renderChart();
+    }).catch(() => {});
 
     this._onDeadlineCompleted = (ev) => {
       try {

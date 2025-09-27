@@ -293,12 +293,33 @@ export default {
     },
   },
   async mounted() {
-    await this.loadMonthlyReport();
+    // Check cache first before loading
+    const cacheKey = `monthlyReport_${this.currentYear}_${this.currentMonth}`;
+    const cached = window.stateManager?.getFromCache(cacheKey);
+    
+    if (cached) {
+      this.monthlyData = cached;
+      this.loading = false;
+      this.$nextTick(() => this.renderCharts());
+    } else {
+      await this.loadMonthlyReport();
+    }
   },
   methods: {
     async loadMonthlyReport() {
       try {
         this.loading = true;
+        const cacheKey = `monthlyReport_${this.currentYear}_${this.currentMonth}`;
+        
+        // Try cache first
+        const cached = window.stateManager?.getFromCache(cacheKey);
+        if (cached) {
+          this.monthlyData = cached;
+          this.loading = false;
+          this.$nextTick(() => this.renderCharts());
+          return;
+        }
+        
         const startDate =
           window.WITA && window.WITA.monthStartIso
             ? window.WITA.monthStartIso(this.currentYear, this.currentMonth)
@@ -332,6 +353,12 @@ export default {
         }
 
         await this.processMonthlyData(tasksData || [], scoresData);
+        
+        // Cache the result
+        if (window.stateManager?.setCache) {
+          window.stateManager.setCache(cacheKey, this.monthlyData);
+        }
+        
         this.$nextTick(() => {
           this.renderCharts();
         });

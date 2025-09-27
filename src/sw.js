@@ -2,13 +2,35 @@
 import { clientsClaim } from 'workbox-core';
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
-import { StaleWhileRevalidate, NetworkFirst } from 'workbox-strategies';
+import { StaleWhileRevalidate, NetworkFirst, CacheFirst } from 'workbox-strategies';
 
+// Force update immediately
 self.skipWaiting();
 clientsClaim();
 
+// Precache all assets and enable cleanup
 precacheAndRoute(self.__WB_MANIFEST || []);
 cleanupOutdatedCaches();
+
+// Auto-update version check
+const SW_VERSION = '2.1.0';
+const UPDATE_CHECK_INTERVAL = 30 * 60 * 1000; // 30 minutes
+
+// Check for updates periodically
+self.addEventListener('activate', () => {
+  // Start periodic update check
+  setInterval(async () => {
+    try {
+      const response = await fetch('/manifest.webmanifest', { cache: 'no-cache' });
+      if (response.ok) {
+        // Trigger update check
+        self.registration.update();
+      }
+    } catch (e) {
+      console.log('Update check failed:', e);
+    }
+  }, UPDATE_CHECK_INTERVAL);
+});
 
 registerRoute(
   ({ request }) => request.destination === 'image',

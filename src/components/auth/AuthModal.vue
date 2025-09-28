@@ -20,8 +20,8 @@
                 <h4 class="text-white fw-bold mb-2">
                   Satu langkah menuju hari yang lebih produktif
                 </h4>
-                <p class="text-white-50 mb-0">
-                  Buat akun atau masuk untuk menyinkronkan data checklist, poin, dan laporan Anda.
+                <p class="text-dark-10 mb-0">
+                  Buat akun atau masuk untuk menyinkronkan data checklist, poin, dan laporan.
                 </p>
               </div>
               <ul class="list-unstyled mt-4 text-white-75 small">

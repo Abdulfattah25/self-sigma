@@ -473,7 +473,7 @@ declare
 begin
   if not public.is_current_user_admin() then
     raise exception 'Only admins can generate licenses';
-  end if;
+  end if; 
 
   loop
     random_uuid := replace(gen_random_uuid()::text, '-', '');
@@ -495,6 +495,27 @@ end
 $$;
 
 grant execute on function public.admin_generate_license() to authenticated;
+
+
+create or replace function public.admin_delete_user(target_user_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_current_user_admin() then
+    raise exception 'Only admins can delete users';
+  end if;
+  delete from auth.users where id = target_user_id;
+  return true;
+exception
+  when others then
+    raise exception 'Failed to delete user: %', SQLERRM;
+end
+$$;
+
+grant execute on function public.admin_delete_user(uuid) to authenticated;
 
 DO $$
 BEGIN

@@ -10,10 +10,10 @@
               Ayo tingkatkan produktivitas harian
             </div>
             <h1 class="display-4 fw-bold lh-tight hero-title">
-              Kelola Tugas, Raih Target, dan Pantau Perkembangan Anda
+              Kelola Tugas, Raih Target, dan Pantau Perkembangan
             </h1>
             <p class="lead text-light mt-3">
-              Productivity Tracker membantu Anda membangun kebiasaan positif dengan checklist
+              Productivity Tracker membantu Kamu membangun kebiasaan positif dengan checklist
               harian, sistem poin, dan laporan visual yang menarik.
             </p>
 

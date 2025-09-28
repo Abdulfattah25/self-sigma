@@ -543,61 +543,19 @@ export default {
         const targetId = this.deletingUser?.id;
         const deletedEmail = this.deletingUser?.email || '';
         if (!targetId) throw new Error('ID user tidak ditemukan');
-        // 1. Coba hapus profile langsung terlebih dahulu (biarkan FK ON DELETE CASCADE bekerja jika ada)
-        let { error: primaryDeleteError } = await this.supabase
-          .from('profiles')
-          .delete()
-          .eq('id', targetId);
 
-        // 2. Jika gagal karena constraint (misal 23503) atau RLS, kita coba hapus anak-anak manual lalu ulangi sekali
-        if (primaryDeleteError) {
-          const msg = primaryDeleteError.message || '';
-          const isFK = /23503|foreign key/i.test(msg);
-          const isRLS = /permission|rls|auth/i.test(msg);
-          if (isFK) {
-            const cleanupTables = [
-              ['daily_tasks_instance', 'user_id'],
-              ['daily_tasks_template', 'user_id'],
-              ['score_log', 'user_id'],
-            ];
-            for (const [table, col] of cleanupTables) {
-              try {
-                const { error: cErr } = await this.supabase.from(table).delete().eq(col, targetId);
-                if (cErr) console.warn('Gagal hapus terkait', table, cErr.message);
-              } catch (e) {
-                console.warn('Cleanup exception', table, e);
-              }
-            }
-            // Ulangi delete profile sekali lagi
-            const retry = await this.supabase.from('profiles').delete().eq('id', targetId);
-            primaryDeleteError = retry.error;
-          }
-          if (primaryDeleteError && isRLS) {
-            throw new Error('RLS menolak penghapusan. Perlu policy atau RPC khusus admin.');
-          }
-          if (primaryDeleteError && !isFK) {
-            throw primaryDeleteError; // Error lain langsung lempar
-          }
-        }
+        // ✅ Use admin RPC to delete user completely (profiles + auth.users)
+        const { error } = await this.supabase.rpc('admin_delete_user', {
+          target_user_id: targetId,
+        });
 
-        // 3. Verifikasi benar-benar hilang
-        const { data: verifyRows, error: verifyErr } = await this.supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', targetId);
-        if (verifyErr) {
-          console.warn('Verify delete warning:', verifyErr.message);
-        }
-        if (verifyRows && verifyRows.length > 0) {
-          // Record masih ada -> jangan ubah UI; fallback soft delete jika diinginkan
-          throw new Error('Penghapusan gagal (record masih ada). Cek policy atau constraint.');
-        }
+        if (error) throw error;
 
-        // 4. Update UI & stats hanya setelah verifikasi sukses
+        // Update UI & stats after successful deletion
         this.users = this.users.filter((u) => u.id !== targetId);
         await this.loadAdminStats();
 
-        // 5. Tutup modal & notifikasi
+        // Close modal & show notification
         this.showDeleteModal = false;
         if (this.deleteModal) {
           try {

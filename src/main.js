@@ -122,9 +122,6 @@ const showToast = (message, variant = 'info', delay = 4000, action) => {
 
 const updateSW = registerSW({
   immediate: true,
-  onOfflineReady() {
-    showToast('Aplikasi siap digunakan offline', 'success');
-  },
   onNeedRefresh() {
     showToast('Versi baru tersedia', 'info', 8000, {
       label: 'Muat ulang',

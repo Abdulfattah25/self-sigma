@@ -195,6 +195,39 @@ class StateManager {
   clearCache() {
     this.invalidateCache('all');
   }
+
+  // Helper method for debugging
+  getCacheInfo() {
+    const info = {};
+    const now = Date.now();
+
+    for (const [key, timestamp] of Object.entries(this.state.cacheTimestamps)) {
+      const data = this.state.cache[key];
+      const ageMs = now - timestamp;
+      const ageSeconds = Math.floor(ageMs / 1000);
+      const ttl = this.cacheTTL[key] || 15 * 60 * 1000;
+      const isValid = ageMs < ttl;
+
+      info[key] = {
+        lastFetch: new Date(timestamp).toLocaleTimeString('id-ID'),
+        ageSeconds,
+        isValid,
+        hasData: data !== null && data !== undefined,
+        dataSize: this.estimateSize(data),
+      };
+    }
+
+    return info;
+  }
+
+  estimateSize(obj) {
+    if (!obj) return 0;
+    try {
+      return JSON.stringify(obj).length;
+    } catch {
+      return 0;
+    }
+  }
 }
 
 const stateManager = new StateManager();

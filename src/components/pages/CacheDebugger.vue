@@ -98,7 +98,7 @@ export default {
     refreshInfo() {
       if (window.stateManager) {
         this.cacheInfo = window.stateManager.getCacheInfo();
-        this.isOnline = window.stateManager.state.app.isOnline;
+        this.isOnline = window.stateManager.state.isOnline; // Fix: remove .app
 
         const validCaches = Object.values(this.cacheInfo).filter(
           (info) => info.isValid && info.hasData,
@@ -111,11 +111,11 @@ export default {
       }
     },
     clearAllCache() {
-      if (window.dataService) {
-        window.dataService.clearAllCache();
+      if (window.stateManager) {
+        window.stateManager.clearCache();
         this.refreshInfo();
-        if (window.showToast) {
-          window.showToast('Cache telah dibersihkan!', 'success');
+        if (this.$root && this.$root.showToast) {
+          this.$root.showToast('Cache telah dibersihkan!', 'success');
         } else {
           alert('Cache cleared!');
         }

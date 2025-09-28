@@ -248,43 +248,33 @@ export default {
       });
     },
   },
+  watch: {
+    // Watch for user changes to refresh data
+    user: {
+      handler(newUser, oldUser) {
+        if (newUser && newUser.id !== oldUser?.id) {
+          this.loadDashboardData();
+        }
+      },
+      immediate: false,
+    },
+    // Watch for plant changes (indicates possible component reactivation)
+    plant: {
+      handler() {
+        // Refresh data when plant changes as it might indicate view switching
+        this.$nextTick(() => {
+          this.refreshDashboardData();
+        });
+      },
+      immediate: false,
+    },
+  },
   async mounted() {
-    // Subscribe to cache changes first for instant updates
-    try {
-      if (window.stateManager && typeof window.stateManager.subscribe === 'function') {
-        this._unsubs.push(
-          window.stateManager.subscribe('todayTasks', (tasks) => {
-            if (Array.isArray(tasks)) {
-              this.todayTasks = tasks;
-              this.incompleteTasks = this.todayTasks.filter((t) => !t.is_completed);
-              const templateTasks = this.todayTasks.filter((t) => !!t.task_id);
-              this.templateTargetCount = templateTasks.length;
-              if (templateTasks.length > 0) {
-                const completed = templateTasks.filter((t) => t.is_completed).length;
-                this.completionRatio = Math.round((completed / templateTasks.length) * 100);
-              } else {
-                this.completionRatio = 0;
-              }
-              this.loading = false;
-            }
-          }),
-          window.stateManager.subscribe('todayScore', (score) => {
-            if (typeof score === 'number') this.todayScore = score;
-          }),
-          window.stateManager.subscribe('totalScore', (score) => {
-            if (typeof score === 'number') this.totalScore = score;
-          }),
-        );
-      }
-    } catch (_) {}
+    // Setup subscriptions first
+    this.setupSubscriptions();
 
-    // Check if we have cached data, if not then load
-    const hasCachedTasks = window.stateManager?.getFromCache('todayTasks');
-    const hasCachedScores = window.stateManager?.getFromCache('todayScore');
-
-    if (!hasCachedTasks || !hasCachedScores) {
-      await this.loadDashboardData();
-    }
+    // Always load dashboard data to ensure fresh data
+    await this.loadDashboardData();
 
     // Load other data in background without blocking UI
     Promise.all([
@@ -320,6 +310,21 @@ export default {
     window.addEventListener('deadline-completed', this._onDeadlineCompleted);
     window.addEventListener('agenda-refresh', this._onAgendaRefresh);
 
+    // Add visibility change handler to refresh data when tab becomes visible
+    this._onVisibilityChange = () => {
+      if (!document.hidden) {
+        // Tab became visible, refresh data if needed
+        this.refreshDashboardData();
+      }
+    };
+    document.addEventListener('visibilitychange', this._onVisibilityChange);
+
+    // Add focus handler to refresh data when window gets focus
+    this._onWindowFocus = () => {
+      this.refreshDashboardData();
+    };
+    window.addEventListener('focus', this._onWindowFocus);
+
     const target = document.documentElement || document.body;
     this.themeObserver = new MutationObserver((mutations) => {
       for (const m of mutations) {
@@ -330,6 +335,12 @@ export default {
       }
     });
     this.themeObserver.observe(target, { attributes: true, attributeFilter: ['data-bs-theme'] });
+  },
+
+  // Add activated hook to handle navigation back to dashboard
+  activated() {
+    // Refresh dashboard data when navigating back to ensure fresh data
+    this.refreshDashboardData();
   },
   beforeDestroy() {
     if (this.chartInstance) {
@@ -345,6 +356,9 @@ export default {
         window.removeEventListener('deadline-completed', this._onDeadlineCompleted);
       if (this._onAgendaRefresh)
         window.removeEventListener('agenda-refresh', this._onAgendaRefresh);
+      if (this._onVisibilityChange)
+        document.removeEventListener('visibilitychange', this._onVisibilityChange);
+      if (this._onWindowFocus) window.removeEventListener('focus', this._onWindowFocus);
     } catch (_) {}
     try {
       (this._unsubs || []).forEach((u) => typeof u === 'function' && u());
@@ -352,16 +366,111 @@ export default {
     } catch (_) {}
   },
   methods: {
-    async loadDashboardData() {
+    setupSubscriptions() {
+      try {
+        if (window.stateManager && typeof window.stateManager.subscribe === 'function') {
+          this._unsubs.push(
+            window.stateManager.subscribe('todayTasks', (tasks) => {
+              if (Array.isArray(tasks)) {
+                this.todayTasks = tasks;
+                this.incompleteTasks = this.todayTasks.filter((t) => !t.is_completed);
+                const templateTasks = this.todayTasks.filter((t) => !!t.task_id);
+                this.templateTargetCount = templateTasks.length;
+                if (templateTasks.length > 0) {
+                  const completed = templateTasks.filter((t) => t.is_completed).length;
+                  this.completionRatio = Math.round((completed / templateTasks.length) * 100);
+                } else {
+                  this.completionRatio = 0;
+                }
+                this.loading = false; // ✅ FIX: Set loading false when data received
+              }
+            }),
+            window.stateManager.subscribe('todayScore', (score) => {
+              if (typeof score === 'number') {
+                this.todayScore = score;
+                this.loading = false; // ✅ FIX: Set loading false when score received
+              }
+            }),
+            window.stateManager.subscribe('totalScore', (score) => {
+              if (typeof score === 'number') {
+                this.totalScore = score;
+                this.loading = false; // ✅ FIX: Set loading false when total score received
+              }
+            }),
+          );
+        }
+      } catch (_) {}
+    },
+
+    async refreshDashboardData() {
+      // Force refresh data without cache dependency
       try {
         const today =
           window.WITA && window.WITA.today
             ? window.WITA.today()
             : new Date().toISOString().slice(0, 10);
 
-        // Always load today's tasks
+        // Check if we have valid cached data
+        const hasCachedTasks = window.stateManager?.getFromCache('todayTasks');
+        const hasCachedScores = window.stateManager?.getFromCache('todayScore');
+
+        // Determine if we need to force reload:
+        // 1. No valid cache
+        // 2. Current data is empty/zero (indicating possible stale state)
+        // 3. Cache is older than 5 minutes (for frequent refreshes)
+        const shouldForceReload =
+          !hasCachedTasks ||
+          !hasCachedScores ||
+          this.todayTasks.length === 0 ||
+          (this.todayScore === 0 && this.todayTasks.length > 0) ||
+          this.isCacheOld('todayTasks', 5 * 60 * 1000) ||
+          this.isCacheOld('todayScore', 5 * 60 * 1000);
+
+        if (shouldForceReload) {
+          console.log('Forcing dashboard data reload due to stale/missing data');
+          await this.loadDashboardData();
+        } else {
+          // Update UI from current cache
+          if (hasCachedTasks && Array.isArray(hasCachedTasks)) {
+            this.todayTasks = hasCachedTasks;
+            this.incompleteTasks = this.todayTasks.filter((t) => !t.is_completed);
+          }
+          if (typeof hasCachedScores === 'number') {
+            this.todayScore = hasCachedScores;
+          }
+        }
+
+        // Always refresh other data in background
+        Promise.all([this.loadWeeklyAgenda(), this.loadMonthlyAgenda()]).catch(() => {});
+      } catch (error) {
+        console.error('Error refreshing dashboard data:', error);
+        // Fallback: force load if refresh fails
+        await this.loadDashboardData();
+      }
+    },
+
+    isCacheOld(key, maxAgeMs) {
+      try {
+        if (!window.stateManager) return true;
+        const timestamp = window.stateManager.state.cacheTimestamps[key];
+        if (!timestamp) return true;
+        return Date.now() - timestamp > maxAgeMs;
+      } catch (_) {
+        return true;
+      }
+    },
+
+    async loadDashboardData() {
+      try {
+        this.loading = true;
+        const today =
+          window.WITA && window.WITA.today
+            ? window.WITA.today()
+            : new Date().toISOString().slice(0, 10);
+
+        // Always load today's tasks with force refresh
         if (window.dataService) {
-          const tasksResult = await window.dataService.getTodayTasks(this.user.id, today);
+          const tasksResult = await window.dataService.getTodayTasks(this.user.id, today, true); // Force refresh
           this.todayTasks = tasksResult.data || [];
         } else {
           const { data: todayTasksData } = await this.supabase
@@ -370,6 +479,11 @@ export default {
             .eq('user_id', this.user.id)
             .eq('date', today);
           this.todayTasks = todayTasksData || [];
+
+          // Update cache manually if not using dataService
+          if (window.stateManager) {
+            window.stateManager.setCache('todayTasks', this.todayTasks);
+          }
         }
 
         // Load today's score from logs (if any)
@@ -399,10 +513,30 @@ export default {
         const hasTodayLogs = (todayScoreRows || []).length > 0;
         this.todayScore = hasTodayLogs ? loggedToday : computedToday;
 
-        // Use DataService for consistent total score calculation
+        // Update score cache
+        if (window.stateManager) {
+          window.stateManager.setCache('todayScore', this.todayScore);
+        }
+
+        // Use DataService for consistent total score calculation with force refresh
         if (window.dataService) {
-          const totalResult = await window.dataService.getTotalScore(this.user.id);
+          const totalResult = await window.dataService.getTotalScore(this.user.id, true); // Force refresh
           this.totalScore = totalResult.data || 0;
+        } else {
+          // Fallback: calculate total score manually
+          const { data: allScores } = await this.supabase
+            .from('score_log')
+            .select('score_delta')
+            .eq('user_id', this.user.id);
+          this.totalScore = (allScores || []).reduce(
+            (sum, row) => sum + (Number(row.score_delta) || 0),
+            0,
+          );
+        }
+
+        // Update total score cache
+        if (window.stateManager) {
+          window.stateManager.setCache('totalScore', this.totalScore);
         }
 
         this.incompleteTasks = this.todayTasks.filter((t) => !t.is_completed);
@@ -417,9 +551,21 @@ export default {
         }
 
         this.loading = false;
+
+        console.log('Dashboard data loaded:', {
+          todayTasks: this.todayTasks.length,
+          todayScore: this.todayScore,
+          totalScore: this.totalScore,
+          completionRatio: this.completionRatio,
+        });
       } catch (error) {
         console.error('Error loading dashboard data:', error);
         this.loading = false;
+
+        // Show error toast if available
+        if (this.$root && this.$root.showToast) {
+          this.$root.showToast('Gagal memuat data dashboard: ' + error.message, 'danger');
+        }
       }
     },
 

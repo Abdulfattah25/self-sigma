@@ -378,6 +378,11 @@ export default {
     await this.loadAdminData();
     this.setupModals();
   },
+  // Add activated hook to handle navigation back to admin
+  activated() {
+    // Refresh admin data when navigating back
+    this.loadAdminData();
+  },
   beforeDestroy() {
     this.cleanupModals();
   },

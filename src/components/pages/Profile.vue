@@ -11,7 +11,7 @@
           <h5 class="mb-0">📊 Statistik Akun</h5>
         </div>
         <div class="card-body">
-          <div class="row text-center">
+          <div class="row text-center" v-if="!statsLoading">
             <div class="col-6 col-md-3 mb-3">
               <div class="h4 text-primary">{{ stats.totalDays }}</div>
               <small class="text-muted">Hari Aktif</small>
@@ -29,6 +29,14 @@
                 {{ stats.totalScore >= 0 ? '+' : '' }}{{ stats.totalScore }}
               </div>
               <small class="text-muted">Total Skor</small>
+            </div>
+          </div>
+          <div class="row text-center" v-else>
+            <div class="col-12">
+              <div class="spinner-border text-primary me-2" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <span class="text-muted">Memuat statistik...</span>
             </div>
           </div>
         </div>
@@ -403,6 +411,7 @@ export default {
         completedTasks: 0,
         totalScore: 0,
       },
+      statsLoading: true,
       saving: false,
       changingPassword: false,
       passwordError: '',
@@ -425,8 +434,14 @@ export default {
     this.setupModal();
     this.applyTheme(this.selectedTheme);
 
-    // Load stats in background without blocking UI
-    this.loadUserStats().catch(() => {});
+    // Load stats immediately
+    await this.refreshProfileData();
+  },
+
+  // Add activated hook for navigation back to profile
+  activated() {
+    // Refresh profile data when navigating back
+    this.refreshProfileData();
   },
   beforeDestroy() {
     this.cleanupModal();
@@ -466,8 +481,26 @@ export default {
         console.error('Error loading user settings:', error);
       }
     },
+
+    async refreshProfileData() {
+      // Quick check if we need to refresh
+      try {
+        // Always refresh user settings (fast operation)
+        await this.loadUserSettings();
+
+        // Always refresh stats to fix loading state
+        await this.loadUserStats();
+      } catch (error) {
+        console.error('Error refreshing profile data:', error);
+        // Fallback: force load stats
+        await this.loadUserStats();
+      }
+    },
+
     async loadUserStats() {
       try {
+        this.statsLoading = true;
+
         const { data: tasks } = await this.supabase
           .from('daily_tasks_instance')
           .select('date, is_completed')
@@ -476,10 +509,10 @@ export default {
         const uniqueDates = new Set((tasks || []).map((t) => t.date));
         const completed = (tasks || []).filter((t) => t.is_completed).length;
 
-        // Use consistent total score from DataService
+        // Use consistent total score from DataService with force refresh
         let totalScore = 0;
         if (window.dataService) {
-          const totalResult = await window.dataService.getTotalScore(this.user.id);
+          const totalResult = await window.dataService.getTotalScore(this.user.id, true);
           totalScore = totalResult.data || 0;
         } else {
           // Fallback to score_log only if DataService unavailable
@@ -496,8 +529,27 @@ export default {
           completedTasks: completed,
           totalScore: totalScore,
         };
+
+        console.log('Profile stats loaded:', this.stats);
       } catch (error) {
         console.error('Error loading user stats:', error);
+
+        // Fallback: keep existing stats or set defaults
+        if (this.stats.totalDays === 0 && this.stats.totalTasks === 0) {
+          this.stats = {
+            totalDays: 0,
+            totalTasks: 0,
+            completedTasks: 0,
+            totalScore: 0,
+          };
+        }
+
+        // Show error toast if available
+        if (this.$root && this.$root.showToast) {
+          this.$root.showToast('Gagal memuat statistik profil', 'warning');
+        }
+      } finally {
+        this.statsLoading = false;
       }
     },
     // Pastikan ada sesi auth sebelum memanggil updateUser (hindari AuthSessionMissingError)
@@ -562,6 +614,9 @@ export default {
         this.fullName = this.tempFullName;
         this.showToast('Nama berhasil diperbarui!', 'success'); // ✅ Fixed
         this.activeSection = null;
+
+        // Refresh stats in background
+        this.loadUserStats().catch(() => {});
       } catch (error) {
         console.error('Error updating name:', error);
         this.showToast('Gagal memperbarui nama: ' + error.message, 'danger'); // ✅ Fixed
@@ -820,6 +875,15 @@ export default {
     },
   },
   watch: {
+    // Watch for user changes to refresh data
+    user: {
+      handler(newUser, oldUser) {
+        if (newUser && newUser.id !== oldUser?.id) {
+          this.refreshProfileData();
+        }
+      },
+      immediate: false,
+    },
     showDeleteModal(show) {
       if (this.deleteModal) {
         if (show) {

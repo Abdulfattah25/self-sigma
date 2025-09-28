@@ -97,16 +97,16 @@
                           <button
                             class="btn btn-sm btn-outline-secondary dropdown-toggle"
                             type="button"
-                            :id="'dropdown-' + template.id"
+                            :id="'dropdown-daily-' + template.id"
                             data-bs-toggle="dropdown"
-                            data-bs-display="static"
+                            data-bs-auto-close="true"
                             data-bs-boundary="viewport"
                           >
                             ⋮
                           </button>
                           <ul
-                            class="dropdown-menu dropdown-menu-end"
-                            :aria-labelledby="'dropdown-' + template.id"
+                            class="dropdown-menu dropdown-menu-responsive"
+                            :aria-labelledby="'dropdown-daily-' + template.id"
                           >
                             <li>
                               <a
@@ -438,6 +438,9 @@ export default {
           if (error) throw error;
           this.templates = data || [];
         }
+
+        // ✅ FIX: Sync cache after loading
+        this.syncTemplatesCache();
       } catch (error) {
         console.error('Error loading templates:', error);
         this.$root &&
@@ -575,35 +578,42 @@ export default {
           if (error) throw error;
           const updated = data && data[0];
           if (updated) {
+            // ✅ FIX: Update local state immediately
             const idx = this.templates.findIndex((t) => t.id === this.editingId);
             if (idx !== -1) this.$set(this.templates, idx, updated);
-            try {
-              const today =
-                window.WITA && window.WITA.today
-                  ? window.WITA.today()
-                  : new Date().toISOString().slice(0, 10);
-              await this.supabase
-                .from('daily_tasks_instance')
-                .update({
-                  task_name: updated.task_name,
-                  priority: updated.priority || 'sedang',
-                  category: updated.category || null,
-                  jenis_task: updated.jenis_task || 'harian',
-                  deadline_date: updated.deadline_date || null,
-                })
-                .eq('user_id', this.user.id)
-                .eq('task_id', updated.id)
-                .eq('date', today);
-              // Refresh todayTasks di background, jangan blok UI
-              if (window.dataService) {
-                window.dataService.getTodayTasks(this.user.id, today, true).catch(() => {});
-              }
-            } catch (e) {
-              console.warn(
-                'Gagal mensinkronkan instance hari ini setelah update template:',
-                e.message,
-              );
+
+            // ✅ FIX: Update cache to sync with other components
+            if (window.stateManager) {
+              window.stateManager.updateCacheItem('templates', this.editingId, updated);
             }
+            // ✅ FIX: Update instance di background tanpa blocking UI
+            const today =
+              window.WITA && window.WITA.today
+                ? window.WITA.today()
+                : new Date().toISOString().slice(0, 10);
+
+            // Non-blocking background update
+            this.supabase
+              .from('daily_tasks_instance')
+              .update({
+                task_name: updated.task_name,
+                priority: updated.priority || 'sedang',
+                category: updated.category || null,
+                jenis_task: updated.jenis_task || 'harian',
+                deadline_date: updated.deadline_date || null,
+              })
+              .eq('user_id', this.user.id)
+              .eq('task_id', updated.id)
+              .eq('date', today)
+              .then(() => {
+                // Refresh todayTasks setelah update instance
+                if (window.dataService) {
+                  window.dataService.getTodayTasks(this.user.id, today, true).catch(() => {});
+                }
+              })
+              .catch((e) => {
+                console.warn('Gagal mensinkronkan instance hari ini:', e.message);
+              });
             try {
               window.dispatchEvent(
                 new CustomEvent('template-updated', { detail: { template: updated } }),
@@ -639,7 +649,15 @@ export default {
             ])
             .select();
           if (error) throw error;
+
+          // ✅ FIX: Update local state immediately
           this.templates.unshift(data[0]);
+
+          // ✅ FIX: Update cache to sync with other components
+          if (window.stateManager) {
+            window.stateManager.addCacheItem('templates', data[0]);
+          }
+
           try {
             // Jalankan non-blocking agar modal cepat tertutup
             this.ensureTodayInstanceForTemplate(data[0]).catch(() => {});
@@ -697,7 +715,20 @@ export default {
           .eq('id', id)
           .eq('user_id', this.user.id);
         if (error) throw error;
+
+        // ✅ FIX: Update local state immediately
         this.templates = this.templates.filter((t) => t.id !== id);
+
+        // ✅ FIX: Update cache to sync with other components
+        if (window.stateManager) {
+          window.stateManager.removeCacheItem('templates', id);
+        }
+
+        // ✅ FIX: Refresh via DataService if available
+        if (window.dataService) {
+          window.dataService.getTemplates(this.user.id, true).catch(() => {}); // Force refresh in background
+        }
+
         if (this.editingId === id) this.cancelAdd();
         this.$root &&
           this.$root.showToast &&
@@ -737,6 +768,17 @@ export default {
       const card = dropdown.closest('.card');
       if (card) card.classList.remove('dropdown-open');
     },
+    // Helper method to sync cache with local state
+    syncTemplatesCache() {
+      try {
+        if (window.stateManager && Array.isArray(this.templates)) {
+          window.stateManager.setCache('templates', this.templates);
+        }
+      } catch (error) {
+        console.warn('Failed to sync templates cache:', error);
+      }
+    },
+
     // async cleanPastDeadlines() { /* same as legacy (optional cleanup) */ },
   },
 };

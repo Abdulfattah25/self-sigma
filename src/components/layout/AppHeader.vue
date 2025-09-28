@@ -178,10 +178,6 @@ async function acceptNotification() {
   processing.value = true;
 
   try {
-    // Check if PWA is installed
-    const isInstalled =
-      window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
-
     const status = await getPermissionStatus();
     if (status === 'denied') {
       toast(
@@ -204,18 +200,18 @@ async function acceptNotification() {
       return;
     }
 
+    // ✅ FIX: Direct subscribe without cleanup untuk avoid hanging
     await subscribePush(props.user.id);
     enabled.value = true;
 
-    if (!isInstalled) {
-      toast(
-        'Notifikasi diaktifkan! Untuk hasil terbaik, install aplikasi ini ke home screen.',
-        'success',
-        6000,
-      );
-    } else {
-      toast('Notifikasi diaktifkan!', 'success');
-    }
+    const isInstalled = window.matchMedia?.('(display-mode: standalone)').matches;
+    toast(
+      isInstalled
+        ? 'Notifikasi diaktifkan!'
+        : 'Notifikasi diaktifkan! Install ke home screen untuk hasil terbaik.',
+      'success',
+      isInstalled ? 3000 : 6000,
+    );
 
     closeModal();
   } catch (e) {
@@ -225,6 +221,7 @@ async function acceptNotification() {
     }
     toast(msg, 'danger');
   } finally {
+    // ✅ FIX: Always reset processing state
     processing.value = false;
   }
 }

@@ -65,6 +65,7 @@ create table if not exists public.push_subscriptions (
 create unique index if not exists ux_push_subscriptions_user_endpoint
   on public.push_subscriptions(user_id, endpoint);
 create index if not exists idx_push_subscriptions_user on public.push_subscriptions(user_id);
+create index if not exists idx_push_subscriptions_active on public.push_subscriptions(user_id, is_active) where is_active = true;
 
 alter table public.push_subscriptions enable row level security;
 
@@ -79,6 +80,10 @@ create policy ps_insert_own on public.push_subscriptions
 drop policy if exists ps_delete_own on public.push_subscriptions;
 create policy ps_delete_own on public.push_subscriptions
   for delete using (user_id = auth.uid());
+
+drop policy if exists ps_update_own on public.push_subscriptions;
+create policy ps_update_own on public.push_subscriptions
+  for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 create table if not exists public.notification_logs (
   id uuid primary key default gen_random_uuid(),

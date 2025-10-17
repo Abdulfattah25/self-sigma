@@ -666,8 +666,10 @@ export default {
           }
           try {
             window.dispatchEvent(
-              new CustomEvent('template-added', { detail: { template: data[0] } }),
+              new CustomEvent('template-updated', { detail: { template: updated } }),
             );
+            // ✅ Emit for Profile stats update
+            window.dispatchEvent(new Event('task-added'));
           } catch (_) {}
           this.$root &&
             this.$root.showToast &&
@@ -728,6 +730,9 @@ export default {
         if (window.dataService) {
           window.dataService.getTemplates(this.user.id, true).catch(() => {}); // Force refresh in background
         }
+
+        // ✅ Emit for Profile stats update
+        window.dispatchEvent(new Event('task-deleted'));
 
         if (this.editingId === id) this.cancelAdd();
         this.$root &&

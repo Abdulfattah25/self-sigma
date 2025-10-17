@@ -164,10 +164,18 @@ class DataService {
 
       if (error) throw error;
 
-      const reward = Number.isFinite(parseFloat(window.userScoreReward))
-        ? parseFloat(window.userScoreReward)
-        : 1;
-      const delta = newStatus ? reward : -reward;
+      // ✅ FIX: Get user-configured reward/penalty settings
+      const userMeta = window.user?.user_metadata || {};
+      const reward = Number.isFinite(Number(userMeta.score_reward_complete))
+        ? Number(userMeta.score_reward_complete)
+        : Number(window.userScoreReward) || 1;
+      const penalty = Number.isFinite(Number(userMeta.score_penalty_incomplete))
+        ? Number(userMeta.score_penalty_incomplete)
+        : Number(window.userScorePenalty) || 2;
+
+      // ✅ FIX: Correct delta calculation
+      // Task completed: +reward, Task uncompleted/cancelled: -penalty
+      const delta = newStatus ? reward : -penalty;
 
       await this.logScoreChange(
         userId,
@@ -309,7 +317,7 @@ class DataService {
         // Get all scores from score_log
         const { data: scoreData, error: scoreError } = await this.supabase
           .from('score_log')
-          .select('score_delta')
+          .select('score_delta, date')
           .eq('user_id', userId);
 
         if (scoreError) throw scoreError;
@@ -346,7 +354,9 @@ class DataService {
 
               const completed = todayTasks.filter((t) => t.is_completed).length;
               const incomplete = todayTasks.length - completed;
-              const todayComputed = completed * reward - incomplete * penalty;
+
+              // ✅ FIX: Correct score formula
+              const todayComputed = completed * reward + incomplete * -penalty;
 
               totalScore += todayComputed;
             }

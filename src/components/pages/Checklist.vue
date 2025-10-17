@@ -169,6 +169,10 @@ export default {
       searchText: '',
       todayScoreDb: 0,
 
+      // ✅ ADD: User score settings
+      scoreReward: 1,
+      scorePenalty: 2,
+
       // State management
       dataService: null,
       unsubscribeCallbacks: [],
@@ -211,10 +215,15 @@ export default {
       });
     },
     todayScore() {
-      return this.completedCount - (this.totalCount - this.completedCount);
+      // ✅ FIX: Use correct score formula with user settings
+      const incompleteCount = this.totalCount - this.completedCount;
+      return this.completedCount * this.scoreReward + incompleteCount * -this.scorePenalty;
     },
   },
   async mounted() {
+    // ✅ ADD: Load user score settings
+    this.loadUserSettings();
+
     // Initialize DataService
     this.dataService = window.dataService;
     if (!this.dataService) {
@@ -314,6 +323,27 @@ export default {
       return wibTime.toISOString().slice(0, 10);
     },
 
+    loadUserSettings() {
+      // ✅ ADD: Load reward/penalty settings from user metadata
+      try {
+        const metadata = this.user?.user_metadata || {};
+        const rw = Number(metadata.score_reward_complete);
+        const pn = Number(metadata.score_penalty_incomplete);
+
+        this.scoreReward = Number.isFinite(rw) ? rw : Number(window.userScoreReward) || 1;
+        this.scorePenalty = Number.isFinite(pn) ? pn : Number(window.userScorePenalty) || 2;
+
+        console.log('Checklist: User score settings loaded:', {
+          reward: this.scoreReward,
+          penalty: this.scorePenalty,
+        });
+      } catch (error) {
+        console.error('Error loading user settings:', error);
+        this.scoreReward = 1;
+        this.scorePenalty = 2;
+      }
+    },
+
     async initializeTodayTasks() {
       try {
         this.loading = true;
@@ -374,8 +404,15 @@ export default {
         // Refresh score cache
         await this.loadTodayScore(true);
 
-        // Dispatch events for other components
+        // ✅ Dispatch events for other components
         try {
+          // Emit task-completed event for Profile stats
+          window.dispatchEvent(
+            new CustomEvent('task-completed', {
+              detail: { taskId: task.id, completed: newStatus },
+            }),
+          );
+
           if (task.jenis_task === 'deadline' && newStatus) {
             window.dispatchEvent(
               new CustomEvent('deadline-completed', {
@@ -402,6 +439,9 @@ export default {
       try {
         await this.dataService.addAdHocTask(this.user.id, this.newAdHocTask, this.today);
         this.newAdHocTask = '';
+
+        // ✅ Emit event for Profile stats
+        window.dispatchEvent(new Event('task-added'));
       } catch (error) {
         console.error('Error adding task tambahan:', error);
         this.$root?.showToast?.('Gagal menambahkan task: ' + error.message, 'danger');
@@ -414,6 +454,9 @@ export default {
 
         // Refresh score
         await this.loadTodayScore(true);
+
+        // ✅ Emit event for Profile stats
+        window.dispatchEvent(new Event('task-deleted'));
       } catch (error) {
         console.error('Error deleting task tambahan:', error);
         this.$root?.showToast?.('Gagal menghapus task: ' + error.message, 'danger');

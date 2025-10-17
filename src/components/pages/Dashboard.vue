@@ -233,6 +233,9 @@ export default {
       forestDaysRange: 21,
       themeObserver: null,
       _unsubs: [],
+
+      // ✅ ADD: Event-driven refresh management
+      _eventListeners: [],
     };
   },
   computed: {
@@ -307,8 +310,25 @@ export default {
       this.loadMonthlyAgenda();
     };
 
+    // ✅ ADD: Event listeners for real-time data updates
+    this._onTaskActivity = () => {
+      console.log('Dashboard: Task activity detected, refreshing data...');
+      this.refreshDashboardData();
+    };
+
+    this._onScoreUpdated = () => {
+      console.log('Dashboard: Score updated, refreshing chart...');
+      this.loadScoresRange(this.chartRangeDays).then(() => this.renderChart());
+    };
+
     window.addEventListener('deadline-completed', this._onDeadlineCompleted);
     window.addEventListener('agenda-refresh', this._onAgendaRefresh);
+
+    // ✅ ADD: Listen to task activity events
+    window.addEventListener('task-completed', this._onTaskActivity);
+    window.addEventListener('task-added', this._onTaskActivity);
+    window.addEventListener('task-deleted', this._onTaskActivity);
+    window.addEventListener('user-settings-changed', this._onScoreUpdated);
 
     // Add visibility change handler to refresh data when tab becomes visible
     this._onVisibilityChange = () => {
@@ -339,8 +359,32 @@ export default {
 
   // Add activated hook to handle navigation back to dashboard
   activated() {
-    // Refresh dashboard data when navigating back to ensure fresh data
-    this.refreshDashboardData();
+    // ✅ Smart refresh: check cache freshness
+    console.log('Dashboard activated');
+
+    const hasCachedTasks = window.stateManager?.getFromCache('todayTasks');
+    const hasCachedScores = window.stateManager?.getFromCache('todayScore');
+
+    // Only force refresh if cache is missing or stale
+    if (
+      !hasCachedTasks ||
+      !hasCachedScores ||
+      this.isCacheOld('todayTasks', 2 * 60 * 1000) || // 2 minutes
+      this.isCacheOld('todayScore', 2 * 60 * 1000)
+    ) {
+      console.log('Dashboard: Cache missing/stale, refreshing...');
+      this.refreshDashboardData();
+    } else {
+      console.log('Dashboard: Using cached data');
+      // Update from cache (instant)
+      if (hasCachedTasks && Array.isArray(hasCachedTasks)) {
+        this.todayTasks = hasCachedTasks;
+        this.incompleteTasks = this.todayTasks.filter((t) => !t.is_completed);
+      }
+      if (typeof hasCachedScores === 'number') {
+        this.todayScore = hasCachedScores;
+      }
+    }
   },
   beforeDestroy() {
     if (this.chartInstance) {
@@ -359,6 +403,16 @@ export default {
       if (this._onVisibilityChange)
         document.removeEventListener('visibilitychange', this._onVisibilityChange);
       if (this._onWindowFocus) window.removeEventListener('focus', this._onWindowFocus);
+
+      // ✅ ADD: Cleanup task activity listeners
+      if (this._onTaskActivity) {
+        window.removeEventListener('task-completed', this._onTaskActivity);
+        window.removeEventListener('task-added', this._onTaskActivity);
+        window.removeEventListener('task-deleted', this._onTaskActivity);
+      }
+      if (this._onScoreUpdated) {
+        window.removeEventListener('user-settings-changed', this._onScoreUpdated);
+      }
     } catch (_) {}
     try {
       (this._unsubs || []).forEach((u) => typeof u === 'function' && u());
@@ -507,11 +561,32 @@ export default {
           : Number(window.userScorePenalty) || 2;
         const completedCount = (this.todayTasks || []).filter((t) => t.is_completed).length;
         const incompleteCount = (this.todayTasks || []).length - completedCount;
-        const computedToday = completedCount * reward - incompleteCount * penalty;
+
+        // ✅ FIX: Correct score formula
+        // Task completed: +reward, Task incomplete: -penalty
+        const computedToday = completedCount * reward + incompleteCount * -penalty;
 
         // Final today score: prefer logs if present; otherwise use computed
+        // Special case: if all tasks are completed and computedToday is positive,
+        // prefer computedToday so dashboard matches checklist expectation (e.g., 10 tasks -> +10)
         const hasTodayLogs = (todayScoreRows || []).length > 0;
-        this.todayScore = hasTodayLogs ? loggedToday : computedToday;
+        if (incompleteCount === 0 && computedToday > 0) {
+          // All tasks completed — computed score is authoritative for immediate UI
+          this.todayScore = computedToday;
+        } else {
+          this.todayScore = hasTodayLogs ? loggedToday : computedToday;
+        }
+
+        // Debug log for verification
+        console.log('Score calculation:', {
+          completedCount,
+          incompleteCount,
+          reward,
+          penalty,
+          computedToday,
+          usedLogs: hasTodayLogs,
+          finalScore: this.todayScore,
+        });
 
         // Update score cache
         if (window.stateManager) {

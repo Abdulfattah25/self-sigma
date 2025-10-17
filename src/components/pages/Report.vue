@@ -264,6 +264,11 @@ export default {
       chartInstance: null,
       taskDistributionChartInstance: null,
       dailyPerformanceChartInstance: null,
+
+      // ✅ ADD: Event-driven refresh management
+      _eventListeners: [],
+      _unsubs: [],
+      _reloadDebounceTimer: null,
     };
   },
   computed: {
@@ -293,6 +298,9 @@ export default {
     },
   },
   async mounted() {
+    // Setup subscriptions first
+    this.setupSubscriptions();
+
     // Check cache first before loading
     const cacheKey = `monthlyReport_${this.currentYear}_${this.currentMonth}`;
     const cached = window.stateManager?.getFromCache(cacheKey);
@@ -304,8 +312,161 @@ export default {
     } else {
       await this.loadMonthlyReport();
     }
+
+    // ✅ ADD: Listen for settings changes to invalidate cache
+    this._onSettingsChanged = () => {
+      console.log('Report: User settings changed, invalidating cache...');
+      this.invalidateCacheAndReload();
+    };
+
+    // ✅ ADD: Listen to task activity events with debounce
+    this._onTaskActivity = () => {
+      console.log('Report: Task activity detected, scheduling reload...');
+      this.scheduleReload();
+    };
+
+    // ✅ ADD: Visibility change handler to refresh data when tab becomes visible
+    this._onVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('Report: Tab became visible, checking for updates...');
+        this.scheduleReload();
+      }
+    };
+
+    // ✅ ADD: Window focus handler
+    this._onWindowFocus = () => {
+      console.log('Report: Window focused, checking for updates...');
+      this.scheduleReload();
+    };
+
+    window.addEventListener('user-settings-changed', this._onSettingsChanged);
+    window.addEventListener('task-completed', this._onTaskActivity);
+    window.addEventListener('task-added', this._onTaskActivity);
+    window.addEventListener('task-deleted', this._onTaskActivity);
+    document.addEventListener('visibilitychange', this._onVisibilityChange);
+    window.addEventListener('focus', this._onWindowFocus);
+  },
+
+  // ✅ ADD: activated hook for smart refresh
+  activated() {
+    console.log('Report activated');
+
+    const cacheKey = `monthlyReport_${this.currentYear}_${this.currentMonth}`;
+    const cached = window.stateManager?.getFromCache(cacheKey);
+
+    if (cached) {
+      // Use cached data (instant)
+      this.monthlyData = cached;
+      this.loading = false;
+      this.$nextTick(() => this.renderCharts());
+      console.log('Report: Using cached monthly data');
+    } else {
+      // No cache, load from database
+      console.log('Report: Cache missing, loading from database');
+      this.loadMonthlyReport();
+    }
+  },
+
+  beforeDestroy() {
+    // Clear debounce timer
+    if (this._reloadDebounceTimer) {
+      clearTimeout(this._reloadDebounceTimer);
+      this._reloadDebounceTimer = null;
+    }
+
+    // ✅ Cleanup event listeners
+    if (this._onSettingsChanged) {
+      window.removeEventListener('user-settings-changed', this._onSettingsChanged);
+    }
+    if (this._onTaskActivity) {
+      window.removeEventListener('task-completed', this._onTaskActivity);
+      window.removeEventListener('task-added', this._onTaskActivity);
+      window.removeEventListener('task-deleted', this._onTaskActivity);
+    }
+    if (this._onVisibilityChange) {
+      document.removeEventListener('visibilitychange', this._onVisibilityChange);
+    }
+    if (this._onWindowFocus) {
+      window.removeEventListener('focus', this._onWindowFocus);
+    }
+
+    // ✅ Cleanup stateManager subscriptions
+    try {
+      (this._unsubs || []).forEach((u) => typeof u === 'function' && u());
+      this._unsubs = [];
+    } catch (_) {}
   },
   methods: {
+    setupSubscriptions() {
+      try {
+        // ✅ Subscribe to stateManager for reactive updates
+        if (window.stateManager && typeof window.stateManager.subscribe === 'function') {
+          // Subscribe to todayTasks changes - might affect current month report
+          this._unsubs.push(
+            window.stateManager.subscribe('todayTasks', () => {
+              const now = window.WITA?.nowParts?.() || {
+                year: new Date().getFullYear(),
+                month: new Date().getMonth() + 1,
+              };
+              // Only refresh if viewing current month
+              if (this.currentYear === now.year && this.currentMonth === now.month - 1) {
+                console.log('Report: todayTasks changed, scheduling reload...');
+                this.scheduleReload();
+              }
+            }),
+          );
+
+          // Subscribe to todayScore changes
+          this._unsubs.push(
+            window.stateManager.subscribe('todayScore', () => {
+              const now = window.WITA?.nowParts?.() || {
+                year: new Date().getFullYear(),
+                month: new Date().getMonth() + 1,
+              };
+              if (this.currentYear === now.year && this.currentMonth === now.month - 1) {
+                console.log('Report: todayScore changed, scheduling reload...');
+                this.scheduleReload();
+              }
+            }),
+          );
+
+          // Subscribe to totalScore changes
+          this._unsubs.push(
+            window.stateManager.subscribe('totalScore', () => {
+              console.log('Report: totalScore changed, scheduling reload...');
+              this.scheduleReload();
+            }),
+          );
+        }
+      } catch (e) {
+        console.warn('Failed to setup Report subscriptions:', e);
+      }
+    },
+
+    invalidateCacheAndReload() {
+      const cacheKey = `monthlyReport_${this.currentYear}_${this.currentMonth}`;
+      if (window.stateManager?.invalidateCache) {
+        window.stateManager.invalidateCache(cacheKey);
+      }
+      this.loadMonthlyReport();
+    },
+
+    scheduleReload() {
+      // Debounce reload to avoid multiple rapid refreshes
+      if (this._reloadDebounceTimer) {
+        clearTimeout(this._reloadDebounceTimer);
+      }
+
+      this._reloadDebounceTimer = setTimeout(() => {
+        const cacheKey = `monthlyReport_${this.currentYear}_${this.currentMonth}`;
+        if (window.stateManager?.invalidateCache) {
+          window.stateManager.invalidateCache(cacheKey);
+        }
+        this.loadMonthlyReport();
+        this._reloadDebounceTimer = null;
+      }, 300); // 300ms debounce
+    },
+
     async loadMonthlyReport() {
       try {
         this.loading = true;
@@ -485,9 +646,26 @@ export default {
         const dayCompleted = dayTasks.filter((t) => t.is_completed).length;
         // If we have explicit scores for the day, use them; otherwise compute from tasks
         let dayScore = typeof scoresByDate[date] === 'number' ? scoresByDate[date] : null;
+        const fromDatabase = dayScore !== null;
+
         if (dayScore === null) {
           const incomplete = dayTasks.length - dayCompleted;
-          dayScore = dayCompleted * reward - incomplete * penalty;
+          // ✅ FIX: Correct score formula consistent with Dashboard & Checklist
+          // Task completed: +reward, Task incomplete: -penalty
+          dayScore = dayCompleted * reward + incomplete * -penalty;
+
+          // ✅ Debug logging for verification
+          if (dayTasks.length > 0) {
+            console.log(`Score calculation for ${date}:`, {
+              total: dayTasks.length,
+              completed: dayCompleted,
+              incomplete,
+              reward,
+              penalty,
+              computedScore: dayScore,
+              fromDatabase,
+            });
+          }
         }
         const dayStats = {
           date: date,

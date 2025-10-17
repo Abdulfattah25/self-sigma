@@ -421,6 +421,11 @@ export default {
       loggingOut: false,
       activeSection: null,
       themeChangeTimeout: null,
+
+      // ✅ ADD: Stats refresh management
+      statsNeedRefresh: false,
+      lastDataActivity: 0,
+      _statsSubscriptions: [],
     };
   },
   computed: {
@@ -434,17 +439,60 @@ export default {
     this.setupModal();
     this.applyTheme(this.selectedTheme);
 
-    // Load stats immediately
-    await this.refreshProfileData();
+    // ✅ Setup subscriptions BEFORE loading stats
+    this.setupStatsSubscriptions();
+
+    // ✅ Load stats with cache strategy (instant)
+    await this.loadUserStatsWithCache();
   },
 
   // Add activated hook for navigation back to profile
   activated() {
-    // Refresh profile data when navigating back
-    this.refreshProfileData();
+    // ✅ Smart refresh: check if data changed while away
+    console.log('Profile activated, checking for updates...');
+
+    if (this.statsNeedRefresh) {
+      // Data changed, refresh immediately
+      console.log('Data changed detected, refreshing stats...');
+      this.loadUserStats(true);
+      this.statsNeedRefresh = false;
+    } else {
+      // Try to load from cache (instant)
+      const cached = window.stateManager?.getFromCache('profileStats');
+      if (cached) {
+        this.stats = cached;
+        this.statsLoading = false;
+        console.log('Profile stats loaded from cache (instant)');
+
+        // Background check for updates
+        if (this.shouldRefreshStats()) {
+          this.refreshStatsInBackground();
+        }
+      } else {
+        // No cache, load from DB
+        this.loadUserStats(true);
+      }
+    }
   },
   beforeDestroy() {
     this.cleanupModal();
+
+    // ✅ Cleanup subscriptions
+    try {
+      this._statsSubscriptions.forEach((unsub) => {
+        if (typeof unsub === 'function') unsub();
+      });
+      this._statsSubscriptions = [];
+    } catch (e) {
+      console.error('Error cleaning up subscriptions:', e);
+    }
+
+    // ✅ Cleanup event listeners
+    if (this._onTaskActivity) {
+      window.removeEventListener('task-completed', this._onTaskActivity);
+      window.removeEventListener('task-added', this._onTaskActivity);
+      window.removeEventListener('task-deleted', this._onTaskActivity);
+    }
   },
   methods: {
     setupModal() {
@@ -482,6 +530,118 @@ export default {
       }
     },
 
+    setupStatsSubscriptions() {
+      // ✅ Subscribe to data changes for real-time updates
+      try {
+        if (window.stateManager?.subscribe) {
+          const unsubTasks = window.stateManager.subscribe('todayTasks', () => {
+            this.markStatsForRefresh();
+          });
+
+          const unsubTodayScore = window.stateManager.subscribe('todayScore', () => {
+            this.markStatsForRefresh();
+          });
+
+          const unsubTotalScore = window.stateManager.subscribe('totalScore', () => {
+            this.markStatsForRefresh();
+          });
+
+          this._statsSubscriptions.push(unsubTasks, unsubTodayScore, unsubTotalScore);
+        }
+
+        // ✅ Listen to custom events
+        this._onTaskActivity = () => {
+          this.markStatsForRefresh();
+        };
+
+        window.addEventListener('task-completed', this._onTaskActivity);
+        window.addEventListener('task-added', this._onTaskActivity);
+        window.addEventListener('task-deleted', this._onTaskActivity);
+
+        console.log('Profile stats subscriptions setup complete');
+      } catch (error) {
+        console.error('Error setting up stats subscriptions:', error);
+      }
+    },
+
+    markStatsForRefresh() {
+      // ✅ Mark stats as needing refresh due to data change
+      this.statsNeedRefresh = true;
+      this.lastDataActivity = Date.now();
+
+      // Invalidate cache
+      if (window.stateManager?.invalidateCache) {
+        window.stateManager.invalidateCache('profileStats');
+      }
+
+      console.log('Profile stats marked for refresh due to data change');
+    },
+
+    async loadUserStatsWithCache() {
+      // ✅ Load stats with cache-first strategy
+      try {
+        // 1. Try cache first (instant)
+        const cached = window.stateManager?.getFromCache('profileStats');
+        if (cached && !this.statsNeedRefresh) {
+          this.stats = cached;
+          this.statsLoading = false;
+          console.log('Profile stats loaded from cache (instant)');
+
+          // 2. Background check: needs update?
+          if (this.shouldRefreshStats()) {
+            this.refreshStatsInBackground();
+          }
+          return;
+        }
+
+        // 3. No cache or needs refresh: load from DB
+        await this.loadUserStats(true);
+      } catch (error) {
+        console.error('Error loading user stats with cache:', error);
+        await this.loadUserStats(true); // Fallback
+      }
+    },
+
+    async refreshStatsInBackground() {
+      // ✅ Refresh without loading spinner
+      try {
+        console.log('Refreshing stats in background...');
+        const wasLoading = this.statsLoading;
+        this.statsLoading = false; // Keep spinner off
+
+        await this.loadUserStats(true);
+
+        this.statsLoading = wasLoading;
+      } catch (error) {
+        console.error('Background refresh failed:', error);
+      }
+    },
+
+    shouldRefreshStats() {
+      // ✅ Determine if stats need refresh
+      // 1. Marked for refresh (data changed)
+      if (this.statsNeedRefresh) return true;
+
+      // 2. Recent activity (< 1 minute ago)
+      if (this.lastDataActivity > 0 && Date.now() - this.lastDataActivity < 60 * 1000) {
+        return true;
+      }
+
+      // 3. Cache expired (> 5 minutes)
+      const cacheTimestamp = window.stateManager?.state?.cacheTimestamps?.['profileStats'];
+      if (cacheTimestamp) {
+        const cacheAge = Date.now() - cacheTimestamp;
+        if (cacheAge > 5 * 60 * 1000) return true;
+      } else {
+        return true; // No cache
+      }
+
+      // 4. Empty stats
+      if (this.stats.totalTasks === 0 && this.stats.totalDays === 0) return true;
+
+      return false;
+    },
+
     async refreshProfileData() {
       // Quick check if we need to refresh
       try {
@@ -497,8 +657,22 @@ export default {
       }
     },
 
-    async loadUserStats() {
+    async loadUserStats(forceRefresh = false) {
       try {
+        // ✅ Check cache first if not forcing refresh
+        if (!forceRefresh && window.stateManager) {
+          const cachedStats = window.stateManager.getFromCache('profileStats');
+          const cacheTimestamp = window.stateManager.state.cacheTimestamps?.['profileStats'];
+          const isFresh = cacheTimestamp && Date.now() - cacheTimestamp < 5 * 60 * 1000;
+
+          if (cachedStats && isFresh) {
+            this.stats = cachedStats;
+            this.statsLoading = false;
+            console.log('Profile stats loaded from cache');
+            return;
+          }
+        }
+
         this.statsLoading = true;
 
         const { data: tasks } = await this.supabase
@@ -509,10 +683,10 @@ export default {
         const uniqueDates = new Set((tasks || []).map((t) => t.date));
         const completed = (tasks || []).filter((t) => t.is_completed).length;
 
-        // Use consistent total score from DataService with force refresh
+        // ✅ Use DataService WITHOUT force refresh (use cache)
         let totalScore = 0;
         if (window.dataService) {
-          const totalResult = await window.dataService.getTotalScore(this.user.id, true);
+          const totalResult = await window.dataService.getTotalScore(this.user.id, false); // Use cache
           totalScore = totalResult.data || 0;
         } else {
           // Fallback to score_log only if DataService unavailable
@@ -529,6 +703,11 @@ export default {
           completedTasks: completed,
           totalScore: totalScore,
         };
+
+        // ✅ Save to cache
+        if (window.stateManager) {
+          window.stateManager.setCache('profileStats', this.stats);
+        }
 
         console.log('Profile stats loaded:', this.stats);
       } catch (error) {
@@ -550,6 +729,7 @@ export default {
         }
       } finally {
         this.statsLoading = false;
+        this.statsNeedRefresh = false; // ✅ Reset flag after refresh
       }
     },
     // Pastikan ada sesi auth sebelum memanggil updateUser (hindari AuthSessionMissingError)
@@ -745,6 +925,16 @@ export default {
           window.userScoreReward = Number(this.scoreReward) || 1;
           window.userScorePenalty = Number(this.scorePenalty) || 2;
         } catch (_) {}
+
+        // ✅ ADD: Dispatch event for other components to update
+        window.dispatchEvent(
+          new CustomEvent('user-settings-changed', {
+            detail: {
+              reward: Number(this.scoreReward) || 1,
+              penalty: Number(this.scorePenalty) || 2,
+            },
+          }),
+        );
 
         this.showToast('Pengaturan skor berhasil diperbarui!', 'success');
         this.activeSection = null;

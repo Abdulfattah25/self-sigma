@@ -321,6 +321,35 @@ export default {
       this.loadScoresRange(this.chartRangeDays).then(() => this.renderChart());
     };
 
+    // ✅ ADD: Listen to full score recalculation (when settings change)
+    this._onScoresRecalculated = (event) => {
+      console.log('Dashboard: Scores recalculated, refreshing all data...');
+      const detail = event.detail || {};
+
+      // Update scores from event
+      if (typeof detail.totalScore === 'number') {
+        this.totalScore = detail.totalScore;
+      }
+
+      // Find today's score
+      const today = window.WITA?.today?.() || new Date().toISOString().slice(0, 10);
+      const todayData = (detail.dates || []).find((d) => d.date === today);
+      if (todayData && typeof todayData.score === 'number') {
+        this.todayScore = todayData.score;
+      }
+
+      // Refresh chart to show new scores
+      this.loadScoresRange(this.chartRangeDays).then(() => this.renderChart());
+
+      // Show notification
+      if (this.$root?.showToast) {
+        this.$root.showToast(
+          `Skor berhasil diperbarui! ${detail.recalculated || 0} hari dihitung ulang.`,
+          'success',
+        );
+      }
+    };
+
     window.addEventListener('deadline-completed', this._onDeadlineCompleted);
     window.addEventListener('agenda-refresh', this._onAgendaRefresh);
 
@@ -329,6 +358,7 @@ export default {
     window.addEventListener('task-added', this._onTaskActivity);
     window.addEventListener('task-deleted', this._onTaskActivity);
     window.addEventListener('user-settings-changed', this._onScoreUpdated);
+    window.addEventListener('scores-recalculated', this._onScoresRecalculated);
 
     // Add visibility change handler to refresh data when tab becomes visible
     this._onVisibilityChange = () => {
@@ -412,6 +442,9 @@ export default {
       }
       if (this._onScoreUpdated) {
         window.removeEventListener('user-settings-changed', this._onScoreUpdated);
+      }
+      if (this._onScoresRecalculated) {
+        window.removeEventListener('scores-recalculated', this._onScoresRecalculated);
       }
     } catch (_) {}
     try {

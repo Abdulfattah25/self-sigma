@@ -401,8 +401,14 @@ export default {
         // Call data service (which also performs its own optimistic update)
         await this.dataService.toggleTask(task.id, this.user.id, newStatus, task.task_name);
 
-        // Refresh score cache
-        await this.loadTodayScore(true);
+        // ✅ HYBRID: Recalculate score hari ini dengan setting terkini
+        if (window.scoreHelper) {
+          const { reward, penalty } = window.scoreHelper.getScoreSettings(this.user);
+          await window.scoreHelper.syncTodayScore(this.supabase, this.user.id, reward, penalty);
+        } else {
+          // Fallback: refresh score cache
+          await this.loadTodayScore(true);
+        }
 
         // ✅ Dispatch events for other components
         try {

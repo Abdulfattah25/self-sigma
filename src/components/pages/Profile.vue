@@ -477,12 +477,14 @@ export default {
   beforeDestroy() {
     this.cleanupModal();
 
-    // ✅ Cleanup subscriptions
+    // ✅ FIX: Cleanup subscriptions with safe check
     try {
-      this._statsSubscriptions.forEach((unsub) => {
-        if (typeof unsub === 'function') unsub();
-      });
-      this._statsSubscriptions = [];
+      if (Array.isArray(this._statsSubscriptions)) {
+        this._statsSubscriptions.forEach((unsub) => {
+          if (typeof unsub === 'function') unsub();
+        });
+        this._statsSubscriptions = [];
+      }
     } catch (e) {
       console.error('Error cleaning up subscriptions:', e);
     }
@@ -531,6 +533,11 @@ export default {
     },
 
     setupStatsSubscriptions() {
+      // ✅ FIX: Ensure array exists
+      if (!this._statsSubscriptions) {
+        this._statsSubscriptions = [];
+      }
+
       // ✅ Subscribe to data changes for real-time updates
       try {
         if (window.stateManager?.subscribe) {
@@ -546,7 +553,10 @@ export default {
             this.markStatsForRefresh();
           });
 
-          this._statsSubscriptions.push(unsubTasks, unsubTodayScore, unsubTotalScore);
+          // ✅ FIX: Only push if subscriptions are valid
+          if (unsubTasks) this._statsSubscriptions.push(unsubTasks);
+          if (unsubTodayScore) this._statsSubscriptions.push(unsubTodayScore);
+          if (unsubTotalScore) this._statsSubscriptions.push(unsubTotalScore);
         }
 
         // ✅ Listen to custom events
@@ -911,27 +921,64 @@ export default {
     async updateScoreSettings() {
       try {
         this.saving = true;
+
+        // Get old settings untuk comparison
+        const oldMeta = (this.user && this.user.user_metadata) || {};
+        const oldReward = Number(oldMeta.score_reward_complete) || 1;
+        const oldPenalty = Number(oldMeta.score_penalty_incomplete) || 2;
+
+        // New settings
+        const newReward = Number(this.scoreReward) || 1;
+        const newPenalty = Number(this.scorePenalty) || 2;
+
         const { error } = await this.updateUserWithTimeout({
           data: {
             // Persist both reward and penalty to user metadata
-            score_reward_complete: Number(this.scoreReward) || 1,
-            score_penalty_incomplete: this.scorePenalty,
+            score_reward_complete: newReward,
+            score_penalty_incomplete: newPenalty,
           },
         });
         if (error) throw error;
 
         // Optionally expose to global for other modules using window values
         try {
-          window.userScoreReward = Number(this.scoreReward) || 1;
-          window.userScorePenalty = Number(this.scorePenalty) || 2;
+          window.userScoreReward = newReward;
+          window.userScorePenalty = newPenalty;
         } catch (_) {}
 
-        // ✅ ADD: Dispatch event for other components to update
+        // ✅ HYBRID: Check if score settings changed
+        const settingsChanged = oldReward !== newReward || oldPenalty !== newPenalty;
+
+        if (settingsChanged && window.scoreHelper) {
+          console.log('🔄 Score settings changed, recalculating today and future...');
+
+          // Show loading state
+          this.showToast('Menghitung ulang skor dengan pengaturan baru...', 'info');
+
+          try {
+            // Recalculate today + future dengan setting baru
+            const result = await window.scoreHelper.recalculateTodayAndFuture(
+              this.supabase,
+              this.user.id,
+              newReward,
+              newPenalty,
+            );
+
+            console.log('✅ Recalculation result:', result);
+
+            // Event akan ditrigger dari helper, Dashboard akan auto-update
+          } catch (recalcError) {
+            console.error('Error recalculating scores:', recalcError);
+            this.showToast('Pengaturan disimpan, namun gagal menghitung ulang skor', 'warning');
+          }
+        }
+
+        // ✅ Dispatch event for other components to update
         window.dispatchEvent(
           new CustomEvent('user-settings-changed', {
             detail: {
-              reward: Number(this.scoreReward) || 1,
-              penalty: Number(this.scorePenalty) || 2,
+              reward: newReward,
+              penalty: newPenalty,
             },
           }),
         );

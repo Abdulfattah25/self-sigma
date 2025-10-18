@@ -439,7 +439,7 @@ export default {
           this.templates = data || [];
         }
 
-        // ✅ FIX: Sync cache after loading
+        // Sync cache after loading
         this.syncTemplatesCache();
       } catch (error) {
         console.error('Error loading templates:', error);
@@ -578,13 +578,13 @@ export default {
           if (error) throw error;
           const updated = data && data[0];
           if (updated) {
-            // ✅ FIX: Update local state immediately
-            const idx = this.templates.findIndex((t) => t.id === this.editingId);
-            if (idx !== -1) this.$set(this.templates, idx, updated);
-
-            // ✅ FIX: Update cache to sync with other components
+            // ✅ FIX: Update cache first, let subscription handle UI update
             if (window.stateManager) {
               window.stateManager.updateCacheItem('templates', this.editingId, updated);
+            } else {
+              // Fallback: update local state if no stateManager
+              const idx = this.templates.findIndex((t) => t.id === this.editingId);
+              if (idx !== -1) this.$set(this.templates, idx, updated);
             }
             // ✅ FIX: Update instance di background tanpa blocking UI
             const today =
@@ -650,12 +650,15 @@ export default {
             .select();
           if (error) throw error;
 
-          // ✅ FIX: Update local state immediately
-          this.templates.unshift(data[0]);
-
-          // ✅ FIX: Update cache to sync with other components
+          // ✅ FIX: Update cache first, let subscription handle UI update
           if (window.stateManager) {
-            window.stateManager.addCacheItem('templates', data[0]);
+            // Add to beginning of cache array to match sort order
+            const currentCache = window.stateManager.getFromCache('templates') || [];
+            const updatedCache = [data[0], ...currentCache];
+            window.stateManager.setCache('templates', updatedCache);
+          } else {
+            // Fallback: update local state if no stateManager
+            this.templates.unshift(data[0]);
           }
 
           try {
@@ -718,12 +721,12 @@ export default {
           .eq('user_id', this.user.id);
         if (error) throw error;
 
-        // ✅ FIX: Update local state immediately
-        this.templates = this.templates.filter((t) => t.id !== id);
-
-        // ✅ FIX: Update cache to sync with other components
+        // ✅ FIX: Update cache first, let subscription handle UI update
         if (window.stateManager) {
           window.stateManager.removeCacheItem('templates', id);
+        } else {
+          // Fallback: update local state if no stateManager
+          this.templates = this.templates.filter((t) => t.id !== id);
         }
 
         // ✅ FIX: Refresh via DataService if available

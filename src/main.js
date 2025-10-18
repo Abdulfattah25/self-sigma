@@ -19,6 +19,9 @@ import { getSupabase } from './lib/supabaseClient.js';
 import stateManager from './utils/stateManager.js';
 import DataService from './utils/dataService.js';
 
+// Score helper for hybrid score calculation
+import './utils/scoreHelper.js';
+
 // Initialize a single Supabase client and reuse it everywhere
 const supabaseClient = getSupabase();
 // Provide a tiny shim for legacy code expecting window.supabase.createClient
